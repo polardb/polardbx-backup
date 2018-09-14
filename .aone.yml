@@ -1,0 +1,3 @@
+t-rds-xtrabackup-80:
+  pkgpara:
+    DOCKER: 1
