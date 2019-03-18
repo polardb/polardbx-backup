@@ -114,7 +114,8 @@ cmake .                                    \
     -DCMAKE_INSTALL_PREFIX="$dest_dir"     \
     -DBUILD_CONFIG=xtrabackup_release      \
     -DWITH_DEBUG=$debug                    \
-    -DWITH_BOOST="extra/boost/boost_1_66_0.tar.gz" \
+    -DFORCE_INSOURCE_BUILD=1               \
+    -DWITH_BOOST="extra/boost/boost_1_68_0.tar.gz" \
     -DMYSQL_SERVER_SUFFIX="$server_suffix"
 
 make -j `cat /proc/cpuinfo | grep processor| wc -l`

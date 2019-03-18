@@ -1,6 +1,6 @@
 #####################################
 Name:          t-rds-xtrabackup-80
-Version:       8.0.1
+Version:       8.0.5
 Release:       %(echo $RELEASE)%{?dist}
 Summary:       XtraBackup online backup for MySQL / InnoDB
 
@@ -15,15 +15,11 @@ BuildRequires: devtoolset-7-gcc-c++
 BuildRequires: devtoolset-7-binutils
 
 %if "%{?dist}" == ".alios7" || "%{?dist}" == ".el7"
-BuildRequires: python-sphinx >= 1.0.1, python-docutils >= 0.6
 %define os_version 7
 %endif
 %if "%{?dist}" == ".alios6" || "%{?dist}" == ".el6"
 %define os_version 6
 %endif
-
-%define use_gcc devtoolset
-
 
 Requires:      rsync
 BuildRoot:     %{_tmppath}/%{name}-%{version}-%{release}-root
@@ -41,26 +37,19 @@ Percona XtraBackup is OpenSource online (non-blockable) backup solution for Inno
 
 %build
 cd $OLDPWD/../
-#
 
-if [ "%{use_gcc}" == "system" ]; then
-    CC=gcc
-    CXX=g++
-else
-    CC=/opt/rh/devtoolset-7/root/usr/bin/gcc
-    CXX=/opt/rh/devtoolset-7/root/usr/bin/g++
-fi
+CC=/opt/rh/devtoolset-7/root/usr/bin/gcc
+CXX=/opt/rh/devtoolset-7/root/usr/bin/g++
 CFLAGS="-O3 -g -fexceptions -static-libgcc -fno-omit-frame-pointer -fno-strict-aliasing"
 CXXFLAGS="-O3 -g -fexceptions -static-libgcc -fno-omit-frame-pointer -fno-strict-aliasing"
-
 export CC CXX CFLAGS CXXFLAGS
 
-#
 cmake -DBUILD_CONFIG=xtrabackup_release -DCMAKE_BUILD_TYPE="RelWithDebInfo" \
       -DCMAKE_INSTALL_PREFIX=%{prefix} -DBUILD_MAN_OS=%{os_version}  \
-      -DINSTALL_MANDIR=%{_mandir} -DWITH_BOOST="extra/boost/boost_1_66_0.tar.gz" \
-      -DINSTALL_PLUGINDIR="%{prefix}/lib/xtrabackup/plugin" .
-#
+      -DINSTALL_MANDIR=%{_mandir} -DWITH_BOOST="extra/boost/boost_1_68_0.tar.gz" \
+      -DINSTALL_PLUGINDIR="%{prefix}/lib/xtrabackup/plugin" \
+      -DFORCE_INSOURCE_BUILD=1 .
+
 # make %{?_smp_mflags}
 make -j
 
