@@ -1004,7 +1004,7 @@ struct my_option xb_client_options[] = {
      "This option disables the "
      "version check which is enabled by the --version-check option.",
      (uchar *)&opt_noversioncheck, (uchar *)&opt_noversioncheck, 0, GET_BOOL,
-     NO_ARG, 0, 0, 0, 0, 0, 0},
+     NO_ARG, 1, 0, 0, 0, 0, 0},
 #endif
 
     {"tables-compatibility-check", OPT_XTRA_TABLES_COMPATIBILITY_CHECK,
@@ -4093,6 +4093,9 @@ void xtrabackup_backup_func(void) {
   recv_is_making_a_backup = true;
   bool data_copying_error = false;
 
+  history_innodb_log_backup_time =
+          history_innodb_data_backup_time = time(NULL);
+
   if (opt_dump_innodb_buffer_pool) {
     dump_innodb_buffer_pool(mysql_connection);
   }
@@ -4470,6 +4473,9 @@ void xtrabackup_backup_func(void) {
     }
   }
 
+  history_innodb_data_backup_time =
+          time(NULL) - history_innodb_data_backup_time;
+
   if (!backup_start(backup_lsn)) {
     exit(EXIT_FAILURE);
   }
@@ -4511,6 +4517,9 @@ skip_last_cp:
   if (ds_close(dst_log_file)) {
     exit(EXIT_FAILURE);
   }
+
+  history_innodb_log_backup_time =
+          time(NULL) - history_innodb_log_backup_time;
 
   if (!xtrabackup_incremental) {
     strcpy(metadata_type_str, "full-backuped");

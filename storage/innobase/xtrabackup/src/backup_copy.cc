@@ -1099,9 +1099,9 @@ bool backup_finish() {
   /* release all locks */
   if (!opt_no_lock) {
     unlock_all(mysql_connection);
-    history_lock_time = 0;
-  } else {
     history_lock_time = time(NULL) - history_lock_time;
+  } else {
+    history_lock_time = 0;
   }
 
   if (opt_safe_slave_backup && sql_thread_started) {
@@ -1140,6 +1140,11 @@ bool backup_finish() {
   if (!write_xtrabackup_info(mysql_connection)) {
     return (false);
   }
+
+  msg_ts("Backup time: 'total %ld, innodb_data %ld, FTWRL_lock %ld, "
+         "innodb_log %ld'\n", time(NULL) - history_start_time,
+         history_innodb_data_backup_time, history_lock_time,
+         history_innodb_log_backup_time);
 
   return (true);
 }
@@ -1274,6 +1279,7 @@ bool copy_incremental_over_full() {
   const char *sup_files[] = {"xtrabackup_binlog_info",
                              "xtrabackup_galera_info",
                              "xtrabackup_slave_info",
+                             "xtrabackup_slave_filename_info",
                              "xtrabackup_info",
                              "xtrabackup_keys",
                              "xtrabackup_tablespaces",

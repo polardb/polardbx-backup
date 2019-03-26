@@ -125,6 +125,8 @@ static char *backup_uuid = NULL;
 time_t history_start_time;
 time_t history_end_time;
 time_t history_lock_time;
+time_t history_innodb_log_backup_time;
+time_t history_innodb_data_backup_time;
 
 /* Stream type name, to be used with xtrabackup_stream_fmt */
 const char *xb_stream_format_name[] = {"file", "xbstream"};
@@ -1264,12 +1266,15 @@ bool write_slave_info(MYSQL *connection) {
   char *position = NULL;
   char *auto_position = NULL;
   char *channel_name = NULL;
+  char *slave_io_running = NULL;
   char *slave_sql_running = NULL;
   bool result = true;
 
   typedef struct {
     std::string master;
     std::string filename;
+    std::string slave_io_running;
+    std::string slave_sql_running;
     uint64_t position;
     bool auto_position;
   } channel_info_t;
@@ -1280,6 +1285,7 @@ bool write_slave_info(MYSQL *connection) {
                              {"Relay_Master_Log_File", &filename},
                              {"Exec_Master_Log_Pos", &position},
                              {"Channel_Name", &channel_name},
+                             {"Slave_IO_Running", &slave_io_running},
                              {"Slave_SQL_Running", &slave_sql_running},
                              {"Auto_Position", &auto_position},
                              {NULL, NULL}};
@@ -1293,6 +1299,8 @@ bool write_slave_info(MYSQL *connection) {
     info.auto_position = (strcmp(auto_position, "1") == 0);
     info.filename = filename;
     info.position = strtoull(position, NULL, 10);
+    info.slave_io_running = slave_io_running;
+    info.slave_sql_running = slave_sql_running;
     channels[channel_name ? channel_name : ""] = info;
 
     ut_ad(!have_multi_threaded_slave || have_gtid_slave ||
@@ -1330,8 +1338,21 @@ bool write_slave_info(MYSQL *connection) {
 
       mysql_slave_position_s << "master host '" << ch->second.master
                              << "', purge list '" << log_status.gtid_executed
+                             << "', filename '" << ch->second.filename
+                             << "', position " << ch->second.position
+                             << ", io running '" << ch->second.slave_io_running
+                             << "', sql running '" << ch->second.slave_sql_running
                              << "', channel name: '" << channel.channel_name
                              << "'\n";
+
+      /* Only write 'change master to' for default channel */
+      if (channel.channel_name.empty()) {
+        backup_file_printf(XTRABACKUP_SLAVE_FILENAME_INFO,
+                           "CHANGE MASTER TO MASTER_LOG_FILE='%s', "
+                           "MASTER_LOG_POS=%" PRIu64,
+                           ch->second.filename.c_str(),
+                           ch->second.position);
+      }
     } else {
       const auto filename = channel.relay_master_log_file.empty()
                                 ? ch->second.filename
@@ -1344,8 +1365,12 @@ bool write_slave_info(MYSQL *connection) {
                  << for_channel << ";\n";
 
       mysql_slave_position_s << "master host '" << ch->second.master
-                             << "', filename '" << filename << "', position '"
-                             << position << "', channel name: '"
+                             << "', filename '" << filename << "', position "
+                             << position << ", io running '"
+                             << ch->second.slave_io_running
+                             << "', sql running '"
+                             << ch->second.slave_sql_running
+                             << "', channel name: '"
                              << channel.channel_name << "'\n";
     }
   }
@@ -1659,8 +1684,8 @@ bool write_binlog_info(MYSQL *connection, lsn_t &lsn) {
     goto cleanup;
   }
 
-  s << "filename '" << log_status.filename << "', position '"
-    << log_status.position << "'";
+  s << "filename '" << log_status.filename << "', position "
+    << log_status.position << "";
 
   gtid = ((gtid_mode != NULL) && (strcmp(gtid_mode, "ON") == 0));
 
