@@ -50,8 +50,7 @@ cmake -DBUILD_CONFIG=xtrabackup_release -DCMAKE_BUILD_TYPE="RelWithDebInfo" \
       -DINSTALL_PLUGINDIR="%{prefix}/lib/xtrabackup/plugin" \
       -DFORCE_INSOURCE_BUILD=1 .
 
-# make %{?_smp_mflags}
-make -j
+make %{?_smp_mflags}
 
 %install
 cd $OLDPWD/../
