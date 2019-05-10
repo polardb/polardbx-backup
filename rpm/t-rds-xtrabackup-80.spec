@@ -1,6 +1,6 @@
 #####################################
 Name:          t-rds-xtrabackup-80
-Version:       8.0.5
+Version:       8.0.6
 Release:       %(echo $RELEASE)%{?dist}
 Summary:       XtraBackup online backup for MySQL / InnoDB
 
