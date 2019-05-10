@@ -5,6 +5,8 @@
 #include "datasink.h"
 #include "xtrabackup_config.h"
 
+struct Backup_context;
+
 /* special files */
 #define XTRABACKUP_SLAVE_INFO "xtrabackup_slave_info"
 #define XTRABACKUP_SLAVE_FILENAME_INFO "xtrabackup_slave_filename_info"
@@ -28,13 +30,12 @@ bool copy_file(ds_ctxt_t *datasink, const char *src_file_path,
                const char *dst_file_path, uint thread_n, ssize_t pos = -1);
 
 /* Backup non-InnoDB data.
-@param  backup_lsn   backup LSN
 @return true if success. */
-bool backup_start(lsn_t &backup_lsn);
+bool backup_start(Backup_context &context);
 
 /* Finsh the backup. Release all locks. Write down backup metadata.
 @return true if success. */
-bool backup_finish();
+bool backup_finish(Backup_context &context);
 
 bool apply_log_finish();
 bool copy_back(int argc, char **argv);

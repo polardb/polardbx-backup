@@ -125,6 +125,7 @@ typedef struct {
   ds_ctxt_t *ds_ctxt;
   ds_ctxt_t *ds_decompress_ctxt;
   ds_ctxt_t *ds_decrypt_ctxt;
+  ds_ctxt_t *ds_decrypt_uncompressed_ctxt;
   pthread_mutex_t *mutex;
 } extract_ctxt_t;
 
@@ -365,8 +366,11 @@ static file_entry_t *file_entry_new(extract_ctxt_t *ctxt, const char *path,
   }
   entry->pathlen = pathlen;
 
-  if (ctxt->ds_decrypt_ctxt && ends_with(path, ".xbcrypt")) {
+  if (ctxt->ds_decrypt_ctxt && ends_with(path, ".qp.xbcrypt")) {
     file = ds_open(ctxt->ds_decrypt_ctxt, path, NULL);
+  } else if (ctxt->ds_decrypt_uncompressed_ctxt &&
+             ends_with(path, ".xbcrypt")) {
+    file = ds_open(ctxt->ds_decrypt_uncompressed_ctxt, path, NULL);
   } else if (ctxt->ds_decompress_ctxt && ends_with(path, ".qp")) {
     file = ds_open(ctxt->ds_decompress_ctxt, path, NULL);
   } else {
@@ -447,7 +451,9 @@ static void *extract_worker_thread_func(void *arg) {
 
     pthread_mutex_unlock(ctxt->mutex);
 
-    res = xb_stream_validate_checksum(&chunk);
+    if (chunk.type == XB_CHUNK_TYPE_PAYLOAD) {
+      res = xb_stream_validate_checksum(&chunk);
+    }
 
     if (res != XB_STREAM_READ_CHUNK) {
       pthread_mutex_unlock(&entry->mutex);
@@ -485,7 +491,7 @@ static void *extract_worker_thread_func(void *arg) {
     pthread_mutex_unlock(&entry->mutex);
   }
 
-  if (chunk.data) my_free(chunk.data);
+  if (chunk.raw_data) my_free(chunk.raw_data);
 
   my_thread_end();
 
@@ -497,6 +503,7 @@ static int mode_extract(int n_threads, int argc __attribute__((unused)),
   xb_rstream_t *stream = NULL;
   ds_ctxt_t *ds_ctxt = NULL;
   ds_ctxt_t *ds_decrypt_ctxt = NULL;
+  ds_ctxt_t *ds_decrypt_uncompressed_ctxt = NULL;
   ds_ctxt_t *ds_decompress_ctxt = NULL;
   extract_ctxt_t ctxt;
   int i;
@@ -539,8 +546,11 @@ static int mode_extract(int n_threads, int argc __attribute__((unused)),
     }
     if (ds_decompress_ctxt) {
       ds_set_pipe(ds_decrypt_ctxt, ds_decompress_ctxt);
+      ds_decrypt_uncompressed_ctxt = ds_create(".", DS_TYPE_DECRYPT);
+      ds_set_pipe(ds_decrypt_uncompressed_ctxt, ds_ctxt);
     } else {
       ds_set_pipe(ds_decrypt_ctxt, ds_ctxt);
+      ds_decrypt_uncompressed_ctxt = ds_decrypt_ctxt;
     }
   }
 
@@ -555,6 +565,7 @@ static int mode_extract(int n_threads, int argc __attribute__((unused)),
   ctxt.stream = stream;
   ctxt.ds_ctxt = ds_ctxt;
   ctxt.ds_decrypt_ctxt = ds_decrypt_ctxt;
+  ctxt.ds_decrypt_uncompressed_ctxt = ds_decrypt_uncompressed_ctxt;
   ctxt.ds_decompress_ctxt = ds_decompress_ctxt;
   ctxt.mutex = &mutex;
 
@@ -582,13 +593,21 @@ exit:
   if (ds_ctxt != NULL) {
     ds_destroy(ds_ctxt);
   }
-  if (ds_decrypt_ctxt) {
+  if (ds_decrypt_ctxt != NULL) {
     ds_destroy(ds_decrypt_ctxt);
   }
-  if (ds_decompress_ctxt) {
+  if (ds_decompress_ctxt != NULL) {
     ds_destroy(ds_decompress_ctxt);
   }
+  if (ds_decrypt_uncompressed_ctxt != NULL &&
+      ds_decrypt_uncompressed_ctxt != ds_decrypt_ctxt) {
+    ds_destroy(ds_decrypt_uncompressed_ctxt);
+  }
   xb_stream_read_done(stream);
+
+  if (ret) {
+    msg("exit code: %d\n", ret);
+  }
 
   return ret;
 }

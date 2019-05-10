@@ -591,9 +591,10 @@ class Tablespace_dirs {
   /** Open IBD tablespaces.
   @param[in]  start   Start of slice
   @param[in]  end   End of slice
-  @param[in]  thread_id Thread ID */
+  @param[in]  thread_id Thread ID
+  @param[out] result false in case of failure */
   void open_ibd(const Const_iter &start, const Const_iter &end,
-                size_t thread_id);
+                size_t thread_id, bool &result);
 
  private:
   /** Directories scanned and the files discovered under them. */
@@ -7292,47 +7293,9 @@ dberr_t Fil_shard::get_file_for_io(const IORequest &req_type,
   } else if (!space->files.empty()) {
     fil_node_t &f = space->files.front();
 
-    if ((fsp_is_ibd_tablespace(space->id) && f.size == 0) ||
-        f.size > *page_no) {
-      /* We do not know the size of a single-table tablespace
-      before we open the file */
+    file = &f;
 
-      file = &f;
-
-      return (DB_SUCCESS);
-
-    } else {
-      /* Extend the file if the page_no does not fall inside its bounds;
-      because xtrabackup may have copied it when it was smaller */
-      if (f.size > 0 && f.size <= *page_no) {
-        auto shard = fil_system->shard_by_id(space->id);
-
-        shard->mutex_release();
-        bool success = shard->space_extend(space, *page_no + 1);
-        shard->mutex_acquire();
-
-        if (!success) {
-          file = nullptr;
-          return (DB_ERROR);
-        }
-
-        file = &f;
-        return (DB_SUCCESS);
-      }
-#ifndef UNIV_HOTBACKUP
-      if (space->id != TRX_SYS_SPACE && req_type.is_read() &&
-          !undo::is_active(space->id)) {
-        file = nullptr;
-
-        /* Page access request for a page that is
-        outside the truncated UNDO tablespace bounds. */
-
-        return (DB_TABLE_NOT_FOUND);
-      }
-#else  /* !UNIV_HOTBACKUP */
-    /* In backup, is_under_construction() is always false */
-#endif /* !UNIV_HOTBACKUP */
-    }
+    return (DB_SUCCESS);
   }
 
   file = nullptr;
@@ -7539,6 +7502,10 @@ dberr_t Fil_shard::do_io(const IORequest &type, bool sync,
   dberr_t err = get_file_for_io(req_type, space, &page_no, file);
 
   if (err == DB_TABLE_NOT_FOUND) {
+    if (slot) {
+      release_open_slot(m_id);
+    }
+
     mutex_release();
 
     return (err);
@@ -7607,13 +7574,18 @@ dberr_t Fil_shard::do_io(const IORequest &type, bool sync,
       return (DB_ERROR);
     }
 
-    /* This is a hard error. */
-    fil_report_invalid_page_access(page_id.page_no(), page_id.space(),
-                                   space->name, byte_offset, len,
-                                   req_type.is_read());
-  }
+    /* Extend the file if the page_no does not fall inside its bounds;
+       because xtrabackup may have copied it when it was smaller */
+      mutex_release();
 
-  mutex_release();
+      bool success = space_extend(space, page_no + 1);
+
+      if (!success) {
+        return (DB_ERROR);
+      }
+    } else {
+      mutex_release();
+  }
 
   ut_a(page_size.is_compressed() ||
        page_size.physical() == page_size.logical());
@@ -10687,7 +10659,9 @@ dberr_t fil_open_for_xtrabackup(const std::string &path,
 @param[in]  end   End of slice
 @param[in]  thread_id Thread ID */
 void Tablespace_dirs::open_ibd(const Const_iter &start, const Const_iter &end,
-                               size_t thread_id) {
+                               size_t thread_id, bool &result) {
+  if (!result) return;
+
   for (auto it = start; it != end; ++it) {
     const std::string filename = it->second;
     const auto &files = m_dirs[it->first];
@@ -10697,8 +10671,11 @@ void Tablespace_dirs::open_ibd(const Const_iter &start, const Const_iter &end,
       continue;
     }
 
-    fil_open_for_xtrabackup(phy_filename,
-                            filename.substr(0, filename.length() - 4));
+    dberr_t err = fil_open_for_xtrabackup(
+        phy_filename, filename.substr(0, filename.length() - 4));
+    if (err != DB_SUCCESS) {
+      result = false;
+    }
   }
 }
 
@@ -10947,10 +10924,13 @@ dberr_t Tablespace_dirs::scan(const std::string &in_directories,
   }
 
   if (err == DB_SUCCESS && populate_fil_cache) {
+    bool result = true;
     std::function<void(const Const_iter &, const Const_iter &, size_t)> open =
-        std::bind(&Tablespace_dirs::open_ibd, this, _1, _2, _3);
+        std::bind(&Tablespace_dirs::open_ibd, this, _1, _2, _3, result);
 
     par_for(PFS_NOT_INSTRUMENTED, ibd_files, n_threads, open);
+
+    if (!result) err = DB_FAIL;
   }
 
   return (err);

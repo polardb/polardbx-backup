@@ -377,9 +377,9 @@ bool generic_deserialize(
   }
 
   if (doc.HasMember("mysqld_version_id")) {
+#if !defined(XTRABACKUP)
     RJ_Value &mysqld_version_id = doc["mysqld_version_id"];
     DBUG_ASSERT(mysqld_version_id.IsUint64());
-#if !defined(XTRABACKUP)
     if (mysqld_version_id.GetUint64() > std::uint64_t(MYSQL_VERSION_ID)) {
       // Cannot deserialize SDIs from newer versions. Required?
       my_error(ER_IMP_INCOMPATIBLE_MYSQLD_VERSION, MYF(0),
@@ -408,12 +408,14 @@ bool generic_deserialize(
   RJ_Value &sdi_version_val = doc["sdi_version"];
   DBUG_ASSERT(sdi_version_val.IsUint64());
   std::uint64_t sdi_version_ = sdi_version_val.GetUint64();
+#if !defined(XTRABACKUP)
   if (sdi_version_ != sdi_version) {
     // Incompatible change
     my_error(ER_IMP_INCOMPATIBLE_SDI_VERSION, MYF(0), sdi_version_,
              sdi_version);
     return true;
   }
+#endif
 
   DBUG_ASSERT(doc.HasMember("dd_object_type"));
   RJ_Value &dd_object_type_val = doc["dd_object_type"];
