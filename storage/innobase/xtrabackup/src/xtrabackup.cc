@@ -449,6 +449,8 @@ uint opt_read_buffer_size = 0;
 char *opt_rocksdb_datadir = nullptr;
 char *opt_rocksdb_wal_dir = nullptr;
 
+bool rds_xb_redo_fs_buffer = FALSE;
+
 /** Possible values for system variable "innodb_checksum_algorithm". */
 extern const char *innodb_checksum_algorithm_names[];
 
@@ -690,6 +692,7 @@ enum options_xtrabackup {
   OPT_XTRA_TABLES_COMPATIBILITY_CHECK,
   OPT_XTRA_CHECK_PRIVILEGES,
   OPT_XTRA_READ_BUFFER_SIZE,
+  OPT_RDS_XB_REDO_FS_BUFFER,
 };
 
 struct my_option xb_client_options[] = {
@@ -1447,6 +1450,12 @@ Disable with --skip-innodb-doublewrite.",
     {"rocksdb_wal_dir", OPT_ROCKSDB_WAL_DIR, "RocksDB WAL directory",
      &opt_rocksdb_wal_dir, &opt_rocksdb_wal_dir, 0, GET_STR_ALLOC, REQUIRED_ARG,
      0, 0, 0, 0, 0, 0},
+
+    {"rds-xb-redo-fs-buffer", OPT_RDS_XB_REDO_FS_BUFFER,
+     "This option controls whether "
+     "InnoDB redo log is saved temporarily on local disk during xbstream backup.",
+     &rds_xb_redo_fs_buffer, &rds_xb_redo_fs_buffer, 0, GET_BOOL,
+     NO_ARG, 0, 0, 0, 0, 0, 0},
 
     {0, 0, 0, 0, 0, 0, GET_NO_ARG, NO_ARG, 0, 0, 0, 0, 0, 0}};
 
@@ -3347,7 +3356,25 @@ static void xtrabackup_init_datasinks(void) {
       xtrabackup_add_datasink(ds_meta);
       ds_set_pipe(ds_meta, ds);
     } else {
-      ds_redo = ds_meta = ds_data;
+      /* Although xbstream allow parallel streams, simply pipe
+      the redo file to xbstream may be so slow, because of
+      poorly network bandwidth(say 5MB/s), that the redo log
+      reading of xtrabackup can not catch up with the redo
+      log writting of mysqld, and lead to backup failed
+      finally.
+
+      use local disk to temporarily save redo log, so
+      xtrabackup can always catch up with mysqld. */
+      if (rds_xb_redo_fs_buffer) {
+
+        ds_redo = ds_create(xtrabackup_target_dir, DS_TYPE_TMPFILE);
+        xtrabackup_add_datasink(ds_redo);
+        ds_set_pipe(ds_redo, ds);
+        ds_meta = ds_data;
+      } else {
+
+        ds_redo = ds_meta = ds_data;
+      }
     }
   }
 
