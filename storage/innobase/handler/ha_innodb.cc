@@ -2779,6 +2779,50 @@ void innobase_quote_identifier(FILE *file, trx_t *trx, const char *id) {
   }
 }
 
+/** Convert an SQL identifier to the MySQL system_charset_info (UTF-8)
+and quote it if needed.
+@param[out]	buf	buffer for converted identifier
+@param[in]	buflen	length of buf, in bytes
+@param[in]	id	identifier to convert
+@param[in]	idlen	length of id, in bytes
+@param[in]	no_quote	quote should be removed
+@return pointer to the end of buf */
+char* xb_innobase_convert_identifier(char* buf, ulint buflen, const char* id,
+                                     ulint idlen, bool no_quote) {
+  char* s;
+
+  char nz[MAX_TABLE_NAME_LEN + 1];
+  char nz2[MAX_TABLE_NAME_LEN + 1];
+
+  /* Decode the table name.  The MySQL function expects
+  a NUL-terminated string.  The input and output strings
+  buffers must not be shared. */
+  ut_a(idlen <= MAX_TABLE_NAME_LEN);
+  memcpy(nz, id, idlen);
+  nz[idlen] = 0;
+
+  s = nz2;
+  idlen = explain_filename(NULL, nz, nz2, sizeof nz2,
+                           EXPLAIN_PARTITIONS_AS_COMMENT);
+  if (idlen > buflen) {
+    idlen = buflen;
+  }
+
+  if (no_quote) {
+    s = s+1;
+    idlen--;
+    if (s[idlen - 1] == '"' ) {
+      idlen--;
+    } else if (s[idlen - 1] == '`') {
+      idlen--;
+    }
+  }
+  memcpy(buf, s, idlen);
+  /* make result NULL terminated */
+  buf[idlen]='\0';
+  return(buf + idlen);
+}
+
 /** Convert a table name to the MySQL system_charset_info (UTF-8)
 and quote it.
 @param[out]	buf	buffer for converted identifier

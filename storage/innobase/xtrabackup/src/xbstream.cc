@@ -37,11 +37,18 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA
 #include "xbcrypt_common.h"
 #include "xbstream.h"
 #include "xtrabackup_version.h"
+#include <libgen.h>
+#include <dirent.h>
 
 #define XBSTREAM_VERSION XTRABACKUP_VERSION
 #define XBSTREAM_BUFFER_SIZE (10 * 1024 * 1024UL)
 
-typedef enum { RUN_MODE_NONE, RUN_MODE_CREATE, RUN_MODE_EXTRACT } run_mode_t;
+typedef enum {
+  RUN_MODE_NONE,
+  RUN_MODE_CREATE,
+  RUN_MODE_EXTRACT,
+  RUN_MODE_PRINT
+} run_mode_t;
 
 const char *xbstream_encrypt_algo_names[] = {"NONE", "AES128", "AES192",
                                              "AES256", NullS};
@@ -68,8 +75,22 @@ static char *opt_encrypt_key = NULL;
 static int opt_encrypt_threads = 1;
 static bool opt_decompress = 0;
 static uint opt_decompress_threads = 1;
+static char *opt_input_file = NULL;
+static int input_file_fd = -1;
+static ulonglong opt_start_position = 0;
+static ulonglong opt_stop_position = ULLONG_MAX;
+static bool opt_enable_partial = 0;
 
-enum { OPT_DECOMPRESS = 256, OPT_DECOMPRESS_THREADS, OPT_ENCRYPT_THREADS };
+enum {
+  OPT_DECOMPRESS = 256,
+  OPT_DECOMPRESS_THREADS,
+  OPT_ENCRYPT_THREADS,
+  OPT_INPUT_FILE,
+  OPT_START_POSITION,
+  OPT_STOP_POSITION,
+  OPT_ENABLE_PARTIAL,
+  OPT_PRINT_INFO
+};
 
 static struct my_option my_long_options[] = {
     {"help", '?', "Display this help and exit.", 0, 0, 0, GET_NO_ARG, NO_ARG, 0,
@@ -110,6 +131,24 @@ static struct my_option my_long_options[] = {
      "The default value is 1.",
      &opt_encrypt_threads, &opt_encrypt_threads, 0, GET_INT, REQUIRED_ARG, 1, 1,
      INT_MAX, 0, 0, 0},
+    {"input-file", OPT_INPUT_FILE,
+     "The input xbstream file to be extracted.",
+     &opt_input_file, &opt_input_file, 0,
+     GET_STR_ALLOC, REQUIRED_ARG, 0, 0, 0, 0, 0, 0},
+    {"start-position", OPT_START_POSITION,
+     "Start reading input xbstream file at this position.",
+     &opt_start_position, &opt_start_position, 0,
+     GET_ULL, REQUIRED_ARG, 0, 0, ULLONG_MAX, 0, 0, 0},
+    {"stop-position", OPT_STOP_POSITION,
+     "Stop reading input xbstream file at this position.",
+     &opt_stop_position, &opt_stop_position, 0,
+     GET_ULL, REQUIRED_ARG, LLONG_MAX, 0, ULLONG_MAX, 0, 0, 0},
+    {"partial", OPT_ENABLE_PARTIAL,
+     "Enable partial extracting, which will skip incomplete enctry file.",
+     &opt_enable_partial, &opt_enable_partial,
+     0, GET_BOOL, NO_ARG, 0, 0, 0, 0, 0, 0},
+    {"print-info", OPT_PRINT_INFO, "Print chunk information.",
+     0, 0, 0, GET_NO_ARG, NO_ARG, 0, 0, 0, 0, 0, 0},
 
     {0, 0, 0, 0, 0, 0, GET_NO_ARG, NO_ARG, 0, 0, 0, 0, 0, 0}};
 
@@ -119,10 +158,14 @@ typedef struct {
   my_off_t offset;
   ds_file_t *file;
   pthread_mutex_t mutex;
+  bool seen_begin;
+  bool seen_end;
 } file_entry_t;
 
+typedef std::unordered_map<std::string, file_entry_t *> map_file;
+
 typedef struct {
-  std::unordered_map<std::string, file_entry_t *> filehash;
+  map_file filehash;
   xb_rstream_t *stream;
   ds_ctxt_t *ds_ctxt;
   ds_ctxt_t *ds_decompress_quicklz_ctxt;
@@ -136,6 +179,7 @@ typedef struct {
 static int get_options(int *argc, char ***argv);
 static int mode_create(int argc, char **argv);
 static int mode_extract(int n_threads, int argc, char **argv);
+static int mode_print(int argc, char **argv);
 static bool get_one_option(int optid, const struct my_option *opt,
                            char *argument);
 
@@ -153,6 +197,22 @@ int main(int argc, char **argv) {
     goto err;
   }
 
+  if (opt_input_file) {
+
+    input_file_fd = my_open(opt_input_file, O_RDONLY, MYF(MY_WME));
+    if (input_file_fd < 0) {
+      msg("%s: failed to open input file '%s'.\n", my_progname, opt_input_file);
+      goto err;
+    }
+  }
+
+  if (opt_start_position > opt_stop_position) {
+
+    msg("%s: start-position (%llu) must be less than stop-position (%llu).\n",
+        my_progname, opt_start_position, opt_stop_position);
+    goto err;
+  }
+
   /* Change the current directory if -C is specified */
   if (opt_directory && my_setwd(opt_directory, MYF(MY_WME))) {
     goto err;
@@ -167,9 +227,15 @@ int main(int argc, char **argv) {
   } else if (opt_mode == RUN_MODE_EXTRACT &&
              mode_extract(opt_parallel, argc, argv)) {
     goto err;
+  } else if (opt_mode == RUN_MODE_PRINT && mode_print(argc, argv)) {
+    goto err;
   }
 
   my_cleanup_options(my_long_options);
+
+  if (input_file_fd >= 0) {
+    my_close(input_file_fd, MYF(0));
+  }
 
   my_end(0);
 
@@ -244,6 +310,11 @@ static bool get_one_option(int optid,
       break;
     case 'x':
       if (set_run_mode(RUN_MODE_EXTRACT)) {
+        return true;
+      }
+      break;
+    case OPT_PRINT_INFO:
+      if (set_run_mode(RUN_MODE_PRINT)) {
         return true;
       }
       break;
@@ -408,11 +479,72 @@ err:
   return NULL;
 }
 
+static void remove_dir_if_empty(const char* dir_name) {
+  DIR *dir;
+  long file_count = 0;
+
+  dir = opendir(dir_name);
+
+  while ((readdir(dir)) != NULL)  file_count++;
+  closedir(dir);
+
+  /* This is empty dir */
+  if (file_count <= 2) {
+
+    if (opt_verbose) {
+      msg("Removing empty directory '%s'\n", dir_name);
+    }
+    rmdir(dir_name);
+  }
+}
+
+/**
+   Remove incomplete file entry.
+
+   Also remove directory if it's empty after file entry deleted.
+   FIXME It's is a bit tricky to remove directly, it's better to cleanup
+   empty directory inside datasink deinitialization.
+ */
+static void remove_incomplete_entry(file_entry_t *entry) {
+  char dir_name[FN_REFLEN];
+
+  if (opt_verbose) {
+    msg("Removing incomplete file '%s'\n", entry->path);
+  }
+  ds_delete(entry->file);
+
+  strcpy(dir_name, dirname(entry->path));
+
+  /* Do not remove current dir */
+  if (strcmp(dir_name, ".")) {
+    remove_dir_if_empty(dir_name);
+  }
+}
+
 static void file_entry_free(file_entry_t *entry) {
   pthread_mutex_destroy(&entry->mutex);
-  ds_close(entry->file);
+  /* This file entry is incomplete */
+  if (entry->file != NULL) {
+
+    if (opt_enable_partial) {
+
+      assert(!entry->seen_begin || !entry->seen_end);
+      remove_incomplete_entry(entry);
+    } else {
+
+      ds_close(entry->file);
+    }
+  }
+
   my_free(entry->path);
   my_free(entry);
+}
+
+static void hash_free(map_file *filehash) {
+  for (auto element : *filehash) {
+    file_entry_free(element.second);
+  }
+  filehash->clear();
 }
 
 static void *extract_worker_thread_func(void *arg) {
@@ -469,7 +601,28 @@ static void *extract_worker_thread_func(void *arg) {
       break;
     }
 
+    /* Check whether this is the first chunk of one file */
+    if (!entry->seen_begin && chunk.offset == 0) {
+      entry->seen_begin = true;
+    }
+
     if (chunk.type == XB_CHUNK_TYPE_EOF) {
+
+      /* This is the end chunk of one file entry */
+      entry->seen_end = true;
+
+      /* But we have not seen the begin chunk, so this file
+      entry is incomplete. We keep it in the HASH, and it wiil
+      be cleaned properly in hash_free */
+      if (!entry->seen_begin) {
+
+        pthread_mutex_unlock(&entry->mutex);
+        continue;
+      }
+
+      /* Close complete entry and remove it from HASH */
+      ds_close(entry->file);
+      entry->file = NULL;
       pthread_mutex_lock(ctxt->mutex);
       pthread_mutex_unlock(&entry->mutex);
       ctxt->filehash.erase(entry->path);
@@ -480,6 +633,13 @@ static void *extract_worker_thread_func(void *arg) {
     }
 
     if (entry->offset != chunk.offset) {
+      /* skip file entry without begin chunk in partial mode */
+      if (opt_enable_partial && !entry->seen_begin) {
+        entry->offset += chunk.length;
+        pthread_mutex_unlock(&entry->mutex);
+        continue;
+      }
+
       msg("%s: out-of-order chunk: real offset = 0x%llx, "
           "expected offset = 0x%llx\n",
           my_progname, chunk.offset, entry->offset);
@@ -589,7 +749,13 @@ static int mode_extract(int n_threads, int argc __attribute__((unused)),
     }
   }
 
-  stream = xb_stream_read_new();
+  if (input_file_fd > 0) {
+    stream = xb_stream_read_fd_new(input_file_fd, opt_start_position,
+                                   opt_stop_position);
+  } else {
+    stream = xb_stream_read_new();
+  }
+
   if (stream == NULL) {
     msg("%s: xb_stream_read_new() failed.\n", my_progname);
     pthread_mutex_destroy(&mutex);
@@ -627,6 +793,8 @@ exit:
   delete[] tids;
   delete[] retvals;
 
+  hash_free(&ctxt.filehash);
+
   if (ds_ctxt != NULL) {
     ds_destroy(ds_ctxt);
   }
@@ -651,5 +819,118 @@ exit:
     msg("exit code: %d\n", ret);
   }
 
+  return ret;
+}
+
+static const char *get_chunk_type_name(xb_chunk_type_t type) {
+  if (type == XB_CHUNK_TYPE_UNKNOWN) {
+
+    return "UNKNOWN";
+  } else if (type == XB_CHUNK_TYPE_PAYLOAD) {
+
+    return "PAYLOAD";
+  } else if (type == XB_CHUNK_TYPE_EOF) {
+
+    return "EOF    ";
+  } else {
+    /* Make gcc happy */
+    return "IMPOSSIBLE";
+  }
+}
+
+/**
+   Chunk format
+
+   Name      Len      Desc
+   ================================
+   Magic     8        "XBSTCK01"
+   Flag      1        Currently only this XB_STREAM_FLAG_IGNORABLE
+   Type      1        Payload or EOF
+   Path Len  4        Length of following path string
+   Path    <Path Len> Path string
+   ===== EOF Chunk end here  =====
+   Length    8        Payload length
+   Offset    8        Payload offset in file
+   Checksum  4        Payload checksum
+   Payload <Legnth>   Payload data
+*/
+static void print_chunk_info(my_off_t chunk_begin,  my_off_t chunk_end,
+                             xb_rstream_chunk_t *chunk)
+{
+  char buff[1024];
+  char *ptr = buff;
+  char *end = buff + sizeof(buff);
+
+  /* flag */
+  ptr += snprintf(ptr, end - ptr, "%02X ", chunk->flags);
+  /* type */
+  ptr += snprintf(ptr, end - ptr, "%s ", get_chunk_type_name(chunk->type));
+  /* path */
+  ptr += snprintf(ptr, end - ptr, "%s ", chunk->path);
+
+  /* offset in stream */
+  ptr += snprintf(ptr, end - ptr, "%llu %llu ", (ulonglong)chunk_begin,
+                 (ulonglong)chunk_end);
+
+  /* Extra data length caused by header */
+  ptr += snprintf(ptr, end - ptr, "%u ",
+         8 + 1 + 1 + 4 + chunk->pathlen + 8 + 8 + 4);
+
+  /* offset and length */
+  if (chunk->type != XB_CHUNK_TYPE_EOF) {
+    ptr += snprintf(ptr, end - ptr, "%llu %lu ",
+                    (ulonglong)chunk->offset, (ulong)chunk->length);
+
+    /* checksum is not intersting to use */
+    /* ptr += snprintf(ptr, end - ptr, "%llu",
+       chunk->checksum); */
+  }
+
+  /* flag */
+
+  *ptr = '\0';
+
+  msg("%s\n", buff);
+}
+
+static int mode_print(int argc __attribute__((unused)),
+                      char **argv __attribute__((unused))) {
+  xb_rstream_result_t res = XB_STREAM_READ_CHUNK;
+  xb_rstream_chunk_t chunk;
+  xb_rstream_t *stream = NULL;
+  int ret = 0;
+  my_off_t chunk_begin_pos;
+  my_off_t chunk_end_pos;
+
+  memset(&chunk, 0, sizeof(chunk));
+
+  if (input_file_fd > 0) {
+    stream = xb_stream_read_fd_new(input_file_fd,
+                 opt_start_position,
+                 opt_stop_position);
+  } else {
+    stream = xb_stream_read_new();
+  }
+
+  chunk_begin_pos = chunk_end_pos = xb_stream_read_offset(stream);
+
+  while (1) {
+
+    chunk_begin_pos = xb_stream_read_offset(stream);
+    assert(chunk_begin_pos == chunk_end_pos);
+
+    res = xb_stream_read_chunk(stream, &chunk);
+
+    chunk_end_pos = xb_stream_read_offset(stream);
+
+    if (res != XB_STREAM_READ_CHUNK) {
+      break;
+    }
+
+    print_chunk_info(chunk_begin_pos, chunk_end_pos, &chunk);
+
+  }
+
+  xb_stream_read_done(stream);
   return ret;
 }

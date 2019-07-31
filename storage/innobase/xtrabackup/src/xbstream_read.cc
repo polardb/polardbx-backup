@@ -38,6 +38,8 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA
 struct xb_rstream_struct {
   my_off_t offset;
   File fd;
+  my_off_t start_pos;
+  my_off_t stop_pos;
 };
 
 xb_rstream_t *xb_stream_read_new(void) {
@@ -48,6 +50,27 @@ xb_rstream_t *xb_stream_read_new(void) {
 
   stream->fd = fileno(stdin);
   stream->offset = 0;
+  stream->start_pos = 0;
+  stream->stop_pos = ULLONG_MAX;
+
+#ifdef __WIN__
+  setmode(stream->fd, _O_BINARY);
+#endif
+
+  return stream;
+}
+
+xb_rstream_t *xb_stream_read_fd_new(File fd, my_off_t start, my_off_t stop) {
+  xb_rstream_t *stream;
+
+  stream = (xb_rstream_t *)my_malloc(PSI_NOT_INSTRUMENTED, sizeof(xb_rstream_t),
+                                     MYF(MY_FAE));
+
+  my_seek(fd, start, SEEK_SET, MYF(MY_WME));
+  stream->fd = fd;
+  stream->offset = 0;
+  stream->start_pos = start;
+  stream->stop_pos = stop;
 
 #ifdef __WIN__
   setmode(stream->fd, _O_BINARY);
@@ -85,6 +108,11 @@ xb_rstream_result_t xb_stream_validate_checksum(xb_rstream_chunk_t *chunk) {
 
 #define F_READ(buf, len)                                          \
   do {                                                            \
+    if (stream->start_pos + stream->offset + len >                \
+        stream->stop_pos) {                                       \
+      msg("xb_stream_read_chunk(): my_read() failed.\n");         \
+      goto err;                                                   \
+    }                                                             \
     if (xb_read_full(fd, static_cast<uchar *>(buf), len) < len) { \
       msg("xb_stream_read_chunk(): my_read() failed.\n");         \
       goto err;                                                   \
@@ -101,6 +129,10 @@ xb_rstream_result_t xb_stream_read_chunk(xb_rstream_t *stream,
 
   const uint chunk_length_min =
       CHUNK_HEADER_CONSTANT_LEN + FN_REFLEN + 4 + 8 + 8 + 4;
+
+  if (stream->start_pos + stream->offset >= stream->stop_pos) {
+    return XB_STREAM_READ_EOF;
+  }
 
   /* Reallocate the buffer if needed */
   if (chunk_length_min > chunk->buflen) {
@@ -127,6 +159,12 @@ xb_rstream_result_t xb_stream_read_chunk(xb_rstream_t *stream,
     msg("xb_stream_read_chunk(): unexpected end of stream at "
         "offset 0x%llx.\n",
         stream->offset);
+    goto err;
+  }
+
+  if (stream->start_pos + stream->offset + tbytes > stream->stop_pos) {
+    msg("xb_stream_read_chunk(): unexpected end of stream at "
+        "offset 0x%llx.\n", stream->offset);
     goto err;
   }
 
@@ -284,4 +322,8 @@ int xb_stream_read_done(xb_rstream_t *stream) {
   my_free(stream);
 
   return 0;
+}
+
+my_off_t xb_stream_read_offset(xb_rstream_t *stream) {
+  return stream->offset;
 }

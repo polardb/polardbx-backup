@@ -52,6 +52,7 @@ ADD_DEFINITIONS(${SSL_DEFINES})
 ADD_SUBDIRECTORY(crc)
 ADD_SUBDIRECTORY(jsmn)
 ADD_SUBDIRECTORY(xbcloud)
+ADD_SUBDIRECTORY(cjson)
 
 ########################################################################
 # xtrabackup binary
@@ -66,7 +67,8 @@ INCLUDE_DIRECTORIES(
   ${CMAKE_SOURCE_DIR}/plugin/keyring
   ${CMAKE_SOURCE_DIR}/plugin/keyring_vault
   ${CMAKE_SOURCE_DIR}/plugin/keyring_rds
-  ${BOOST_PATCHES_DIR})
+  ${BOOST_PATCHES_DIR}
+  ${CMAKE_SOURCE_DIR}/storage/innobase/xtrabackup/src/cjson)
 
 ADD_SUBDIRECTORY(${CMAKE_SOURCE_DIR}/plugin/keyring "${CMAKE_CURRENT_BINARY_DIR}/keyring")
 ADD_SUBDIRECTORY(${CMAKE_SOURCE_DIR}/plugin/keyring_vault "${CMAKE_CURRENT_BINARY_DIR}/keyring_vault")
@@ -101,6 +103,7 @@ MYSQL_ADD_EXECUTABLE(xtrabackup
   backup_copy.cc
   keyring_plugins.cc
   kdf.cc
+  table_info.cc
   space_map.cc
   redo_log.cc
   ${CMAKE_SOURCE_DIR}/sql-common/client_authentication.cc
@@ -123,6 +126,7 @@ TARGET_LINK_LIBRARIES(xtrabackup
   ${GCRYPT_LIBS}
   ${ICU_LIBRARIES}
   crc
+  cjson
   )
 
 IF(WITH_VERSION_CHECK)

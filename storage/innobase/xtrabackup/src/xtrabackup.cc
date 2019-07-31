@@ -116,6 +116,7 @@ Place, Suite 330, Boston, MA 02111-1307 USA
 #include "xbstream.h"
 #include "xtrabackup.h"
 #include "xtrabackup_config.h"
+#include "table_info.h"
 
 /* TODO: replace with appropriate macros used in InnoDB 5.6 */
 #define PAGE_ZIP_MIN_SIZE_SHIFT 10
@@ -356,6 +357,10 @@ ds_ctxt_t *ds_meta = nullptr;
 ds_ctxt_t *ds_redo = nullptr;
 ds_ctxt_t *ds_uncompressed_data = nullptr;
 
+/* the very last datasink where all data (data, redo) will go. For local backup,
+ * it's DS_LOCAL; for stream backup, it's DS_STDOUT. */
+ds_ctxt_t *ds_dest = nullptr;
+
 static long innobase_log_files_in_group_save;
 static char *srv_log_group_home_dir_save;
 static longlong innobase_log_file_size_save;
@@ -396,6 +401,7 @@ bool opt_decompress = FALSE;
 bool opt_remove_original = FALSE;
 bool opt_tables_compatibility_check = TRUE;
 static bool opt_check_privileges = FALSE;
+bool rds_table_level_mode = FALSE;
 
 char *opt_incremental_history_name = NULL;
 char *opt_incremental_history_uuid = NULL;
@@ -519,6 +525,52 @@ fil_node_t *datafiles_iter_next(datafiles_iter_t *it) {
   mutex_exit(&it->mutex);
 
   return node;
+}
+
+/** Whether this table is under mysql db */
+static bool is_mysql_db_table(const char* path) {
+  return !memcmp(path, "mysql/", strlen("mysql/")) || !strcmp(path, "mysql")
+      || !memcmp(path, "sys/", strlen("sys/"));
+}
+
+/** Get next user tablespace */
+fil_node_t *datafiles_iter_next_user(datafiles_iter_t *it) {
+  fil_node_t *new_node = NULL;
+
+  while ((new_node = datafiles_iter_next(it))) {
+
+    if (fsp_is_ibd_tablespace(new_node->space->id)) {
+
+      /* InnoDB table under mysql database is not user business table,
+      and should put together with system tablespace. */
+      if (is_mysql_db_table(new_node->space->name)) {
+
+        continue;
+      }
+
+      break;
+    }
+  }
+
+  return new_node;
+}
+
+/** Get next system tablesapce */
+fil_node_t *datafiles_iter_next_sys(datafiles_iter_t *it) {
+  fil_node_t *new_node = NULL;
+
+  while ((new_node = datafiles_iter_next(it))) {
+
+    if (!fsp_is_ibd_tablespace(new_node->space->id)) {
+
+      break;
+    } else if (is_mysql_db_table(new_node->space->name)) {
+
+      break;
+    }
+  }
+
+  return new_node;
 }
 
 void datafiles_iter_free(datafiles_iter_t *it) {
@@ -703,6 +755,7 @@ enum options_xtrabackup {
   OPT_XTRA_CHECK_PRIVILEGES,
   OPT_XTRA_READ_BUFFER_SIZE,
   OPT_RDS_XB_REDO_FS_BUFFER,
+  OPT_RDS_XTRA_TABLE_LEVEL,
 };
 
 struct my_option xb_client_options[] = {
@@ -1494,6 +1547,12 @@ Disable with --skip-innodb-checksums.",
      "InnoDB redo log is saved temporarily on local disk during xbstream backup.",
      &rds_xb_redo_fs_buffer, &rds_xb_redo_fs_buffer, 0, GET_BOOL,
      NO_ARG, 0, 0, 0, 0, 0, 0},
+
+    {"rds-table-level", OPT_RDS_XTRA_TABLE_LEVEL,
+     "This option is used to enable table level backup mode, "
+     "must be used together with xbstream when backup.",
+     &rds_table_level_mode, &rds_table_level_mode, 0,
+     GET_BOOL, NO_ARG, 0, 0, 0, 0, 0, 0},
 
     {0, 0, 0, 0, 0, 0, GET_NO_ARG, NO_ARG, 0, 0, 0, 0, 0, 0}};
 
@@ -2852,6 +2911,7 @@ static bool xtrabackup_copy_datafile(fil_node_t *node, uint thread_n) {
   const char *action;
   xb_read_filt_t *read_filter;
   bool rc = FALSE;
+  void *table_info = NULL;
 
   /* Get the name and the path for the tablespace. node->name always
   contains the path (which may be absolute for remote tablespaces in
@@ -2890,6 +2950,8 @@ static bool xtrabackup_copy_datafile(fil_node_t *node, uint thread_n) {
   } else if (res == XB_FIL_CUR_ERROR) {
     goto error;
   }
+
+  table_info = xb_prepare_table_info(node->name);
 
   if (is_undo && Fil_path::has_suffix(IBU, cursor.rel_path)) {
     strncpy(dst_name, xb_tablespace_backup_file_path(cursor.abs_path).c_str(),
@@ -2960,6 +3022,9 @@ static bool xtrabackup_copy_datafile(fil_node_t *node, uint thread_n) {
   if (write_filter && write_filter->deinit) {
     write_filter->deinit(&write_filt_ctxt);
   }
+
+  xb_finish_table_info(table_info);
+
   return (rc);
 
 error:
@@ -2970,6 +3035,9 @@ error:
   if (write_filter && write_filter->deinit) {
     write_filter->deinit(&write_filt_ctxt);
     ;
+  }
+  if (table_info) {
+    xb_finish_table_info(table_info);
   }
   msg("[%02u] xtrabackup: Error: xtrabackup_copy_datafile() failed.\n",
       thread_n);
@@ -3040,7 +3108,8 @@ static void data_copy_thread_func(data_thread_ctxt_t *ctxt) {
 
   debug_sync_point("data_copy_thread_func");
 
-  while ((node = datafiles_iter_next(ctxt->it)) != NULL && !*(ctxt->error)) {
+  while ((node = datafiles_iter_next_user(ctxt->it)) != NULL
+        && !*(ctxt->error)) {
     /* copy the datafile */
     if (xtrabackup_copy_datafile(node, num)) {
       msg("[%02u] xtrabackup: Error: failed to copy datafile.\n", num);
@@ -3064,6 +3133,14 @@ for the data stream (and don't allow parallel data copying) and for metainfo
 files (including xtrabackup_logfile). The second datasink writes to temporary
 files first, and then streams them in a serialized way when closed. */
 static void xtrabackup_init_datasinks(void) {
+  /* table level mode must be used together with xbstream format */
+  if (rds_table_level_mode && !xtrabackup_stream
+      && xtrabackup_stream_fmt != XB_STREAM_FMT_XBSTREAM) {
+    msg_ts("xtrabackup: Error: table level mode must be used "
+           "together with streaming backup in 'xbstream' format.\1\n");
+    exit(EXIT_FAILURE);
+  }
+
   /* Start building out the pipelines from the terminus back */
   if (xtrabackup_stream) {
     /* All streaming goes to stdout */
@@ -3074,6 +3151,8 @@ static void xtrabackup_init_datasinks(void) {
     ds_data = ds_meta = ds_redo =
         ds_create(xtrabackup_target_dir, DS_TYPE_LOCAL);
   }
+
+  ds_dest = ds_data;
 
   /* Track it for destruction */
   xtrabackup_add_datasink(ds_data);
@@ -3088,6 +3167,8 @@ static void xtrabackup_init_datasinks(void) {
       ds = NULL;
     }
 
+    ds_dest = ds;
+
     xtrabackup_add_datasink(ds);
 
     ds_set_pipe(ds, ds_data);
@@ -3099,16 +3180,30 @@ static void xtrabackup_init_datasinks(void) {
       xtrabackup_add_datasink(ds_meta);
       ds_set_pipe(ds_meta, ds);
     } else {
-      /* Although xbstream allow parallel streams, simply pipe
-      the redo file to xbstream may be so slow, because of
-      poorly network bandwidth(say 5MB/s), that the redo log
-      reading of xtrabackup can not catch up with the redo
-      log writting of mysqld, and lead to backup failed
-      finally.
+      if (rds_table_level_mode) {
 
-      use local disk to temporarily save redo log, so
-      xtrabackup can always catch up with mysqld. */
-      if (rds_xb_redo_fs_buffer) {
+        /* Add a tmpfile datasink as cache, so at the end of backup,
+        InnoDB redo log will put together with ibdata, MYISAM, frm, etc.
+        as the common part, rather than scattered between InnoDB data files. */
+        ds_redo = ds_create(xtrabackup_target_dir, DS_TYPE_TMPFILE);
+        xtrabackup_add_datasink(ds_redo);
+        ds_set_pipe(ds_redo, ds);
+        ds_meta = ds_redo;
+
+        /* initialize table info */
+        if (table_info_init()) {
+          exit(EXIT_FAILURE);
+        }
+      } else if (rds_xb_redo_fs_buffer) {
+        /* Although xbstream allow parallel streams, simply pipe
+        the redo file to xbstream may be so slow, because of
+        poorly network bandwidth(say 5MB/s), that the redo log
+        reading of xtrabackup can not catch up with the redo
+        log writting of mysqld, and lead to backup failed
+        finally.
+
+        use local disk to temporarily save redo log, so
+        xtrabackup can always catch up with mysqld. */
 
         ds_redo = ds_create(xtrabackup_target_dir, DS_TYPE_TMPFILE);
         xtrabackup_add_datasink(ds_redo);
@@ -3191,18 +3286,57 @@ static void xtrabackup_init_datasinks(void) {
 }
 
 /************************************************************************
+Cleanup datasinks.
+
+Destruction is done in the specific order to not violate their order in the
+pipeline so that each datasink is able to flush data down the pipeline. */
+static void xtrabackup_cleanup_datasinks(void)
+{
+  for (uint i = actual_datasinks; i > 0; i--) {
+    ds_type_t type = ds_type(datasinks[i - 1]);
+    ds_cleanup(datasinks[i-1]);
+
+    /* we just deinitialized ds_tmpfile datasink, redo log should be
+    piped out. Now we can append the json meta file.
+
+    No matter what next datasink it is, it will be piped to the
+    final datasink.
+
+    There will always exist a ds_tmpfile datasink for table level
+    backup, check details in xtrabackup_init_datasinks(). */
+    if (rds_table_level_mode && type == DS_TYPE_TMPFILE) {
+      size_t out_size;
+
+      /* ds_tmpfile datasink must not be the first one */
+      ut_a(i - 1 > 0);
+
+      ds_size(ds_dest, NULL, &out_size);
+      msg_ts("xtrabackup: All data finished at position: %lu\1\n", out_size);
+
+      if (!serialize_table_info_and_backup(datasinks[i - 2])) {
+        exit(EXIT_FAILURE);
+      }
+    }
+  }
+}
+
+/************************************************************************
 Destroy datasinks.
 
 Destruction is done in the specific order to not violate their order in the
 pipeline so that each datasink is able to flush data down the pipeline. */
-static void xtrabackup_destroy_datasinks(void) {
+static void xtrabackup_deinit_datasinks(void) {
   for (uint i = actual_datasinks; i > 0; i--) {
-    ds_destroy(datasinks[i - 1]);
+    ds_deinit(datasinks[i - 1]);
     datasinks[i - 1] = NULL;
   }
   ds_data = NULL;
   ds_meta = NULL;
   ds_redo = NULL;
+  ds_uncompressed_data = NULL;
+  ds_dest = NULL;
+
+  table_info_deinit();
 }
 
 #define SRV_N_PENDING_IOS_PER_THREAD OS_AIO_N_PENDING_IOS_PER_THREAD
@@ -4002,6 +4136,13 @@ void xtrabackup_backup_func(void) {
   ut_a(xtrabackup_parallel > 0);
 
   if (xtrabackup_parallel > 1) {
+
+    if (rds_table_level_mode) {
+        msg_ts("xtrabackup: table level backup does not support "
+               "parallel backup yet.\1\n");
+        exit(EXIT_FAILURE);
+    }
+
     msg("xtrabackup: Starting %u threads for parallel data files transfer\n",
         xtrabackup_parallel);
   }
@@ -4010,6 +4151,7 @@ void xtrabackup_backup_func(void) {
     mdl_lock_init();
   }
 
+  /* Backup user tablespaces */
   auto it = datafiles_iter_new();
   if (it == NULL) {
     msg("xtrabackup: Error: datafiles_iter_new() failed.\n");
@@ -4056,6 +4198,25 @@ void xtrabackup_backup_func(void) {
     exit(EXIT_FAILURE);
   }
 
+  /* Backup system tablespaces */
+  it = datafiles_iter_new();
+  if (it == NULL) {
+    msg_ts("xtrabackup: Error: datafiles_iter_new() failed for system "
+           "tablespaces.\1\n");
+    exit(EXIT_FAILURE);
+  }
+
+  fil_node_t *node;
+  while ((node = datafiles_iter_next_sys(it)) != NULL) {
+
+    if(xtrabackup_copy_datafile(node, 0)) {
+
+      msg_ts("xtrabackup: Error: failed to copy datafile.\1\n");
+      exit(EXIT_FAILURE);
+    }
+  }
+  datafiles_iter_free(it);
+
   if (changed_page_bitmap) {
     xb_page_bitmap_deinit(changed_page_bitmap);
   }
@@ -4092,6 +4253,8 @@ void xtrabackup_backup_func(void) {
   metadata_to_lsn = redo_mgr.get_last_checkpoint_lsn();
   metadata_last_lsn = redo_mgr.get_stop_lsn();
 
+  /* meta file xtrabackup_checkpoints is written to tmp datasink,
+   * so we don't prepare/finish info here. */
   if (!xtrabackup_stream_metadata(ds_meta)) {
     msg("xtrabackup: Error: failed to stream metadata.\n");
     exit(EXIT_FAILURE);
@@ -4135,7 +4298,7 @@ void xtrabackup_backup_func(void) {
     }
   }
 
-  xtrabackup_destroy_datasinks();
+  xtrabackup_cleanup_datasinks();
 
   if (wait_throttle) {
     /* wait for io_watching_thread completion */
@@ -4145,6 +4308,10 @@ void xtrabackup_backup_func(void) {
     os_event_destroy(wait_throttle);
     wait_throttle = NULL;
   }
+
+  /* Deinit datasinks must be called after progress monitor thread exit,
+   * cause datasinks are refered in progress monitor. */
+  xtrabackup_deinit_datasinks();
 
   msg("xtrabackup: Transaction log of lsn (" LSN_PF ") to (" LSN_PF
       ") was copied.\n",
@@ -6302,6 +6469,8 @@ static void xtrabackup_prepare_func(int argc, char **argv) {
   xtrabackup_target_dir = mysql_data_home_buff;
   xtrabackup_target_dir[0] = FN_CURLIB;  // all paths are relative from here
   xtrabackup_target_dir[1] = 0;
+
+  srv_partial_recover_mode = rds_table_level_mode;
 
   /*
     read metadata of target, we don't need metadata reading in the case

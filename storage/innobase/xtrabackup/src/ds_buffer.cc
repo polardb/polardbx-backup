@@ -33,25 +33,33 @@ exception for the last write for a file. */
 #define DS_DEFAULT_BUFFER_SIZE (64 * 1024)
 
 typedef struct {
+  size_t buffer_size;
+  pthread_mutex_t mutex;
+  size_t in_size;
+  size_t out_size;
+} ds_buffer_ctxt_t;
+
+typedef struct {
   ds_file_t *dst_file;
   char *buf;
   size_t pos;
   size_t size;
+  ds_buffer_ctxt_t *buffer_ctxt;
 } ds_buffer_file_t;
-
-typedef struct {
-  size_t buffer_size;
-} ds_buffer_ctxt_t;
 
 static ds_ctxt_t *buffer_init(const char *root);
 static ds_file_t *buffer_open(ds_ctxt_t *ctxt, const char *path,
                               MY_STAT *mystat);
 static int buffer_write(ds_file_t *file, const void *buf, size_t len);
 static int buffer_close(ds_file_t *file);
+static int buffer_delete(ds_file_t *file);
+static void buffer_cleanup(ds_ctxt_t *ctxt);
 static void buffer_deinit(ds_ctxt_t *ctxt);
+static void buffer_size(ds_ctxt_t *ctxt, size_t *in_size, size_t *out_size);
 
 datasink_t datasink_buffer = {&buffer_init, &buffer_open,  &buffer_write,
-                              nullptr,      &buffer_close, &buffer_deinit};
+                              nullptr,      &buffer_close, &buffer_delete,
+                              &buffer_cleanup, &buffer_deinit, &buffer_size};
 
 /* Change the default buffer size */
 void ds_buffer_set_size(ds_ctxt_t *ctxt, size_t size) {
@@ -70,10 +78,20 @@ static ds_ctxt_t *buffer_init(const char *root) {
   buffer_ctxt = (ds_buffer_ctxt_t *)(ctxt + 1);
   buffer_ctxt->buffer_size = DS_DEFAULT_BUFFER_SIZE;
 
+  if (pthread_mutex_init(&buffer_ctxt->mutex, NULL)) {
+    msg("stdout_init: pthread_mutex_init() failed.\n");
+    goto err;
+  }
+  buffer_ctxt->in_size = 0;
+  buffer_ctxt->out_size = 0;
+
   ctxt->ptr = buffer_ctxt;
   ctxt->root = my_strdup(PSI_NOT_INSTRUMENTED, root, MYF(MY_FAE));
 
   return ctxt;
+err:
+  my_free(ctxt);
+  return NULL;
 }
 
 static ds_file_t *buffer_open(ds_ctxt_t *ctxt, const char *path,
@@ -104,6 +122,7 @@ static ds_file_t *buffer_open(ds_ctxt_t *ctxt, const char *path,
   buffer_file->buf = (char *)(buffer_file + 1);
   buffer_file->size = buffer_ctxt->buffer_size;
   buffer_file->pos = 0;
+  buffer_file->buffer_ctxt = buffer_ctxt;
 
   file->path = dst_file->path;
   file->ptr = buffer_file;
@@ -113,8 +132,12 @@ static ds_file_t *buffer_open(ds_ctxt_t *ctxt, const char *path,
 
 static int buffer_write(ds_file_t *file, const void *buf, size_t len) {
   ds_buffer_file_t *buffer_file;
+  size_t ori_len = len;
+  size_t written_len = 0;
+  ds_buffer_ctxt_t *buffer_ctxt;
 
   buffer_file = (ds_buffer_file_t *)file->ptr;
+  buffer_ctxt = buffer_file->buffer_ctxt;
 
   while (len > 0) {
     if (buffer_file->pos + len > buffer_file->size) {
@@ -128,6 +151,7 @@ static int buffer_write(ds_file_t *file, const void *buf, size_t len) {
                      buffer_file->size)) {
           return 1;
         }
+        written_len += buffer_file->size;
 
         buffer_file->pos = 0;
 
@@ -139,6 +163,7 @@ static int buffer_write(ds_file_t *file, const void *buf, size_t len) {
         if (ds_write(buffer_file->dst_file, buf, len)) {
           return 1;
         }
+        written_len += len;
         break;
       }
     } else {
@@ -148,17 +173,30 @@ static int buffer_write(ds_file_t *file, const void *buf, size_t len) {
     }
   }
 
+  /* increment datasink size counter */
+  pthread_mutex_lock(&buffer_ctxt->mutex);
+  buffer_ctxt->in_size += ori_len;
+  buffer_ctxt->out_size += written_len;
+  pthread_mutex_unlock(&buffer_ctxt->mutex);
+
   return 0;
 }
 
 static int buffer_close(ds_file_t *file) {
   ds_buffer_file_t *buffer_file;
   int ret;
+  ds_buffer_ctxt_t *buffer_ctxt;
 
   buffer_file = (ds_buffer_file_t *)file->ptr;
+  buffer_ctxt = buffer_file->buffer_ctxt;
   if (buffer_file->pos > 0) {
     ds_write(buffer_file->dst_file, buffer_file->buf, buffer_file->pos);
   }
+
+  /* increment datasink size counter */
+  pthread_mutex_lock(&buffer_ctxt->mutex);
+  buffer_ctxt->out_size += buffer_file->pos;
+  pthread_mutex_unlock(&buffer_ctxt->mutex);
 
   ret = ds_close(buffer_file->dst_file);
 
@@ -167,7 +205,55 @@ static int buffer_close(ds_file_t *file) {
   return ret;
 }
 
+static int buffer_delete(ds_file_t *file) {
+  ds_buffer_file_t *buffer_file;
+  int ret;
+  ds_buffer_ctxt_t *buffer_ctxt;
+
+  buffer_file = (ds_buffer_file_t *) file->ptr;
+  if (buffer_file->pos > 0) {
+    buffer_ctxt = buffer_file->buffer_ctxt;
+
+    ds_write(buffer_file->dst_file, buffer_file->buf,
+       buffer_file->pos);
+
+    /* increment datasink size counter */
+    pthread_mutex_lock(&buffer_ctxt->mutex);
+    buffer_ctxt->out_size += buffer_file->pos;
+    pthread_mutex_unlock(&buffer_ctxt->mutex);
+  }
+
+  ret = ds_delete(buffer_file->dst_file);
+
+  my_free(file);
+
+  return ret;
+}
+
+static void buffer_cleanup(ds_ctxt_t *ctxt __attribute__((unused))) {
+  return;
+}
+
 static void buffer_deinit(ds_ctxt_t *ctxt) {
+  ds_buffer_ctxt_t *buffer_ctxt = (ds_buffer_ctxt_t *) ctxt->ptr;
+
+  pthread_mutex_destroy(&buffer_ctxt->mutex);
+
   my_free(ctxt->root);
   my_free(ctxt);
+}
+
+static void buffer_size(ds_ctxt_t *ctxt, size_t *in_size, size_t *out_size) {
+  ds_buffer_ctxt_t *buffer_ctxt = (ds_buffer_ctxt_t*) ctxt->ptr;
+
+  pthread_mutex_lock(&buffer_ctxt->mutex);
+
+  if (in_size) {
+    *in_size = buffer_ctxt->in_size;
+  }
+  if (out_size) {
+    *out_size = buffer_ctxt->out_size;
+  }
+
+  pthread_mutex_unlock(&buffer_ctxt->mutex);
 }

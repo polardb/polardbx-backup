@@ -264,6 +264,9 @@ typedef struct {
 
 typedef struct {
   Thread_pool *thread_pool;
+  pthread_mutex_t mutex;
+  size_t in_size;
+  size_t out_size;
 } ds_decompress_lz4_ctxt_t;
 
 typedef struct {
@@ -286,15 +289,27 @@ static ds_file_t *decompress_open(ds_ctxt_t *ctxt, const char *path,
                                   MY_STAT *mystat);
 static int decompress_write(ds_file_t *file, const void *buf, size_t len);
 static int decompress_close(ds_file_t *file);
+static int decompress_delete(ds_file_t *file);
+static void decompress_cleanup(ds_ctxt_t *ctxt);
 static void decompress_deinit(ds_ctxt_t *ctxt);
+static void decompress_size(ds_ctxt_t *ctxt, size_t *in_size, size_t *out_size);
 
 datasink_t datasink_decompress_lz4 = {&decompress_init,  &decompress_open,
                                       &decompress_write, nullptr,
-                                      &decompress_close, &decompress_deinit};
+                                      &decompress_close, &decompress_delete,
+                                      &decompress_cleanup, &decompress_deinit,
+                                      &decompress_size};
 
 static ds_ctxt_t *decompress_init(const char *root) {
   ds_decompress_lz4_ctxt_t *decompress_ctxt = new ds_decompress_lz4_ctxt_t;
   decompress_ctxt->thread_pool = new Thread_pool(ds_decompress_lz4_threads);
+
+  if (pthread_mutex_init(&decompress_ctxt->mutex, NULL)) {
+    msg("compress_init: pthread_mutex_init() failed.\n");
+    return NULL;
+  }
+  decompress_ctxt->in_size = 0;
+  decompress_ctxt->out_size = 0;
 
   ds_ctxt_t *ctxt = new ds_ctxt_t;
   ctxt->ptr = decompress_ctxt;
@@ -352,7 +367,7 @@ static ds_file_t *decompress_open(ds_ctxt_t *ctxt, const char *path,
 }
 
 static int reap_and_write(ds_decompress_lz4_file_t *file, size_t n_blocks,
-                          bool error) {
+                          bool error, size_t *written_len) {
   for (size_t i = 0; i < n_blocks; ++i) {
     const auto &thd = file->contexts[i];
 
@@ -363,6 +378,8 @@ static int reap_and_write(ds_decompress_lz4_file_t *file, size_t n_blocks,
 
     if (ds_write(file->dest_file, thd.to, thd.to_len)) {
       error = true;
+    } else {
+      *written_len += thd.to_len;
     }
 
     if (file->stream.has_content_checksum()) {
@@ -381,6 +398,8 @@ static int decompress_write(ds_file_t *file, const void *buf, size_t len) {
 
   size_t n_blocks = 0;
   size_t decomp_len = 0;
+  size_t ori_len = len;
+  size_t written_len = 0;
 
   bool error = false;
 
@@ -395,7 +414,7 @@ static int decompress_write(ds_file_t *file, const void *buf, size_t len) {
     } else if (err == LZ4_stream::LZ4_INCOMPLETE) {
       break;
     } else if (err == LZ4_stream::LZ4_LAST_BLOCK) {
-      if (reap_and_write(decomp_file, n_blocks, error)) {
+      if (reap_and_write(decomp_file, n_blocks, error, &written_len)) {
         error = true;
         break;
       }
@@ -414,7 +433,7 @@ static int decompress_write(ds_file_t *file, const void *buf, size_t len) {
       if (decomp_file->decomp_buf_size < decomp_len + block_info.data_size ||
           n_blocks >= decomp_file->contexts.size()) {
         /* decomp buffer is full, write the data */
-        if (reap_and_write(decomp_file, n_blocks, error)) {
+        if (reap_and_write(decomp_file, n_blocks, error, &written_len)) {
           error = true;
           break;
         }
@@ -445,12 +464,19 @@ static int decompress_write(ds_file_t *file, const void *buf, size_t len) {
   }
 
   /* write remaining data */
-  if (reap_and_write(decomp_file, n_blocks, error)) {
+  if (reap_and_write(decomp_file, n_blocks, error, &written_len)) {
     error = true;
   }
 
   decomp_file->stream.reset();
 
+  /* increment datasink size counter */
+  if (!error) {
+    pthread_mutex_lock(&decomp_ctxt->mutex);
+    decomp_ctxt->in_size += ori_len;
+    decomp_ctxt->out_size += written_len;
+    pthread_mutex_unlock(&decomp_ctxt->mutex);
+  }
   return error ? 1 : 0;
 }
 
@@ -473,14 +499,51 @@ static int decompress_close(ds_file_t *file) {
   return rc;
 }
 
+static int decompress_delete(ds_file_t *file) {
+  ds_decompress_lz4_file_t *comp_file = (ds_decompress_lz4_file_t *)file->ptr;
+  ds_file_t *dest_file = comp_file->dest_file;
+
+  if (!comp_file->stream.empty()) {
+    msg("compress: unprocessed data left in the buffer.\n");
+    return 1;
+  }
+
+  int rc = ds_delete(dest_file);
+
+  my_free(comp_file->decomp_buf);
+  my_free(file);
+
+  return rc;
+}
+
+static void decompress_cleanup(ds_ctxt_t *ctxt __attribute__((unused))) {
+  return;
+}
+
 static void decompress_deinit(ds_ctxt_t *ctxt) {
   xb_ad(ctxt->pipe_ctxt != nullptr);
 
   ds_decompress_lz4_ctxt_t *comp_ctxt = (ds_decompress_lz4_ctxt_t *)ctxt->ptr;
+
+  pthread_mutex_destroy(&comp_ctxt->mutex);
 
   delete comp_ctxt->thread_pool;
   delete comp_ctxt;
 
   my_free(ctxt->root);
   delete ctxt;
+}
+
+static void decompress_size(ds_ctxt_t *ctxt, size_t *in_size,
+                            size_t *out_size) {
+  ds_decompress_lz4_ctxt_t *decomp_ctxt = (ds_decompress_lz4_ctxt_t*) ctxt->ptr;
+
+  pthread_mutex_lock(&decomp_ctxt->mutex);
+  if (in_size) {
+    *in_size = decomp_ctxt->in_size;
+  }
+  if (out_size) {
+    *out_size = decomp_ctxt->out_size;
+  }
+  pthread_mutex_unlock(&decomp_ctxt->mutex);
 }

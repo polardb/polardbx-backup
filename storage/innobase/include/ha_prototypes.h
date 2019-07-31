@@ -74,6 +74,17 @@ Return the string as an std:string object.
 @return a std::string with id properly quoted. */
 std::string innobase_quote_identifier(trx_t *trx, const char *id);
 
+/** Convert an SQL identifier to the MySQL system_charset_info (UTF-8)
+and quote it if needed.
+@param[out]	buf	buffer for converted identifier
+@param[in]	buflen	length of buf, in bytes
+@param[in]	id	identifier to convert
+@param[in]	idlen	length of id, in bytes
+@param[in]	no_quote	quote should be removed
+@return pointer to the end of buf */
+char* xb_innobase_convert_identifier(char* buf, ulint buflen, const char* id,
+                                     ulint idlen, bool no_quote);
+
 /** Convert a table name to the MySQL system_charset_info (UTF-8).
  @return pointer to the end of buf */
 char *innobase_convert_name(

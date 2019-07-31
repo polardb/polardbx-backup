@@ -29,7 +29,14 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA
 #include "datasink.h"
 
 typedef struct {
+  pthread_mutex_t mutex;
+  size_t in_size;
+  size_t out_size;
+} ds_local_ctxt_t;
+
+typedef struct {
   File fd;
+  ds_local_ctxt_t *local_ctxt;
 } ds_local_file_t;
 
 static ds_ctxt_t *local_init(const char *root);
@@ -40,13 +47,18 @@ static int local_write_sparse(ds_file_t *file, const void *buf, size_t len,
                               size_t sparse_map_size,
                               const ds_sparse_chunk_t *sparse_map);
 static int local_close(ds_file_t *file);
+static int local_delete(ds_file_t *file);
+static void local_cleanup(ds_ctxt_t *ctxt);
 static void local_deinit(ds_ctxt_t *ctxt);
+static void local_size(ds_ctxt_t *ctxt, size_t *in_size, size_t *out_size);
 
 datasink_t datasink_local = {&local_init,         &local_open,  &local_write,
-                             &local_write_sparse, &local_close, &local_deinit};
+                             &local_write_sparse, &local_close, &local_delete,
+                             &local_cleanup, &local_deinit, &local_size};
 
 static ds_ctxt_t *local_init(const char *root) {
   ds_ctxt_t *ctxt;
+  ds_local_ctxt_t *local_ctxt;
 
   if (my_mkdir(root, 0777, MYF(0)) < 0 && my_errno() != EEXIST &&
       my_errno() != EISDIR) {
@@ -57,11 +69,25 @@ static ds_ctxt_t *local_init(const char *root) {
   }
 
   ctxt = static_cast<ds_ctxt_t *>(
-      my_malloc(PSI_NOT_INSTRUMENTED, sizeof(ds_ctxt_t), MYF(MY_FAE)));
+    my_malloc(PSI_NOT_INSTRUMENTED,
+              sizeof(ds_ctxt_t) + sizeof(ds_local_ctxt_t), MYF(MY_FAE)));
+
+  local_ctxt = (ds_local_ctxt_t*) (ctxt + 1);
+
+  if (pthread_mutex_init(&local_ctxt->mutex, NULL)) {
+    msg("local_init: pthread_mutex_init() failed.\n");
+    goto err;
+  }
+  local_ctxt->in_size = 0;
+  local_ctxt->out_size = 0;
 
   ctxt->root = my_strdup(PSI_NOT_INSTRUMENTED, root, MYF(MY_FAE));
+  ctxt->ptr = local_ctxt;
 
   return ctxt;
+err:
+  my_free(ctxt);
+  return NULL;
 }
 
 static ds_file_t *local_open(ds_ctxt_t *ctxt, const char *path,
@@ -98,6 +124,7 @@ static ds_file_t *local_open(ds_ctxt_t *ctxt, const char *path,
   local_file = (ds_local_file_t *)(file + 1);
 
   local_file->fd = fd;
+  local_file->local_ctxt = (ds_local_ctxt_t*) ctxt->ptr;
 
   file->path = (char *)local_file + sizeof(ds_local_file_t);
   memcpy(file->path, fullpath, path_len);
@@ -109,10 +136,16 @@ static ds_file_t *local_open(ds_ctxt_t *ctxt, const char *path,
 
 static int local_write(ds_file_t *file, const void *buf, size_t len) {
   File fd = ((ds_local_file_t *)file->ptr)->fd;
+  ds_local_ctxt_t *local_ctxt = ((ds_local_file_t *) file->ptr)->local_ctxt;
 
   if (!my_write(fd, static_cast<const uchar *>(buf), len,
                 MYF(MY_WME | MY_NABP))) {
     posix_fadvise(fd, 0, 0, POSIX_FADV_DONTNEED);
+    /* increment datasink size counter */
+    pthread_mutex_lock(&local_ctxt->mutex);
+    local_ctxt->in_size += len;
+    local_ctxt->out_size += len;
+    pthread_mutex_unlock(&local_ctxt->mutex);
     return 0;
   }
 
@@ -123,6 +156,8 @@ static int local_write_sparse(ds_file_t *file, const void *buf, size_t len,
                               size_t sparse_map_size,
                               const ds_sparse_chunk_t *sparse_map) {
   File fd = ((ds_local_file_t *)file->ptr)->fd;
+  ds_local_ctxt_t *local_ctxt = ((ds_local_file_t *) file->ptr)->local_ctxt;
+  size_t written_len = 0;
 
   const uchar *ptr = static_cast<const uchar *>(buf);
 
@@ -140,7 +175,15 @@ static int local_write_sparse(ds_file_t *file, const void *buf, size_t len,
     }
 
     ptr += sparse_map[i].len;
+
+    written_len += sparse_map[i].len;
   }
+
+  /* increment datasink size counter */
+  pthread_mutex_lock(&local_ctxt->mutex);
+  local_ctxt->in_size += len;
+  local_ctxt->out_size += written_len;
+  pthread_mutex_unlock(&local_ctxt->mutex);
 
   return 0;
 }
@@ -155,7 +198,41 @@ static int local_close(ds_file_t *file) {
   return my_close(fd, MYF(MY_WME));
 }
 
+static int local_delete(ds_file_t *file) {
+  File fd = ((ds_local_file_t *) file->ptr)->fd;
+  char filepath[FN_REFLEN];
+
+  strcpy(filepath, file->path);
+
+  my_free(file);
+
+  my_sync(fd, MYF(MY_WME));
+
+  return my_delete(filepath, MYF(MY_WME)) && my_close(fd, MYF(MY_WME));
+}
+
+static void local_cleanup(ds_ctxt_t *ctxt __attribute__((unused))) {
+  return;
+}
+
 static void local_deinit(ds_ctxt_t *ctxt) {
+  ds_local_ctxt_t  *local_ctxt = (ds_local_ctxt_t *) ctxt->ptr;
+
+  pthread_mutex_destroy(&local_ctxt->mutex);
+
   my_free(ctxt->root);
   my_free(ctxt);
+}
+
+static void local_size(ds_ctxt_t *ctxt, size_t *in_size, size_t *out_size) {
+  ds_local_ctxt_t *local_ctxt = (ds_local_ctxt_t *) ctxt->ptr;
+
+  pthread_mutex_lock(&local_ctxt->mutex);
+  if (in_size) {
+    *in_size = local_ctxt->in_size;
+  }
+  if (out_size) {
+    *out_size = local_ctxt->out_size;
+  }
+  pthread_mutex_unlock(&local_ctxt->mutex);
 }

@@ -44,6 +44,9 @@ typedef struct {
 
 typedef struct {
   Thread_pool *thread_pool;
+  pthread_mutex_t mutex;
+  size_t in_size;
+  size_t out_size;
 } ds_compress_ctxt_t;
 
 typedef struct {
@@ -66,17 +69,28 @@ static ds_file_t *compress_open(ds_ctxt_t *ctxt, const char *path,
                                 MY_STAT *mystat);
 static int compress_write(ds_file_t *file, const void *buf, size_t len);
 static int compress_close(ds_file_t *file);
+static int compress_delete(ds_file_t *file);
+static void compress_cleanup(ds_ctxt_t *ctxt);
 static void compress_deinit(ds_ctxt_t *ctxt);
+static void compress_size(ds_ctxt_t *ctxt, size_t *in_size, size_t *out_size);
 
 datasink_t datasink_compress_lz4 = {&compress_init,  &compress_open,
-                                    &compress_write, nullptr,
-                                    &compress_close, &compress_deinit};
+                                    &compress_write, nullptr, &compress_close,
+                                    &compress_delete, &compress_cleanup,
+                                    &compress_deinit, &compress_size};
 
 static inline int write_uint32_le(ds_file_t *file, uint32_t n);
 
 static ds_ctxt_t *compress_init(const char *root) {
   ds_compress_ctxt_t *compress_ctxt = new ds_compress_ctxt_t;
   compress_ctxt->thread_pool = new Thread_pool(xtrabackup_compress_threads);
+
+  if (pthread_mutex_init(&compress_ctxt->mutex, NULL)) {
+    msg("compress_init: pthread_mutex_init() failed.\n");
+    return NULL;
+  }
+  compress_ctxt->in_size = 0;
+  compress_ctxt->out_size = 0;
 
   ds_ctxt_t *ctxt = new ds_ctxt_t;
   ctxt->ptr = compress_ctxt;
@@ -120,6 +134,8 @@ static int compress_write(ds_file_t *file, const void *buf, size_t len) {
   ds_compress_file_t *comp_file = (ds_compress_file_t *)file->ptr;
   ds_compress_ctxt_t *comp_ctxt = comp_file->comp_ctxt;
   ds_file_t *dest_file = comp_file->dest_file;
+  size_t ori_len = len;
+  size_t written_len = 0;
 
   /* make sure we have enough memory for compression */
   const size_t comp_size = LZ4_compressBound(COMPRESS_CHUNK_SIZE);
@@ -211,6 +227,7 @@ static int compress_write(ds_file_t *file, const void *buf, size_t len) {
   if (ds_write(dest_file, header, sizeof(header))) {
     error = true;
   }
+  written_len += sizeof(header);
 
   /* write compressed blocks */
   for (size_t i = 0; i < n_chunks; i++) {
@@ -232,6 +249,9 @@ static int compress_write(ds_file_t *file, const void *buf, size_t len) {
       if (ds_write(dest_file, thd.to, thd.to_len)) {
         error = true;
       }
+
+      written_len += (4 + thd.to_len);
+
     } else {
       /* uncompressed block length */
       if (write_uint32_le(dest_file, thd.from_len | LZ4F_UNCOMPRESSED_BIT)) {
@@ -244,6 +264,9 @@ static int compress_write(ds_file_t *file, const void *buf, size_t len) {
         error = true;
         continue;
       }
+
+      written_len += (4 + thd.from_len);
+
     }
 
     comp_file->bytes_processed += thd.from_len;
@@ -262,6 +285,13 @@ static int compress_write(ds_file_t *file, const void *buf, size_t len) {
   if (write_uint32_le(dest_file, checksum)) {
     goto err;
   }
+  written_len += (4 + 4);
+
+  /* increment datasink size counter */
+  pthread_mutex_lock(&comp_ctxt->mutex);
+  comp_ctxt->in_size += ori_len;
+  comp_ctxt->out_size += written_len;
+  pthread_mutex_unlock(&comp_ctxt->mutex);
 
   return 0;
 
@@ -283,11 +313,26 @@ static int compress_close(ds_file_t *file) {
   return rc;
 }
 
+static int compress_delete(ds_file_t *file) {
+  ds_compress_file_t *comp_file = (ds_compress_file_t *)file->ptr;
+  ds_file_t *dest_file = comp_file->dest_file;
+
+  int rc = ds_delete(dest_file);
+
+  my_free(file);
+
+  return rc;
+}
+
+static void compress_cleanup(ds_ctxt_t *ctxt __attribute__((unused))) {
+  return;
+}
+
 static void compress_deinit(ds_ctxt_t *ctxt) {
   xb_ad(ctxt->pipe_ctxt != nullptr);
 
   ds_compress_ctxt_t *comp_ctxt = (ds_compress_ctxt_t *)ctxt->ptr;
-
+  pthread_mutex_destroy(&comp_ctxt->mutex);
   delete comp_ctxt->thread_pool;
   delete comp_ctxt;
 
@@ -299,4 +344,19 @@ static inline int write_uint32_le(ds_file_t *file, uint32_t n) {
   uchar tmp[4];
   int4store(tmp, n);
   return ds_write(file, tmp, sizeof(tmp));
+}
+
+static void compress_size(ds_ctxt_t *ctxt, size_t *in_size, size_t *out_size) {
+  ds_compress_ctxt_t *comp_ctxt = (ds_compress_ctxt_t*) ctxt->ptr;
+
+  pthread_mutex_lock(&comp_ctxt->mutex);
+
+  if (in_size) {
+    *in_size = comp_ctxt->in_size;
+  }
+  if (out_size) {
+    *out_size = comp_ctxt->out_size;
+  }
+
+  pthread_mutex_unlock(&comp_ctxt->mutex);
 }

@@ -64,6 +64,7 @@ Place, Suite 330, Boston, MA 02111-1307 USA
 #include "xtrabackup_version.h"
 
 #include "backup_mysql.h"
+#include "table_info.h"
 
 extern uint opt_ssl_mode;
 extern char *opt_ssl_ca;
@@ -1540,6 +1541,7 @@ bool write_current_binlog_file(MYSQL *connection) {
   bool result = true;
   char filepath[FN_REFLEN];
   size_t log_bin_dir_length;
+  void *info;
 
   mysql_variable vars[] = {{"log_bin_index", &log_bin_index},
                            {"log_bin_basename", &log_bin_dir},
@@ -1592,9 +1594,15 @@ bool write_current_binlog_file(MYSQL *connection) {
 
   snprintf(filepath, sizeof(filepath), "%s%c%s", log_bin_dir, FN_LIBCHAR,
            log_status.filename.c_str());
+
+  info = xb_prepare_table_info(filepath);
+
   result = copy_file(
       ds_data, filepath, log_status.filename.c_str(), 0, FILE_PURPOSE_BINLOG,
       log_status.position + binlog_encryption_header_size(filepath));
+
+  xb_finish_table_info(info);
+
   if (!result) {
     goto cleanup;
   }

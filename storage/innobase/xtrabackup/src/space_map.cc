@@ -32,6 +32,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include "common.h"
 #include "space_map.h"
 #include "xb0xb.h"
+#include "table_info.h"
 
 Tablespace_map Tablespace_map::static_tablespace_map;
 
@@ -209,6 +210,8 @@ bool Tablespace_map::serialize(ds_ctxt_t *ds) const {
 
   rc = true;
 
+  void *info = xb_prepare_table_info(path);
+
   if (ds_write(stream, buf.GetString(), buf.GetSize())) {
     rc = false;
   }
@@ -216,6 +219,8 @@ bool Tablespace_map::serialize(ds_ctxt_t *ds) const {
   if (ds_close(stream)) {
     rc = false;
   }
+
+  xb_finish_table_info(info);
 
   return (rc);
 }

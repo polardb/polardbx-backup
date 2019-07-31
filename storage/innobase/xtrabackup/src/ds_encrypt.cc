@@ -66,6 +66,9 @@ struct encrypt_thread_ctxt_t {
 
 typedef struct {
   Thread_pool *thread_pool;
+  pthread_mutex_t mutex;
+  size_t in_size;
+  size_t out_size;
 } ds_encrypt_ctxt_t;
 
 typedef struct {
@@ -91,23 +94,33 @@ static ds_file_t *encrypt_open(ds_ctxt_t *ctxt, const char *path,
                                MY_STAT *mystat);
 static int encrypt_write(ds_file_t *file, const void *buf, size_t len);
 static int encrypt_close(ds_file_t *file);
+static int encrypt_delete(ds_file_t *file);
+static void encrypt_cleanup(ds_ctxt_t *ctxt);
 static void encrypt_deinit(ds_ctxt_t *ctxt);
+static void encrypt_size(ds_ctxt_t *ctxt, size_t *in_size, size_t *out_size);
 
 datasink_t datasink_encrypt = {&encrypt_init, &encrypt_open,  &encrypt_write,
-                               nullptr,       &encrypt_close, &encrypt_deinit};
+                               nullptr,       &encrypt_close, &encrypt_delete,
+                               &encrypt_cleanup, &encrypt_deinit, &encrypt_size};
 
 static uint encrypt_iv_len = 0;
 
 static ssize_t my_xb_crypt_write_callback(void *userdata, const void *buf,
                                           size_t len) {
   ds_encrypt_file_t *encrypt_file;
+  ds_encrypt_ctxt_t *crypt_ctxt;
 
   encrypt_file = (ds_encrypt_file_t *)userdata;
+  crypt_ctxt = encrypt_file->crypt_ctxt;
 
   xb_ad(encrypt_file != NULL);
   xb_ad(encrypt_file->dest_file != NULL);
 
   if (!ds_write(encrypt_file->dest_file, buf, len)) {
+    /* increment datasink size counter */
+    pthread_mutex_lock(&crypt_ctxt->mutex);
+    crypt_ctxt->out_size += len;
+    pthread_mutex_unlock(&crypt_ctxt->mutex);
     return len;
   }
   return -1;
@@ -118,11 +131,17 @@ static ds_ctxt_t *encrypt_init(const char *root) {
     return NULL;
   }
 
-  ds_ctxt_t *ctxt = new ds_ctxt_t;
-
   ds_encrypt_ctxt_t *encrypt_ctxt = new ds_encrypt_ctxt_t;
   encrypt_ctxt->thread_pool = new Thread_pool(ds_encrypt_encrypt_threads);
 
+  if (pthread_mutex_init(&encrypt_ctxt->mutex, NULL)) {
+    msg("encrypt_init: pthread_mutex_init() failed.\n");
+    return NULL;
+  }
+  encrypt_ctxt->in_size = 0;
+  encrypt_ctxt->out_size = 0;
+
+  ds_ctxt_t *ctxt = new ds_ctxt_t;
   ctxt->ptr = encrypt_ctxt;
   ctxt->root = my_strdup(PSI_NOT_INSTRUMENTED, root, MYF(MY_FAE));
 
@@ -194,6 +213,7 @@ err:
 static int encrypt_write(ds_file_t *file, const void *buf, size_t len) {
   ds_encrypt_file_t *crypt_file = (ds_encrypt_file_t *)file->ptr;
   ds_encrypt_ctxt_t *crypt_ctxt = crypt_file->crypt_ctxt;
+  size_t ori_len = len;
 
   /* make sure we have enough memory for encryption */
   const size_t crypt_size = XB_CRYPT_CHUNK_SIZE + XB_CRYPT_HASH_LEN;
@@ -275,6 +295,13 @@ static int encrypt_write(ds_file_t *file, const void *buf, size_t len) {
     crypt_file->bytes_processed += thd.from_len;
   }
 
+  if (!error) {
+    /* increment datasink size counter */
+    pthread_mutex_lock(&crypt_ctxt->mutex);
+    crypt_ctxt->in_size += ori_len;
+    pthread_mutex_unlock(&crypt_ctxt->mutex);
+  }
+
   return error ? 1 : 0;
 }
 
@@ -301,13 +328,55 @@ static int encrypt_close(ds_file_t *file) {
   return rc;
 }
 
+static int encrypt_delete(ds_file_t *file) {
+  ds_encrypt_file_t *crypt_file;
+  ds_file_t *dest_file;
+  int rc = 0;
+
+  crypt_file = (ds_encrypt_file_t *) file->ptr;
+  dest_file = crypt_file->dest_file;
+
+  rc = xb_crypt_write_close(crypt_file->xbcrypt_file);
+
+  if (ds_delete(dest_file)) {
+    rc = 1;
+  }
+
+  my_free(crypt_file->crypt_buf);
+  my_free(crypt_file->iv_buf);
+  my_free(crypt_file);
+  my_free(file);
+
+  return rc;
+}
+
+static void encrypt_cleanup(ds_ctxt_t *ctxt __attribute__((unused))) {
+  return;
+}
+
 static void encrypt_deinit(ds_ctxt_t *ctxt) {
   xb_ad(ctxt->pipe_ctxt != NULL);
 
   ds_encrypt_ctxt_t *crypt_ctxt = (ds_encrypt_ctxt_t *)ctxt->ptr;
+
+  pthread_mutex_destroy(&crypt_ctxt->mutex);
+
   delete crypt_ctxt->thread_pool;
   delete crypt_ctxt;
 
   my_free(ctxt->root);
   delete ctxt;
+}
+
+static void encrypt_size(ds_ctxt_t *ctxt, size_t *in_size, size_t *out_size) {
+  ds_encrypt_ctxt_t *crypt_ctxt = (ds_encrypt_ctxt_t *) ctxt->ptr;
+
+  pthread_mutex_lock(&crypt_ctxt->mutex);
+  if (in_size) {
+    *in_size = crypt_ctxt->in_size;
+  }
+  if (out_size) {
+    *out_size = crypt_ctxt->out_size;
+  }
+  pthread_mutex_unlock(&crypt_ctxt->mutex);
 }

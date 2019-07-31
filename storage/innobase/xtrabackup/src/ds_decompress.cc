@@ -58,6 +58,9 @@ typedef struct {
 typedef struct {
   ulonglong chunk_size;
   Thread_pool *thread_pool;
+  pthread_mutex_t mutex;
+  size_t in_size;
+  size_t out_size;
 } ds_decompress_ctxt_t;
 
 typedef struct {
@@ -81,11 +84,15 @@ static ds_file_t *decompress_open(ds_ctxt_t *ctxt, const char *path,
                                   MY_STAT *mystat);
 static int decompress_write(ds_file_t *file, const void *buf, size_t len);
 static int decompress_close(ds_file_t *file);
+static int decompress_delete(ds_file_t *file);
+static void decompress_cleanup(ds_ctxt_t *ctxt);
 static void decompress_deinit(ds_ctxt_t *ctxt);
+static void decompress_size(ds_ctxt_t *ctxt, size_t *in_size, size_t *out_size);
 
 datasink_t datasink_decompress = {&decompress_init,  &decompress_open,
-                                  &decompress_write, nullptr,
-                                  &decompress_close, &decompress_deinit};
+                                  &decompress_write, nullptr, &decompress_close,
+                                  &decompress_delete, &decompress_cleanup,
+                                  &decompress_deinit, &decompress_size};
 
 static int decompress_process_metadata(ds_decompress_file_t *file,
                                        const char **ptr, size_t *len);
@@ -98,6 +105,13 @@ static ds_ctxt_t *decompress_init(const char *root) {
   ds_decompress_ctxt_t *decompress_ctxt = new ds_decompress_ctxt_t;
   decompress_ctxt->thread_pool = new Thread_pool(ds_decompress_quicklz_threads);
   decompress_ctxt->chunk_size = 0;
+
+  if (pthread_mutex_init(&decompress_ctxt->mutex, NULL)) {
+    msg("compress_init: pthread_mutex_init() failed.\n");
+    return NULL;
+  }
+  decompress_ctxt->in_size = 0;
+  decompress_ctxt->out_size = 0;
 
   ds_ctxt_t *ctxt = new ds_ctxt_t;
   ctxt->ptr = decompress_ctxt;
@@ -173,6 +187,8 @@ static int decompress_write(ds_file_t *file, const void *buf, size_t len) {
   int res;
   const char *ptr;
   ds_file_t *dest_file;
+  size_t ori_len = len;
+  size_t written_len = 0;
 
   decomp_file = (ds_decompress_file_t *)file->ptr;
   decomp_ctxt = decomp_file->decomp_ctxt;
@@ -240,6 +256,8 @@ static int decompress_write(ds_file_t *file, const void *buf, size_t len) {
         and we need to release them for all threads to avoid bad state and
         also need to loop threads to free buffers */
         res = ds_write(dest_file, threads[i].to, threads[i].to_len);
+
+        written_len += threads[i].to_len;
       }
     }
 
@@ -248,6 +266,12 @@ static int decompress_write(ds_file_t *file, const void *buf, size_t len) {
       return res;
     }
   }
+
+  /* increment datasink size counter */
+  pthread_mutex_lock(&decomp_ctxt->mutex);
+  decomp_ctxt->in_size += ori_len;
+  decomp_ctxt->out_size += written_len;
+  pthread_mutex_unlock(&decomp_ctxt->mutex);
 
   return 0;
 }
@@ -430,10 +454,37 @@ static int decompress_close(ds_file_t *file) {
   return rc;
 }
 
+static int decompress_delete(ds_file_t *file) {
+  ds_decompress_file_t *decomp_file = (ds_decompress_file_t *)file->ptr;
+  ds_file_t *dest_file = decomp_file->dest_file;
+  decompress_state_t last_state = decomp_file->state;
+
+  int rc = ds_delete(dest_file);
+
+  my_free(decomp_file->buffer);
+  decomp_file->buffer = NULL;
+  destroy_worker_thread_buffers(decomp_file->threads, decomp_file->nthreads);
+  my_free(decomp_file->threads);
+  my_free(file);
+
+  if (last_state != STATE_REACHED_EOF) {
+    msg("decompress: file deleted before reaching end of compressed data.\n");
+    rc = 1;
+  }
+
+  return rc;
+}
+
+static void decompress_cleanup(ds_ctxt_t *ctxt __attribute__((unused))) {
+  return;
+}
+
 static void decompress_deinit(ds_ctxt_t *ctxt) {
   xb_ad(ctxt->pipe_ctxt != NULL);
 
   ds_decompress_ctxt_t *decomp_ctxt = (ds_decompress_ctxt_t *)ctxt->ptr;
+
+  pthread_mutex_destroy(&decomp_ctxt->mutex);
   delete decomp_ctxt->thread_pool;
   delete decomp_ctxt;
 
@@ -459,4 +510,20 @@ static void destroy_worker_thread_buffers(decomp_thread_ctxt_t *threads,
     decomp_thread_ctxt_t *thd = threads + i;
     my_free(thd->to);
   }
+}
+
+static void decompress_size(ds_ctxt_t *ctxt, size_t *in_size,
+                            size_t *out_size) {
+  ds_decompress_ctxt_t *decomp_ctxt = (ds_decompress_ctxt_t *) ctxt->ptr;
+
+  pthread_mutex_lock(&decomp_ctxt->mutex);
+
+  if (in_size) {
+    *in_size = decomp_ctxt->in_size;
+  }
+  if (out_size) {
+    *out_size = decomp_ctxt->out_size;
+  }
+
+  pthread_mutex_unlock(&decomp_ctxt->mutex);
 }

@@ -73,6 +73,7 @@ extern char *innobase_directories;
 extern ds_ctxt_t *ds_meta;
 extern ds_ctxt_t *ds_data;
 extern ds_ctxt_t *ds_uncompressed_data;
+extern ds_ctxt_t *ds_dest;
 
 extern xb_page_bitmap *changed_page_bitmap;
 
@@ -207,6 +208,8 @@ enum binlog_info_enum {
   BINLOG_INFO_ON,
   BINLOG_INFO_AUTO
 };
+
+extern bool rds_table_level_mode;
 
 void xtrabackup_io_throttling(void);
 bool xb_write_delta_metadata(const char *filename, const xb_delta_info_t *info);

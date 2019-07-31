@@ -107,10 +107,14 @@ typedef struct {
 
 xb_rstream_t *xb_stream_read_new(void);
 
+xb_rstream_t *xb_stream_read_fd_new(File fd, my_off_t start, my_off_t stop);
+
 xb_rstream_result_t xb_stream_read_chunk(xb_rstream_t *stream,
                                          xb_rstream_chunk_t *chunk);
 
 int xb_stream_read_done(xb_rstream_t *stream);
+
+my_off_t xb_stream_read_offset(xb_rstream_t *stream);
 
 xb_rstream_result_t xb_stream_validate_checksum(xb_rstream_chunk_t *chunk);
 

@@ -130,7 +130,7 @@ dberr_t Datafile::open_read_only(bool strict) {
     return (DB_SUCCESS);
   }
 
-  if (strict) {
+  if (strict && !srv_partial_recover_mode) {
     m_last_os_error = os_file_get_last_error(true);
     ib::error(ER_IB_MSG_391) << "Cannot open datafile for read-only: '"
                              << m_filepath << "' OS error: " << m_last_os_error;

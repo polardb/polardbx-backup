@@ -30,6 +30,8 @@ typedef struct {
   xb_wstream_t *xbstream;
   ds_file_t *dest_file;
   pthread_mutex_t mutex;
+  size_t in_size;
+  size_t out_size;
 } ds_stream_ctxt_t;
 
 typedef struct {
@@ -48,11 +50,16 @@ static int xbstream_write_sparse(ds_file_t *file, const void *buf, size_t len,
                                  size_t sparse_map_size,
                                  const ds_sparse_chunk_t *sparse_map);
 static int xbstream_close(ds_file_t *file);
+static int xbstream_delete(ds_file_t *file);
+static void xbstream_cleanup(ds_ctxt_t *ctxt);
 static void xbstream_deinit(ds_ctxt_t *ctxt);
+static void xbstream_size(ds_ctxt_t *ctxt, size_t *in_size, size_t *out_size);
 
 datasink_t datasink_xbstream = {&xbstream_init,  &xbstream_open,
                                 &xbstream_write, &xbstream_write_sparse,
-                                &xbstream_close, &xbstream_deinit};
+                                &xbstream_close, &xbstream_delete,
+                                &xbstream_cleanup, &xbstream_deinit,
+                                &xbstream_size};
 
 static ssize_t my_xbstream_write_callback(xb_wstream_file_t *f
                                           __attribute__((unused)),
@@ -66,6 +73,10 @@ static ssize_t my_xbstream_write_callback(xb_wstream_file_t *f
   xb_ad(stream_ctxt->dest_file != NULL);
 
   if (!ds_write(stream_ctxt->dest_file, buf, len)) {
+    /* increment datasink size counter */
+    pthread_mutex_lock(&stream_ctxt->mutex);
+    stream_ctxt->out_size += len;
+    pthread_mutex_unlock(&stream_ctxt->mutex);
     return len;
   }
   return -1;
@@ -85,6 +96,8 @@ static ds_ctxt_t *xbstream_init(const char *root __attribute__((unused))) {
     msg("xbstream_init: pthread_mutex_init() failed.\n");
     goto err;
   }
+  stream_ctxt->in_size = 0;
+  stream_ctxt->out_size = 0;
 
   xbstream = xb_stream_write_new();
   if (xbstream == NULL) {
@@ -161,8 +174,10 @@ err:
 static int xbstream_write(ds_file_t *file, const void *buf, size_t len) {
   ds_stream_file_t *stream_file;
   xb_wstream_file_t *xbstream_file;
+  ds_stream_ctxt_t *stream_ctxt;
 
   stream_file = (ds_stream_file_t *)file->ptr;
+  stream_ctxt = stream_file->stream_ctxt;
 
   xbstream_file = stream_file->xbstream_file;
 
@@ -170,6 +185,11 @@ static int xbstream_write(ds_file_t *file, const void *buf, size_t len) {
     msg("xb_stream_write_data() failed.\n");
     return 1;
   }
+
+  /* increment datasink size counter */
+  pthread_mutex_lock(&stream_ctxt->mutex);
+  stream_ctxt->in_size += len;
+  pthread_mutex_unlock(&stream_ctxt->mutex);
 
   return 0;
 }
@@ -179,8 +199,10 @@ static int xbstream_write_sparse(ds_file_t *file, const void *buf, size_t len,
                                  const ds_sparse_chunk_t *sparse_map) {
   ds_stream_file_t *stream_file;
   xb_wstream_file_t *xbstream_file;
+  ds_stream_ctxt_t *stream_ctxt;
 
   stream_file = (ds_stream_file_t *)file->ptr;
+  stream_ctxt = stream_file->stream_ctxt;
 
   xbstream_file = stream_file->xbstream_file;
 
@@ -189,6 +211,11 @@ static int xbstream_write_sparse(ds_file_t *file, const void *buf, size_t len,
     msg("xb_stream_write_sparse_data() failed.\n");
     return 1;
   }
+
+  /* increment datasink size counter */
+  pthread_mutex_lock(&stream_ctxt->mutex);
+  stream_ctxt->in_size += len;
+  pthread_mutex_unlock(&stream_ctxt->mutex);
 
   return 0;
 }
@@ -206,7 +233,14 @@ static int xbstream_close(ds_file_t *file) {
   return rc;
 }
 
-static void xbstream_deinit(ds_ctxt_t *ctxt) {
+static int xbstream_delete(ds_file_t *file) {
+  msg("Error: delete path=%s failed, xbstream datasink don't support "
+      "delete operation.\n", file->path);
+
+  return 1;
+}
+
+static void xbstream_cleanup(ds_ctxt_t *ctxt) {
   ds_stream_ctxt_t *stream_ctxt;
 
   stream_ctxt = (ds_stream_ctxt_t *)ctxt->ptr;
@@ -219,8 +253,25 @@ static void xbstream_deinit(ds_ctxt_t *ctxt) {
     ds_close(stream_ctxt->dest_file);
     stream_ctxt->dest_file = NULL;
   }
+}
+
+static void xbstream_deinit(ds_ctxt_t *ctxt) {
+  ds_stream_ctxt_t *stream_ctxt = (ds_stream_ctxt_t *) ctxt->ptr;
 
   pthread_mutex_destroy(&stream_ctxt->mutex);
 
   my_free(ctxt);
+}
+
+static void xbstream_size(ds_ctxt_t *ctxt, size_t *in_size, size_t *out_size) {
+  ds_stream_ctxt_t *stream_ctxt = (ds_stream_ctxt_t *) ctxt->ptr;
+
+  pthread_mutex_lock(&stream_ctxt->mutex);
+  if (in_size) {
+    *in_size = stream_ctxt->in_size;
+  }
+  if (out_size) {
+    *out_size = stream_ctxt->out_size;
+  }
+  pthread_mutex_unlock(&stream_ctxt->mutex);
 }

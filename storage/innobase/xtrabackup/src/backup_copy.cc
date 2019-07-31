@@ -66,6 +66,8 @@ Place, Suite 330, Boston, MA 02111-1307 USA
 #include "space_map.h"
 #include "xb0xb.h"
 #include "os0key.h" // is_keyring_rds
+#include <regex.h>
+#include "table_info.h"
 
 #include "backup_copy.h"
 #include "backup_mysql.h"
@@ -268,7 +270,7 @@ static bool file_exists(const char *filename) {
 
 /************************************************************************
 Trim leading slashes from absolute path so it becomes relative */
-static const char *trim_dotslash(const char *path) {
+const char *trim_dotslash(const char *path) {
   while (*path) {
     if (is_path_separator(*path)) {
       ++path;
@@ -286,7 +288,7 @@ static const char *trim_dotslash(const char *path) {
 
 /** Check if string ends with given suffix.
 @return true if string ends with given suffix. */
-static bool ends_with(const char *str, const char *suffix) {
+bool ends_with(const char *str, const char *suffix) {
   size_t suffix_len = strlen(suffix);
   size_t str_len = strlen(str);
   return (str_len >= suffix_len &&
@@ -432,6 +434,30 @@ static bool filename_matches(const char *filename, const char **ext_list) {
 }
 
 /************************************************************************
+Check if file name matches given set of Regular Expressions
+@return true if it does. */
+bool filename_matches_regex(const char *filename, const char **pattern_list)
+{
+  regex_t re;
+  const char **pattern;
+
+  for (pattern = pattern_list; *pattern; pattern++) {
+    regcomp(&re, *pattern, REG_EXTENDED|REG_NOSUB);
+
+    /* match found */
+    if (regexec(&re, filename, 0, NULL, 0) == 0) {
+      regfree(&re);
+      return(true);
+    }
+
+    /* re must be freed before next compile */
+    regfree(&re);
+  }
+
+  return(false);
+}
+
+/************************************************************************
 Copy data file for backup. Also check if it is allowed to copy by
 comparing its name to the list of known data file types and checking
 if passes the rules for partial backup.
@@ -454,11 +480,17 @@ static bool datafile_copy_backup(const char *filepath, uint thread_n) {
     return (true);
   }
 
+  bool ret = true;
+
   if (filename_matches(filepath, ext_list)) {
-    return copy_file(ds_data, filepath, filepath, thread_n, FILE_PURPOSE_OTHER);
+    void *info = xb_prepare_table_info(filepath);
+
+    ret = copy_file(ds_data, filepath, filepath, thread_n, FILE_PURPOSE_OTHER);
+
+    xb_finish_table_info(info);
   }
 
-  return (true);
+  return (ret);
 }
 
 /************************************************************************
@@ -517,6 +549,8 @@ bool backup_file_print(const char *filename, const char *message, int len) {
   stat.st_mtime = my_time(0);
   stat.st_size = len;
 
+  void *info = xb_prepare_table_info(filename);
+
   dstfile = ds_open(ds_data, filename, &stat);
   if (dstfile == NULL) {
     msg("[%02u] error: "
@@ -532,6 +566,8 @@ bool backup_file_print(const char *filename, const char *message, int len) {
   if (ds_close(dstfile)) {
     goto error_close;
   }
+
+  xb_finish_table_info(info);
 
   return (true);
 
@@ -1688,10 +1724,15 @@ static void backup_rocksdb_files(const Myrocks_datadir::const_iterator &start,
                                  const Myrocks_datadir::const_iterator &end,
                                  size_t thread_n, bool *result) {
   for (auto it = start; it != end; it++) {
+    void *info = xb_prepare_table_info(it->path.c_str());
+
     if (!copy_file(ds_uncompressed_data, it->path.c_str(), it->rel_path.c_str(),
                    thread_n, FILE_PURPOSE_OTHER, it->file_size)) {
       *result = false;
     }
+
+    xb_finish_table_info(info);
+
     if (!*result) {
       break;
     }
@@ -1931,10 +1972,19 @@ bool backup_finish(Backup_context &context) {
       const char *dst_name;
 
       dst_name = trim_dotslash(buffer_pool_filename);
+
+      void *info = xb_prepare_table_info(buffer_pool_filename);
+
       copy_file(ds_data, buffer_pool_filename, dst_name, 0, FILE_PURPOSE_OTHER);
+
+      xb_finish_table_info(info);
     }
     if (file_exists("ib_lru_dump")) {
+      void *info = xb_prepare_table_info("ib_lru_dump");
+
       copy_file(ds_data, "ib_lru_dump", "ib_lru_dump", 0, FILE_PURPOSE_OTHER);
+
+      xb_finish_table_info(info);
     }
   }
 

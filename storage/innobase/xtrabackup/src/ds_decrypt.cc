@@ -99,6 +99,9 @@ typedef struct {
   Thread_pool *thread_pool;
   int encrypt_algo;
   size_t chunk_size;
+  pthread_mutex_t mutex;
+  size_t in_size;
+  size_t out_size;
 } ds_decrypt_ctxt_t;
 
 typedef struct {
@@ -118,10 +121,14 @@ static ds_file_t *decrypt_open(ds_ctxt_t *ctxt, const char *path,
                                MY_STAT *mystat);
 static int decrypt_write(ds_file_t *file, const void *buf, size_t len);
 static int decrypt_close(ds_file_t *file);
+static int decrypt_delete(ds_file_t *file);
+static void decrypt_cleanup(ds_ctxt_t *ctxt);
 static void decrypt_deinit(ds_ctxt_t *ctxt);
+static void decrypt_size(ds_ctxt_t *ctxt, size_t *in_size, size_t *out_size);
 
 datasink_t datasink_decrypt = {&decrypt_init, &decrypt_open,  &decrypt_write,
-                               nullptr,       &decrypt_close, &decrypt_deinit};
+                               nullptr,       &decrypt_close, &decrypt_delete,
+                               &decrypt_cleanup, &decrypt_deinit, &decrypt_size};
 
 static ds_ctxt_t *decrypt_init(const char *root) {
   if (xb_crypt_init(NULL)) {
@@ -130,6 +137,13 @@ static ds_ctxt_t *decrypt_init(const char *root) {
 
   ds_decrypt_ctxt_t *decrypt_ctxt = new ds_decrypt_ctxt_t;
   decrypt_ctxt->thread_pool = new Thread_pool(ds_decrypt_encrypt_threads);
+
+  if (pthread_mutex_init(&decrypt_ctxt->mutex, NULL)) {
+    msg("decrypt_init: pthread_mutex_init() failed.\n");
+    return NULL;
+  }
+  decrypt_ctxt->in_size = 0;
+  decrypt_ctxt->out_size = 0;
 
   ds_ctxt_t *ctxt = new ds_ctxt_t;
   ctxt->ptr = decrypt_ctxt;
@@ -313,6 +327,8 @@ static int decrypt_write(ds_file_t *file, const void *buf, size_t len) {
   ds_decrypt_ctxt_t *crypt_ctxt = crypt_file->crypt_ctxt;
   xb_rcrypt_result_t r = XB_CRYPT_READ_CHUNK;
   bool err = false;
+  size_t ori_len = len;
+  size_t written_len = 0;
 
   crypt_file->stream.set_buffer(static_cast<const char *>(buf), len);
 
@@ -359,6 +375,7 @@ static int decrypt_write(ds_file_t *file, const void *buf, size_t len) {
             msg("decrypt: write to destination failed.\n");
             err = true;
           }
+          written_len += thd.to_len;
 
           crypt_file->bytes_processed += thd.from_len;
         }
@@ -368,6 +385,14 @@ static int decrypt_write(ds_file_t *file, const void *buf, size_t len) {
   } while (r == XB_CRYPT_READ_CHUNK);
 
   crypt_file->stream.reset();
+
+  if (!err) {
+    /* increment datasink size counter */
+    pthread_mutex_lock(&crypt_ctxt->mutex);
+    crypt_ctxt->in_size += ori_len;
+    crypt_ctxt->out_size += written_len;
+    pthread_mutex_unlock(&crypt_ctxt->mutex);
+  }
 
   return err ? 1 : 0;
 }
@@ -396,10 +421,39 @@ static int decrypt_close(ds_file_t *file) {
   return rc;
 }
 
+static int decrypt_delete(ds_file_t *file) {
+  ds_decrypt_file_t *crypt_file;
+  ds_file_t *dest_file;
+  int rc = 0;
+
+  crypt_file = (ds_decrypt_file_t *)file->ptr;
+  dest_file = crypt_file->dest_file;
+
+  if (!crypt_file->stream.empty()) {
+    msg("decrypt: unprocessed data left in the buffer.\n");
+    rc = 2;
+  }
+
+  if (ds_delete(dest_file)) {
+    msg("decrypt: failed to delete dest file.\n");
+    rc = 1;
+  }
+
+  my_free(crypt_file);
+  my_free(file);
+
+  return rc;
+}
+
+static void decrypt_cleanup(ds_ctxt_t *ctxt __attribute__((unused))) {
+  return;
+}
+
 static void decrypt_deinit(ds_ctxt_t *ctxt) {
   xb_ad(ctxt->pipe_ctxt != nullptr);
 
   ds_decrypt_ctxt_t *crypt_ctxt = static_cast<ds_decrypt_ctxt_t *>(ctxt->ptr);
+  pthread_mutex_destroy(&crypt_ctxt->mutex);
 
   delete crypt_ctxt->thread_pool;
 
@@ -407,4 +461,18 @@ static void decrypt_deinit(ds_ctxt_t *ctxt) {
 
   delete crypt_ctxt;
   delete ctxt;
+}
+
+static void decrypt_size(ds_ctxt_t *ctxt, size_t *in_size, size_t *out_size)
+{
+  ds_decrypt_ctxt_t *crypt_ctxt = (ds_decrypt_ctxt_t *) ctxt->ptr;
+
+  pthread_mutex_lock(&crypt_ctxt->mutex);
+  if (in_size) {
+    *in_size = crypt_ctxt->in_size;
+  }
+  if (out_size) {
+    *out_size = crypt_ctxt->out_size;
+  }
+  pthread_mutex_unlock(&crypt_ctxt->mutex);
 }

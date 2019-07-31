@@ -545,6 +545,7 @@ bool srv_apply_log_only = false;
 bool srv_backup_mode = false;
 bool srv_close_files = true;
 bool srv_rollback_prepared_trx = false;
+bool srv_partial_recover_mode = false;
 
 /*-------------------------------------------*/
 ulong srv_n_spin_wait_rounds = 30;

@@ -81,4 +81,15 @@ bool directory_exists(const char *dir, bool create);
 int mkdirp(const char *pathname, int Flags, myf MyFlags);
 bool xtrabackup_xengine_prepare_func();
 
+bool filename_matches_regex(const char *filename, const char **pattern_list);
+
+/************************************************************************
+Trim leading slashes from absolute path so it becomes relative */
+const char *trim_dotslash(const char *path);
+
+/************************************************************************
+Check if string ends with given suffix.
+@return true if string ends with given suffix. */
+bool ends_with(const char *str, const char *suffix);
+
 #endif
