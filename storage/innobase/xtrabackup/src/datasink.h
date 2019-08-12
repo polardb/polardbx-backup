@@ -43,10 +43,18 @@ typedef struct {
   datasink_t *datasink;
 } ds_file_t;
 
+typedef struct {
+  size_t skip;
+  size_t len;
+} ds_sparse_chunk_t;
+
 struct datasink_struct {
   ds_ctxt_t *(*init)(const char *root);
   ds_file_t *(*open)(ds_ctxt_t *ctxt, const char *path, MY_STAT *stat);
   int (*write)(ds_file_t *file, const void *buf, size_t len);
+  int (*write_sparse)(ds_file_t *file, const void *buf, size_t len,
+                      size_t sparse_map_size,
+                      const ds_sparse_chunk_t *sparse_map);
   int (*close)(ds_file_t *file);
   void (*deinit)(ds_ctxt_t *ctxt);
 };
@@ -56,8 +64,10 @@ typedef enum {
   DS_TYPE_STDOUT,
   DS_TYPE_LOCAL,
   DS_TYPE_XBSTREAM,
-  DS_TYPE_COMPRESS,
-  DS_TYPE_DECOMPRESS,
+  DS_TYPE_COMPRESS_QUICKLZ,
+  DS_TYPE_COMPRESS_LZ4,
+  DS_TYPE_DECOMPRESS_QUICKLZ,
+  DS_TYPE_DECOMPRESS_LZ4,
   DS_TYPE_ENCRYPT,
   DS_TYPE_DECRYPT,
   DS_TYPE_TMPFILE,
@@ -76,6 +86,18 @@ ds_file_t *ds_open(ds_ctxt_t *ctxt, const char *path, MY_STAT *stat);
 Write to a datasink file.
 @return 0 on success, 1 on error. */
 int ds_write(ds_file_t *file, const void *buf, size_t len);
+
+/************************************************************************
+Check if sparse files are supported.
+@return 1 if yes. */
+int ds_is_sparse_write_supported(ds_file_t *file);
+
+/************************************************************************
+Write sparse chunk if supported.
+@return 0 on success, 1 on error. */
+int ds_write_sparse(ds_file_t *file, const void *buf, size_t len,
+                    size_t sparse_map_size,
+                    const ds_sparse_chunk_t *sparse_map);
 
 /************************************************************************
 Close a datasink file.

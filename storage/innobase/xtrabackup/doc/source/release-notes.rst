@@ -12,6 +12,7 @@
 .. toctree::
    :maxdepth: 1
 
+   release-notes/8.0/8.0.6
    release-notes/8.0/8.0.5
    release-notes/8.0/8.0.4
    release-notes/8.0/8.0-3-rc1
@@ -24,6 +25,7 @@
 .. toctree::
    :maxdepth: 1
 
+   release-notes/2.4/2.4.15
    release-notes/2.4/2.4.14
    release-notes/2.4/2.4.13
    release-notes/2.4/2.4.12

@@ -710,10 +710,8 @@ bool xb_tablespace_keys_dump(ds_ctxt_t *ds_ctxt, const char *transition_key,
   }
 
   if (ds_write(stream, transition_key_name, sizeof(transition_key_name))) {
-    msg_ts(
-        "Error writing %s: failed to write "
-        "transition key name.\n",
-        XTRABACKUP_KEYS_FILE);
+    msg_ts("Error writing %s: failed to write transition key name.\n",
+           XTRABACKUP_KEYS_FILE);
     goto error;
   }
 
@@ -848,7 +846,7 @@ bool xb_binlog_password_reencrypt(const char *binlog_file_path) {
   auto header = binlog_header_read(binlog_file_path);
 
   Key_string file_password(key, ENCRYPTION_KEY_LEN);
-  header->reset_file_password(file_password);
+  header->encrypt_file_password(file_password);
 
   IO_CACHE_ostream ostream;
   if (ostream.open(key_file_binlog, binlog_file_path,

@@ -1,7 +1,7 @@
 /******************************************************
-Copyright (c) 2011-2013 Percona LLC and/or its affiliates.
+Copyright (c) 2011-2019 Percona LLC and/or its affiliates.
 
-Compressing datasink implementation for XtraBackup.
+Compressing datasink implementation using quicklz for XtraBackup.
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -27,37 +27,33 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA
 #include <zlib.h>
 #include "common.h"
 #include "datasink.h"
+#include "thread_pool.h"
 
 #define COMPRESS_CHUNK_SIZE ((size_t)(xtrabackup_compress_chunk_size))
 #define MY_QLZ_COMPRESS_OVERHEAD 400
 
 typedef struct {
-  pthread_t id;
-  uint num;
-  pthread_mutex_t ctrl_mutex;
-  pthread_cond_t ctrl_cond;
-  pthread_mutex_t data_mutex;
-  pthread_cond_t data_cond;
-  bool started;
-  bool data_avail;
-  bool cancelled;
   const char *from;
   size_t from_len;
   char *to;
   size_t to_len;
+  size_t to_size;
+  uint32_t adler;
   qlz_state_compress state;
-  ulong adler;
 } comp_thread_ctxt_t;
 
 typedef struct {
-  comp_thread_ctxt_t *threads;
-  uint nthreads;
+  Thread_pool *thread_pool;
 } ds_compress_ctxt_t;
 
 typedef struct {
   ds_file_t *dest_file;
   ds_compress_ctxt_t *comp_ctxt;
   size_t bytes_processed;
+  char *comp_buf;
+  size_t comp_buf_size;
+  std::vector<std::future<void>> tasks;
+  std::vector<comp_thread_ctxt_t> contexts;
 } ds_compress_file_t;
 
 /* Compression options */
@@ -72,36 +68,18 @@ static int compress_write(ds_file_t *file, const void *buf, size_t len);
 static int compress_close(ds_file_t *file);
 static void compress_deinit(ds_ctxt_t *ctxt);
 
-datasink_t datasink_compress = {&compress_init, &compress_open, &compress_write,
+datasink_t datasink_compress = {&compress_init,  &compress_open,
+                                &compress_write, nullptr,
                                 &compress_close, &compress_deinit};
 
-static inline int write_uint32_le(ds_file_t *file, ulong n);
+static inline int write_uint32_le(ds_file_t *file, uint32_t n);
 static inline int write_uint64_le(ds_file_t *file, ulonglong n);
 
-static comp_thread_ctxt_t *create_worker_threads(uint n);
-static void destroy_worker_threads(comp_thread_ctxt_t *threads, uint n);
-static void *compress_worker_thread_func(void *arg);
-
 static ds_ctxt_t *compress_init(const char *root) {
-  ds_ctxt_t *ctxt;
-  ds_compress_ctxt_t *compress_ctxt;
-  comp_thread_ctxt_t *threads;
+  ds_compress_ctxt_t *compress_ctxt = new ds_compress_ctxt_t;
+  compress_ctxt->thread_pool = new Thread_pool(xtrabackup_compress_threads);
 
-  /* Create and initialize the worker threads */
-  threads = create_worker_threads(xtrabackup_compress_threads);
-  if (threads == NULL) {
-    msg("compress: failed to create worker threads.\n");
-    return NULL;
-  }
-
-  ctxt = (ds_ctxt_t *)my_malloc(PSI_NOT_INSTRUMENTED,
-                                sizeof(ds_ctxt_t) + sizeof(ds_compress_ctxt_t),
-                                MYF(MY_FAE));
-
-  compress_ctxt = (ds_compress_ctxt_t *)(ctxt + 1);
-  compress_ctxt->threads = threads;
-  compress_ctxt->nthreads = xtrabackup_compress_threads;
-
+  ds_ctxt_t *ctxt = new ds_ctxt_t;
   ctxt->ptr = compress_ctxt;
   ctxt->root = my_strdup(PSI_NOT_INSTRUMENTED, root, MYF(MY_FAE));
 
@@ -110,31 +88,32 @@ static ds_ctxt_t *compress_init(const char *root) {
 
 static ds_file_t *compress_open(ds_ctxt_t *ctxt, const char *path,
                                 MY_STAT *mystat) {
-  ds_compress_ctxt_t *comp_ctxt;
-  ds_ctxt_t *dest_ctxt;
-  ds_file_t *dest_file;
-  char new_name[FN_REFLEN];
-  size_t name_len;
-  ds_file_t *file;
-  ds_compress_file_t *comp_file;
+  xb_ad(ctxt->pipe_ctxt != nullptr);
+  ds_ctxt_t *dest_ctxt = ctxt->pipe_ctxt;
 
-  xb_ad(ctxt->pipe_ctxt != NULL);
-  dest_ctxt = ctxt->pipe_ctxt;
-
-  comp_ctxt = (ds_compress_ctxt_t *)ctxt->ptr;
+  ds_compress_ctxt_t *comp_ctxt = (ds_compress_ctxt_t *)ctxt->ptr;
 
   /* Append the .qp extension to the filename */
+  char new_name[FN_REFLEN];
   fn_format(new_name, path, "", ".qp", MYF(MY_APPEND_EXT));
 
-  dest_file = ds_open(dest_ctxt, new_name, mystat);
-  if (dest_file == NULL) {
-    return NULL;
+  ds_file_t *dest_file = ds_open(dest_ctxt, new_name, mystat);
+  if (dest_file == nullptr) {
+    return nullptr;
   }
+
+  ds_compress_file_t *comp_file = new ds_compress_file_t;
+  comp_file->dest_file = dest_file;
+  comp_file->comp_ctxt = comp_ctxt;
+  comp_file->bytes_processed = 0;
+  comp_file->comp_buf = nullptr;
+  comp_file->comp_buf_size = 0;
 
   /* Write the qpress archive header */
   if (ds_write(dest_file, "qpress10", 8) ||
       write_uint64_le(dest_file, COMPRESS_CHUNK_SIZE)) {
-    goto err;
+    ds_close(dest_file);
+    return nullptr;
   }
 
   /* We are going to create a one-file "flat" (i.e. with no
@@ -143,120 +122,114 @@ static ds_file_t *compress_open(ds_ctxt_t *ctxt, const char *path,
   fn_format(new_name, path, "", "", MYF(MY_REPLACE_DIR));
 
   /* Write the qpress file header */
-  name_len = strlen(new_name);
+  size_t name_len = strlen(new_name);
   if (ds_write(dest_file, "F", 1) || write_uint32_le(dest_file, name_len) ||
       /* we want to write the terminating \0 as well */
       ds_write(dest_file, new_name, name_len + 1)) {
-    goto err;
+    ds_close(dest_file);
+    return nullptr;
   }
 
-  file = (ds_file_t *)my_malloc(PSI_NOT_INSTRUMENTED,
-                                sizeof(ds_file_t) + sizeof(ds_compress_file_t),
-                                MYF(MY_FAE));
-  comp_file = (ds_compress_file_t *)(file + 1);
-  comp_file->dest_file = dest_file;
-  comp_file->comp_ctxt = comp_ctxt;
-  comp_file->bytes_processed = 0;
-
+  ds_file_t *file = new ds_file_t;
   file->ptr = comp_file;
   file->path = dest_file->path;
 
   return file;
-
-err:
-  ds_close(dest_file);
-  return NULL;
 }
 
 static int compress_write(ds_file_t *file, const void *buf, size_t len) {
-  ds_compress_file_t *comp_file;
-  ds_compress_ctxt_t *comp_ctxt;
-  comp_thread_ctxt_t *threads;
-  comp_thread_ctxt_t *thd;
-  uint nthreads;
-  uint i;
-  const char *ptr;
-  ds_file_t *dest_file;
+  ds_compress_file_t *comp_file = (ds_compress_file_t *)file->ptr;
+  ds_compress_ctxt_t *comp_ctxt = comp_file->comp_ctxt;
+  ds_file_t *dest_file = comp_file->dest_file;
 
-  comp_file = (ds_compress_file_t *)file->ptr;
-  comp_ctxt = comp_file->comp_ctxt;
-  dest_file = comp_file->dest_file;
+  /* make sure we have enough memory for compression */
+  const size_t comp_size = COMPRESS_CHUNK_SIZE + MY_QLZ_COMPRESS_OVERHEAD;
+  const size_t n_chunks =
+      (len / COMPRESS_CHUNK_SIZE * COMPRESS_CHUNK_SIZE == len)
+          ? (len / COMPRESS_CHUNK_SIZE)
+          : (len / COMPRESS_CHUNK_SIZE + 1);
+  const size_t comp_buf_size = comp_size * n_chunks;
+  if (comp_file->comp_buf_size < comp_buf_size) {
+    comp_file->comp_buf = static_cast<char *>(
+        my_realloc(PSI_NOT_INSTRUMENTED, comp_file->comp_buf, comp_buf_size,
+                   MYF(MY_FAE | MY_ALLOW_ZERO_PTR)));
+  }
 
-  threads = comp_ctxt->threads;
-  nthreads = comp_ctxt->nthreads;
+  /* parallel compress using trhead pool */
+  if (comp_file->tasks.size() < n_chunks) {
+    comp_file->tasks.resize(n_chunks);
+  }
+  if (comp_file->contexts.size() < n_chunks) {
+    comp_file->contexts.resize(n_chunks);
+  }
 
-  ptr = (const char *)buf;
-  while (len > 0) {
-    uint max_thread;
+  for (size_t i = 0; i < n_chunks; i++) {
+    size_t chunk_len =
+        std::min(len - i * COMPRESS_CHUNK_SIZE, COMPRESS_CHUNK_SIZE);
+    auto &thd = comp_file->contexts[i];
+    thd.from = ((const char *)buf) + COMPRESS_CHUNK_SIZE * i;
+    thd.from_len = chunk_len;
+    thd.to_size = comp_size;
+    thd.to = comp_file->comp_buf + comp_size * i;
 
-    /* Send data to worker threads for compression */
-    for (i = 0; i < nthreads; i++) {
-      size_t chunk_len;
+    comp_file->tasks[i] =
+        comp_ctxt->thread_pool->add_task([&thd](size_t thread_id) {
 
-      thd = threads + i;
+          thd.to_len = qlz_compress(thd.from, thd.to, thd.from_len, &thd.state);
 
-      pthread_mutex_lock(&thd->ctrl_mutex);
+          /* qpress uses 0x00010000 as the initial value, but its own
+          Adler-32 implementation treats the value differently:
+            1. higher order bits are the sum of all bytes in the sequence
+            2. lower order bits are the sum of resulting values at every
+               step.
+          So it's the other way around as compared to zlib's adler32().
+          That's why  0x00000001 is being passed here to be compatible
+          with qpress implementation. */
 
-      chunk_len = (len > COMPRESS_CHUNK_SIZE) ? COMPRESS_CHUNK_SIZE : len;
-      thd->from = ptr;
-      thd->from_len = chunk_len;
+          thd.adler = adler32(0x00000001, (uchar *)thd.to, thd.to_len);
+        });
+  }
 
-      pthread_mutex_lock(&thd->data_mutex);
-      thd->data_avail = true;
-      pthread_cond_signal(&thd->data_cond);
-      pthread_mutex_unlock(&thd->data_mutex);
+  bool error = false;
 
-      len -= chunk_len;
-      if (len == 0) {
-        break;
-      }
-      ptr += chunk_len;
-    }
+  /* write compressed blocks */
+  for (size_t i = 0; i < n_chunks; i++) {
+    const auto &thd = comp_file->contexts[i];
 
-    max_thread = (i < nthreads) ? i : nthreads - 1;
+    /* reap */
+    comp_file->tasks[i].wait();
 
-    /* Reap and stream the compressed data */
-    for (i = 0; i <= max_thread; i++) {
-      thd = threads + i;
+    if (error) continue;
 
-      pthread_mutex_lock(&thd->data_mutex);
-      while (thd->data_avail == true) {
-        pthread_cond_wait(&thd->data_cond, &thd->data_mutex);
-      }
-
-      xb_a(threads[i].to_len > 0);
-
+    if (thd.to_len > 0) {
       if (ds_write(dest_file, "NEWBNEWB", 8) ||
           write_uint64_le(dest_file, comp_file->bytes_processed)) {
-        msg("compress: write to the destination stream "
-            "failed.\n");
-        return 1;
+        error = true;
+        goto err;
       }
 
-      comp_file->bytes_processed += threads[i].from_len;
+      comp_file->bytes_processed += thd.from_len;
 
-      if (write_uint32_le(dest_file, threads[i].adler) ||
-          ds_write(dest_file, threads[i].to, threads[i].to_len)) {
-        msg("compress: write to the destination stream "
-            "failed.\n");
-        return 1;
+      if (write_uint32_le(dest_file, thd.adler) ||
+          ds_write(dest_file, thd.to, thd.to_len)) {
+        error = true;
+        goto err;
       }
-
-      pthread_mutex_unlock(&threads[i].data_mutex);
-      pthread_mutex_unlock(&threads[i].ctrl_mutex);
     }
+
+    comp_file->bytes_processed += thd.from_len;
   }
 
   return 0;
+
+err:
+  msg("compress: write to the destination stream failed.\n");
+  return 1;
 }
 
 static int compress_close(ds_file_t *file) {
-  ds_compress_file_t *comp_file;
-  ds_file_t *dest_file;
-  int rc;
-
-  comp_file = (ds_compress_file_t *)file->ptr;
-  dest_file = comp_file->dest_file;
+  ds_compress_file_t *comp_file = (ds_compress_file_t *)file->ptr;
+  ds_file_t *dest_file = comp_file->dest_file;
 
   /* Write the qpress file trailer */
   ds_write(dest_file, "ENDSENDS", 8);
@@ -267,30 +240,29 @@ static int compress_close(ds_file_t *file) {
 
   write_uint64_le(dest_file, 0);
 
-  rc = ds_close(dest_file);
+  int rc = ds_close(dest_file);
 
-  my_free(file);
+  my_free(comp_file->comp_buf);
+  delete file;
+  delete comp_file;
 
   return rc;
 }
 
 static void compress_deinit(ds_ctxt_t *ctxt) {
-  ds_compress_ctxt_t *comp_ctxt;
+  xb_ad(ctxt->pipe_ctxt != nullptr);
 
-  xb_ad(ctxt->pipe_ctxt != NULL);
+  ds_compress_ctxt_t *comp_ctxt = (ds_compress_ctxt_t *)ctxt->ptr;
 
-  comp_ctxt = (ds_compress_ctxt_t *)ctxt->ptr;
-  ;
-
-  destroy_worker_threads(comp_ctxt->threads, comp_ctxt->nthreads);
+  delete comp_ctxt->thread_pool;
+  delete comp_ctxt;
 
   my_free(ctxt->root);
-  my_free(ctxt);
+  delete ctxt;
 }
 
-static inline int write_uint32_le(ds_file_t *file, ulong n) {
+static inline int write_uint32_le(ds_file_t *file, uint32_t n) {
   uchar tmp[4];
-
   int4store(tmp, n);
   return ds_write(file, tmp, sizeof(tmp));
 }
@@ -300,125 +272,4 @@ static inline int write_uint64_le(ds_file_t *file, ulonglong n) {
 
   int8store(tmp, n);
   return ds_write(file, tmp, sizeof(tmp));
-}
-
-static comp_thread_ctxt_t *create_worker_threads(uint n) {
-  comp_thread_ctxt_t *threads;
-  uint i;
-
-  threads = (comp_thread_ctxt_t *)my_malloc(
-      PSI_NOT_INSTRUMENTED, sizeof(comp_thread_ctxt_t) * n, MYF(MY_FAE));
-
-  for (i = 0; i < n; i++) {
-    comp_thread_ctxt_t *thd = threads + i;
-
-    thd->num = i + 1;
-    thd->started = false;
-    thd->cancelled = false;
-    thd->data_avail = false;
-
-    thd->to = (char *)my_malloc(PSI_NOT_INSTRUMENTED,
-                                COMPRESS_CHUNK_SIZE + MY_QLZ_COMPRESS_OVERHEAD,
-                                MYF(MY_FAE));
-
-    /* Initialize the control mutex and condition var */
-    if (pthread_mutex_init(&thd->ctrl_mutex, NULL) ||
-        pthread_cond_init(&thd->ctrl_cond, NULL)) {
-      goto err;
-    }
-
-    /* Initialize and data mutex and condition var */
-    if (pthread_mutex_init(&thd->data_mutex, NULL) ||
-        pthread_cond_init(&thd->data_cond, NULL)) {
-      goto err;
-    }
-
-    pthread_mutex_lock(&thd->ctrl_mutex);
-
-    if (pthread_create(&thd->id, NULL, compress_worker_thread_func, thd)) {
-      msg("compress: pthread_create() failed: "
-          "errno = %d\n",
-          errno);
-      goto err;
-    }
-  }
-
-  /* Wait for the threads to start */
-  for (i = 0; i < n; i++) {
-    comp_thread_ctxt_t *thd = threads + i;
-
-    while (thd->started == false)
-      pthread_cond_wait(&thd->ctrl_cond, &thd->ctrl_mutex);
-    pthread_mutex_unlock(&thd->ctrl_mutex);
-  }
-
-  return threads;
-
-err:
-  return NULL;
-}
-
-static void destroy_worker_threads(comp_thread_ctxt_t *threads, uint n) {
-  uint i;
-
-  for (i = 0; i < n; i++) {
-    comp_thread_ctxt_t *thd = threads + i;
-
-    pthread_mutex_lock(&thd->data_mutex);
-    threads[i].cancelled = true;
-    pthread_cond_signal(&thd->data_cond);
-    pthread_mutex_unlock(&thd->data_mutex);
-
-    pthread_join(thd->id, NULL);
-
-    pthread_cond_destroy(&thd->data_cond);
-    pthread_mutex_destroy(&thd->data_mutex);
-    pthread_cond_destroy(&thd->ctrl_cond);
-    pthread_mutex_destroy(&thd->ctrl_mutex);
-
-    my_free(thd->to);
-  }
-
-  my_free(threads);
-}
-
-static void *compress_worker_thread_func(void *arg) {
-  comp_thread_ctxt_t *thd = (comp_thread_ctxt_t *)arg;
-
-  pthread_mutex_lock(&thd->ctrl_mutex);
-
-  pthread_mutex_lock(&thd->data_mutex);
-
-  thd->started = true;
-  pthread_cond_signal(&thd->ctrl_cond);
-
-  pthread_mutex_unlock(&thd->ctrl_mutex);
-
-  while (1) {
-    thd->data_avail = false;
-    pthread_cond_signal(&thd->data_cond);
-
-    while (!thd->data_avail && !thd->cancelled) {
-      pthread_cond_wait(&thd->data_cond, &thd->data_mutex);
-    }
-
-    if (thd->cancelled) break;
-
-    thd->to_len = qlz_compress(thd->from, thd->to, thd->from_len, &thd->state);
-
-    /* qpress uses 0x00010000 as the initial value, but its own
-    Adler-32 implementation treats the value differently:
-      1. higher order bits are the sum of all bytes in the sequence
-      2. lower order bits are the sum of resulting values at every
-         step.
-    So it's the other way around as compared to zlib's adler32().
-    That's why  0x00000001 is being passed here to be compatible
-    with qpress implementation. */
-
-    thd->adler = adler32(0x00000001, (uchar *)thd->to, thd->to_len);
-  }
-
-  pthread_mutex_unlock(&thd->data_mutex);
-
-  return NULL;
 }

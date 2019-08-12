@@ -52,6 +52,12 @@ typedef struct {
   ib_mutex_t mutex;
 } datafiles_iter_t;
 
+enum xtrabackup_compress_t {
+  XTRABACKUP_COMPRESS_NONE,
+  XTRABACKUP_COMPRESS_QUICKLZ,
+  XTRABACKUP_COMPRESS_LZ4
+};
+
 /* value of the --incremental option */
 extern lsn_t incremental_lsn;
 
@@ -89,7 +95,7 @@ extern char *xtrabackup_databases_file;
 extern char *xtrabackup_tables_exclude;
 extern char *xtrabackup_databases_exclude;
 
-extern bool xtrabackup_compress;
+extern xtrabackup_compress_t xtrabackup_compress;
 extern bool xtrabackup_encrypt;
 
 extern bool xtrabackup_backup;
@@ -100,7 +106,6 @@ extern bool xtrabackup_move_back;
 extern bool xtrabackup_decrypt_decompress;
 
 extern char *innobase_data_file_path;
-extern char *innobase_doublewrite_file;
 extern char *xtrabackup_encrypt_key;
 extern char *xtrabackup_encrypt_key_file;
 extern longlong innobase_log_file_size;
@@ -211,11 +216,6 @@ ulint xb_data_files_init(void);
 /************************************************************************
 Destroy the tablespace memory cache. */
 void xb_data_files_close(void);
-
-/***********************************************************************
-Reads the space flags from a given data file and returns the compressed
-page size, or 0 if the space is not compressed. */
-const page_size_t xb_get_zip_size(pfs_os_file_t file, bool *success);
 
 /************************************************************************
 Checks if a database specified by path should be skipped from backup based on

@@ -1,6 +1,6 @@
 /*****************************************************************************
 
-Copyright (c) 2008, 2018, Oracle and/or its affiliates. All Rights Reserved.
+Copyright (c) 2008, 2019, Oracle and/or its affiliates. All Rights Reserved.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -3071,7 +3071,7 @@ dberr_t ib_sdi_get(uint32_t tablespace_id, const ib_sdi_key_t *ib_sdi_key,
 
       /* If the passed memory is not sufficient, we
       return failure and the actual length of SDI. */
-      if (buf_len < *uncomp_sdi_len) {
+      if (buf_len < *comp_sdi_len) {
         ib_tuple_delete(tuple);
         ib_tuple_delete(key_tpl);
         ib_cursor_close(ib_crsr);
@@ -3236,7 +3236,7 @@ ib_err_t ib_sdi_drop(space_id_t tablespace_id) {
   /* Remove SDI Flag presence from Page 0 */
   mtr.start();
 
-  ulint flags = space->flags & ~FSP_FLAGS_MASK_SDI;
+  uint32_t flags = space->flags & ~FSP_FLAGS_MASK_SDI;
 
   buf_block_t *block =
       buf_page_get(page_id_t(space->id, 0), page_size, RW_SX_LATCH, &mtr);

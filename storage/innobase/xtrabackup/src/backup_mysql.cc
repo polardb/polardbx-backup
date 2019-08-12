@@ -926,6 +926,8 @@ static bool wait_for_no_updates(MYSQL *connection, uint timeout,
                                 uint threshold) {
   time_t start_time;
 
+  my_thread_init();
+
   start_time = time(NULL);
 
   msg_ts(
@@ -979,6 +981,8 @@ static void kill_query_thread() {
 
 stop_thread:
   msg_ts("Kill query thread stopped\n");
+
+  my_thread_end();
 
   os_event_set(kill_query_thread_stopped);
 }
@@ -1536,9 +1540,9 @@ bool write_current_binlog_file(MYSQL *connection) {
 
   snprintf(filepath, sizeof(filepath), "%s%c%s", log_bin_dir, FN_LIBCHAR,
            log_status.filename.c_str());
-  result =
-      copy_file(ds_data, filepath, log_status.filename.c_str(), 0,
-                log_status.position + binlog_encryption_header_size(filepath));
+  result = copy_file(
+      ds_data, filepath, log_status.filename.c_str(), 0, FILE_PURPOSE_BINLOG,
+      log_status.position + binlog_encryption_header_size(filepath));
   if (!result) {
     goto cleanup;
   }
@@ -2061,10 +2065,6 @@ bool write_backup_config_file() {
     << "\n"
     << "innodb_undo_log_encrypt=" << (srv_undo_log_encrypt ? "ON" : "OFF")
     << "\n";
-
-  if (innobase_doublewrite_file) {
-    s << "innodb_doublewrite_file=" << innobase_doublewrite_file << "\n";
-  }
 
   if (innobase_buffer_pool_filename) {
     s << "innodb_buffer_pool_filename=" << innobase_buffer_pool_filename

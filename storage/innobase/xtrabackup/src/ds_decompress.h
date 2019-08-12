@@ -23,7 +23,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA
 
 #include "datasink.h"
 
-extern uint ds_compress_decompress_threads;
+extern uint ds_decompress_quicklz_threads;
 
 extern datasink_t datasink_decompress;
 

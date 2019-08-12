@@ -23,7 +23,9 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA
 #include "common.h"
 #include "ds_buffer.h"
 #include "ds_compress.h"
+#include "ds_compress_lz4.h"
 #include "ds_decompress.h"
+#include "ds_decompress_lz4.h"
 #include "ds_decrypt.h"
 #include "ds_encrypt.h"
 #include "ds_local.h"
@@ -47,11 +49,17 @@ ds_ctxt_t *ds_create(const char *root, ds_type_t type) {
     case DS_TYPE_XBSTREAM:
       ds = &datasink_xbstream;
       break;
-    case DS_TYPE_COMPRESS:
+    case DS_TYPE_COMPRESS_QUICKLZ:
       ds = &datasink_compress;
       break;
-    case DS_TYPE_DECOMPRESS:
+    case DS_TYPE_COMPRESS_LZ4:
+      ds = &datasink_compress_lz4;
+      break;
+    case DS_TYPE_DECOMPRESS_QUICKLZ:
       ds = &datasink_decompress;
+      break;
+    case DS_TYPE_DECOMPRESS_LZ4:
+      ds = &datasink_decompress_lz4;
       break;
     case DS_TYPE_ENCRYPT:
       ds = &datasink_encrypt;
@@ -100,6 +108,29 @@ Write to a datasink file.
 @return 0 on success, 1 on error. */
 int ds_write(ds_file_t *file, const void *buf, size_t len) {
   return file->datasink->write(file, buf, len);
+}
+
+/************************************************************************
+Check if sparse files are supported.
+@return 1 if yes. */
+int ds_is_sparse_write_supported(ds_file_t *file) {
+  if (file->datasink->write_sparse != nullptr) {
+    return 1;
+  }
+  return 0;
+}
+
+/************************************************************************
+Write sparse chunk if supported.
+@return 0 on success, 1 on error. */
+int ds_write_sparse(ds_file_t *file, const void *buf, size_t len,
+                    size_t sparse_map_size,
+                    const ds_sparse_chunk_t *sparse_map) {
+  if (file->datasink->write_sparse != nullptr) {
+    return file->datasink->write_sparse(file, buf, len, sparse_map_size,
+                                        sparse_map);
+  }
+  return 1;
 }
 
 /************************************************************************

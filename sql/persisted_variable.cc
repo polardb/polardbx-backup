@@ -228,7 +228,8 @@ int Persisted_variables_cache::init(int *argc, char ***argv) {
   memcpy((uchar *)res, (char *)(*argv), (*argc) * sizeof(char *));
 
   my_getopt_skip_unknown = true;
-  if (my_handle_options(&temp_argc, &res, persist_options, NULL, NULL, true)) {
+  if (my_handle_options(&temp_argc, &res, persist_options, NULL, NULL, true,
+                        false)) {
     free_root(&alloc, MYF(0));
     return 1;
   }
@@ -655,7 +656,7 @@ bool Persisted_variables_cache::set_persist_options(bool plugin_options) {
         Grant_temporary_dynamic_privileges(thd, priv_list),
         Grant_temporary_static_privileges(thd, static_priv_list),
         Drop_temporary_dynamic_privileges(priv_list));
-    ctx = default_factory.create();
+    ctx = default_factory.create(thd->mem_root);
     /* attach this auth id to current security_context */
     thd->set_security_context(ctx.get());
     thd->real_id = my_thread_self();

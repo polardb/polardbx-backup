@@ -79,8 +79,8 @@ MYSQL_ADD_EXECUTABLE(xtrabackup
   datasink.cc
   ds_buffer.cc
   ds_compress.cc
+  ds_compress_lz4.cc
   ds_encrypt.cc
-  ds_decrypt.cc
   ds_local.cc
   ds_stdout.cc
   ds_tmpfile.cc
@@ -115,7 +115,6 @@ TARGET_LINK_LIBRARIES(xtrabackup
   binlog
   mysqlclient
   master
-  regex
   ${GCRYPT_LIBS}
   ${ICU_LIBRARIES}
   crc
@@ -142,6 +141,7 @@ MYSQL_ADD_EXECUTABLE(xbstream
   ds_stdout.cc
   ds_decompress.cc
   ds_decrypt.cc
+  ds_decompress_lz4.cc
   datasink.cc
   quicklz/quicklz.c
   xbstream.cc
@@ -149,6 +149,12 @@ MYSQL_ADD_EXECUTABLE(xbstream
   xbstream_write.cc
   xbcrypt_common.cc
   xbcrypt_write.cc
+  ${CMAKE_SOURCE_DIR}/extra/lz4/xxhash.c
+  )
+
+ADD_COMPILE_DEFINITIONS(
+  ${CMAKE_SOURCE_DIR}/extra/lz4/xxhash.c
+  COMPILE_DEFINITIONS XXH_NAMESPACE=MY_
   )
 
 SET_TARGET_PROPERTIES(xbstream
@@ -160,6 +166,7 @@ TARGET_LINK_LIBRARIES(xbstream
   mysys
   mysys_ssl
   crc
+  ${LZ4_LIBRARY}
   )
 
 ########################################################################
