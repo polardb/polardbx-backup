@@ -163,6 +163,9 @@ extern char *opt_binlog_index_name;
 extern char *opt_rocksdb_datadir;
 extern char *opt_rocksdb_wal_dir;
 
+extern char *opt_xengine_datadir;
+extern char *opt_xengine_wal_dir;
+
 extern const char *query_type_names[];
 
 enum query_type_t { QUERY_TYPE_ALL, QUERY_TYPE_UPDATE, QUERY_TYPE_SELECT };

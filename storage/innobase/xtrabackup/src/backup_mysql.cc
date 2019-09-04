@@ -107,6 +107,7 @@ bool have_multi_threaded_slave = false;
 bool have_gtid_slave = false;
 bool have_unsafe_ddl_tables = false;
 bool have_rocksdb = false;
+bool have_xengine = false;
 
 bool slave_auto_position = false;
 
@@ -442,6 +443,9 @@ bool get_mysql_vars(MYSQL *connection) {
   char *rocksdb_datadir_var = nullptr;
   char *rocksdb_wal_dir_var = nullptr;
   char *rocksdb_disable_file_deletions_var = nullptr;
+  char *xengine_hotbackup_var = nullptr;
+  char *xengine_datadir_var = nullptr;
+  char *xengine_wal_dir_var = nullptr;
 
   unsigned long server_version = mysql_get_server_version(connection);
 
@@ -476,6 +480,9 @@ bool get_mysql_vars(MYSQL *connection) {
       {"rocksdb_datadir", &rocksdb_datadir_var},
       {"rocksdb_wal_dir", &rocksdb_wal_dir_var},
       {"rocksdb_disable_file_deletions", &rocksdb_disable_file_deletions_var},
+      {"xengine_hotbackup", &xengine_hotbackup_var},
+      {"xengine_datadir", &xengine_datadir_var},
+      {"xengine_wal_dir", &xengine_wal_dir_var},
       {nullptr, nullptr}};
 
   read_mysql_variables(connection, "SHOW VARIABLES", mysql_vars, true);
@@ -660,10 +667,28 @@ bool get_mysql_vars(MYSQL *connection) {
         my_strdup(PSI_NOT_INSTRUMENTED, rocksdb_wal_dir_var, MYF(MY_FAE));
   }
 
+  if (!check_if_param_set("xengine_datadir") && xengine_datadir_var &&
+      *xengine_datadir_var) {
+    opt_xengine_datadir =
+        my_strdup(PSI_NOT_INSTRUMENTED, xengine_datadir_var, MYF(MY_FAE));
+  }
+
+  if (!check_if_param_set("xengine_wal_dir") && xengine_wal_dir_var &&
+      *xengine_wal_dir_var) {
+    opt_xengine_wal_dir =
+        my_strdup(PSI_NOT_INSTRUMENTED, xengine_wal_dir_var, MYF(MY_FAE));
+  }
+
+  if (xengine_hotbackup_var != nullptr) {
+    have_xengine = true;
+  }
+
   if (rocksdb_disable_file_deletions_var != nullptr) {
     /* rocksdb backup extensions are supported */
     have_rocksdb = true;
-  } else {
+  }
+
+  if (!have_xengine || !have_rocksdb) {
     char *engine = nullptr;
 
     mysql_variable vars[] = {{"Engine", &engine}, {nullptr, nullptr}};
@@ -672,11 +697,15 @@ bool get_mysql_vars(MYSQL *connection) {
         xb_mysql_query(mysql_connection, "SHOW ENGINES", true, true);
 
     while (read_mysql_variables_from_result(res, vars, false)) {
-      if (strcasecmp(engine, "ROCKSDB") == 0) {
+      if (strcasecmp(engine, "ROCKSDB") == 0 && !have_rocksdb) {
         msg_ts(
             "WARNING: ROCKSB storage engine is enabled, but ROCKSB backup "
             "extensions are not supported by server. Please upgrade "
             "Percona Server to enable ROCKSDB backups.\n");
+      } else if (strcasecmp(engine, "XENGINE") == 0 && !have_xengine) {
+        msg_ts(
+            "WARNING: XENGINE storage engine is enabled, but XENGINE backup "
+            "extensions are not supported by server.\n");
       }
       free_mysql_variables(vars);
     }
@@ -722,7 +751,8 @@ bool detect_mysql_capabilities_for_backup() {
   char *count_str =
       read_mysql_one_value(mysql_connection,
                            "SELECT COUNT(*) FROM information_schema.tables "
-                           "WHERE engine = 'MyISAM' OR engine = 'RocksDB'");
+                           "WHERE engine = 'MyISAM' OR engine = 'RocksDB'"
+                           " OR engine = 'XENGINE'");
   unsigned long long count = strtoull(count_str, nullptr, 10);
   have_unsafe_ddl_tables = (count > 0);
   free(count_str);

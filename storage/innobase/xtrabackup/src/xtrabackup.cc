@@ -448,6 +448,9 @@ uint opt_read_buffer_size = 0;
 char *opt_rocksdb_datadir = nullptr;
 char *opt_rocksdb_wal_dir = nullptr;
 
+char *opt_xengine_datadir = nullptr;
+char *opt_xengine_wal_dir = nullptr;
+
 bool rds_xb_redo_fs_buffer = FALSE;
 
 /** Possible values for system variable "innodb_checksum_algorithm". */
@@ -633,6 +636,9 @@ enum options_xtrabackup {
 
   OPT_ROCKSDB_DATADIR,
   OPT_ROCKSDB_WAL_DIR,
+
+  OPT_XENGINE_DATADIR,
+  OPT_XENGINE_WAL_DIR,
 
   OPT_COPY_BACK,
   OPT_MOVE_BACK,
@@ -1449,6 +1455,14 @@ Disable with --skip-innodb-checksums.",
 
     {"rocksdb_wal_dir", OPT_ROCKSDB_WAL_DIR, "RocksDB WAL directory",
      &opt_rocksdb_wal_dir, &opt_rocksdb_wal_dir, 0, GET_STR_ALLOC, REQUIRED_ARG,
+     0, 0, 0, 0, 0, 0},
+
+    {"xengine_datadir", OPT_XENGINE_DATADIR, "XEngine data directory",
+     &opt_xengine_datadir, &opt_xengine_datadir, 0, GET_STR_ALLOC, REQUIRED_ARG,
+     0, 0, 0, 0, 0, 0},
+
+    {"xengine_wal_dir", OPT_XENGINE_WAL_DIR, "XEngine WAL directory",
+     &opt_xengine_wal_dir, &opt_xengine_wal_dir, 0, GET_STR_ALLOC, REQUIRED_ARG,
      0, 0, 0, 0, 0, 0},
 
     {"rds-xb-redo-fs-buffer", OPT_RDS_XB_REDO_FS_BUFFER,
@@ -4040,7 +4054,7 @@ static void xb_tables_compatibility_check() {
       "  CONCAT(table_schema, '/', table_name), engine "
       "FROM information_schema.tables "
       "WHERE engine NOT IN ("
-      "'MyISAM', 'InnoDB', 'CSV', 'MRG_MYISAM', 'ROCKSDB') "
+      "'MyISAM', 'InnoDB', 'CSV', 'MRG_MYISAM', 'ROCKSDB', 'XENGINE') "
       "AND table_schema NOT IN ("
       "  'performance_schema', 'information_schema', "
       "  'mysql');";
@@ -7128,6 +7142,14 @@ skip_check:
     exit(EXIT_FAILURE);
   }
 
+  /* have xengine, do xengine prepare */
+  if (directory_exists(XENGINE_SUBDIR, false)) {
+    Xengine_backup xengine_backup;
+    if (!xengine_backup.replay_sst_files()) {
+      exit(EXIT_FAILURE);
+    }
+  }
+
   trx_pool_close();
 
   fil_close();
@@ -7935,6 +7957,12 @@ int main(int argc, char **argv) {
     printf("%s", print_param_str.str().c_str());
 
     exit(EXIT_SUCCESS);
+  }
+
+  // Xengine does not support incremental backup now
+  if (xtrabackup_incremental && have_xengine) {
+    msg("xtrabackup: error: XENGINE does not support incremental backup now");
+    exit(EXIT_FAILURE);
   }
 
   if (xtrabackup_incremental) {

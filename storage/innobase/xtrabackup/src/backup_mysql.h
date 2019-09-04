@@ -102,9 +102,120 @@ class Myrocks_checkpoint {
   file_list checkpoint_files(const log_status_t &log_status) const;
 };
 
+#define XENGINE_SUBDIR ".xengine"
+#define XENGINE_BACKUP_TMP_DIR "hotbackup_tmp"
+#define XENGINE_BACKUP_EXTENT_IDS_FILE "extent_ids.inc"
+#define XENGINE_BACKUP_EXTENTS_FILE "extent.inc"
+
+class Xengine_datadir
+{
+public:
+  Xengine_datadir(const std::string &xengine_backup_dir)
+      : xengine_backup_dir_(xengine_backup_dir)
+  {}
+  virtual ~Xengine_datadir() {}
+
+  using file_list = std::vector<datadir_entry_t>;
+  using const_iterator = file_list::const_iterator;
+
+  // Get all files from xengine backup dir
+  file_list files(const char *dest_dir = XENGINE_SUBDIR) const;
+
+  // Get all wal files from xengine backup dir
+  file_list wal_files(const char *dest_dir = XENGINE_SUBDIR) const;
+
+  file_list copy_back_files(const char *dest_dir = XENGINE_SUBDIR) const;
+
+private:
+  void scan_dir(const std::string &dir, const char *dest_dir, file_list &result) const;
+
+private:
+  const std::string xengine_backup_dir_;
+};
+
+class Xengine_backup
+{
+  struct extent_copy_t
+  {
+    extent_copy_t(const int64_t idx, const int32_t file_num,
+        const int32_t offset, const File file)
+        : idx_(idx), file_num_(file_num), offset_(offset), sst_file_(file)
+    {}
+    // The index in extent_ids.inc
+    int64_t idx_;
+    // The file number of this extent
+    int32_t file_num_;
+    // The offset of this extent in the file
+    int32_t offset_;
+    // The fd of sst file
+    File sst_file_;
+  };
+
+  using extent_list = std::vector<extent_copy_t>;
+  using file_list = Xengine_datadir::file_list;
+  using copy_extent_func = std::function<void (const extent_list::const_iterator &,
+                                               const extent_list::const_iterator &,
+                                               size_t)>;
+  using copy_file_func = std::function<void (const file_list::const_iterator &,
+                                             const file_list::const_iterator &,
+                                             size_t)>;
+
+public:
+  Xengine_backup() : con_(nullptr)
+  {}
+
+  virtual ~Xengine_backup();
+  // Do a checkpoint in xengine and start xengine backup
+  bool do_checkpoint();
+  // Acquire xengine snapshots, must be invoked in backup lock
+  bool acquire_snapshots();
+  // Record incremental extent ids between do_checkpoint to acuqire_snapshots
+  bool record_incemental_extent_ids();
+  // Record incremental extents according to incremental extent ids into a file
+  bool record_incemental_extents();
+  // Release xengine snapshots
+  bool release_snapshots();
+  // In prepare, copy incremental extents to backuped sst files
+  bool replay_sst_files();
+  // Parallel copy files
+  bool copy_files(ds_ctxt_t *ds, file_list &files, const bool record_files = true);
+
+private:
+  bool read_and_copy_extent_content(const std::string &backup_tmp_dir_path,
+                                    const int sst_open_flags,
+                                    copy_extent_func &copy);
+
+  std::string make_table_file_name(const std::string &path, uint64_t number);
+
+  static void par_copy_extents(const extent_list::const_iterator &start,
+                               const extent_list::const_iterator &end,
+                               size_t thread_n,
+                               File dest_file,
+                               bool *result);
+
+  static void par_replay_extents(const extent_list::const_iterator &start,
+                                 const extent_list::const_iterator &end,
+                                 size_t thread_n,
+                                 File src_file,
+                                 bool *result);
+
+  static void par_copy_xengine_files(const file_list::const_iterator &start,
+                                     const file_list::const_iterator &end,
+                                     size_t thread_n,
+                                     ds_ctxt_t *ds,
+                                     bool *result);
+
+private:
+  static const int64_t EXTENT_IDS_BUF_SIZE = 16 * 1024;
+  static const int64_t extent_size = 2 * 1024 * 1024;
+  MYSQL *con_;
+  std::set<std::string> copied_files_;
+};
+
 struct Backup_context {
   log_status_t log_status;
   Myrocks_checkpoint myrocks_checkpoint;
+  Xengine_backup xengine_backup;
 };
 
 /* server capabilities */
@@ -116,6 +227,7 @@ extern bool have_flush_engine_logs;
 extern bool have_multi_threaded_slave;
 extern bool have_gtid_slave;
 extern bool have_rocksdb;
+extern bool have_xengine;
 
 /* History on server */
 extern time_t history_start_time;

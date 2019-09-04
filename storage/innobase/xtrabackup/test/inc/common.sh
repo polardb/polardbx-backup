@@ -307,6 +307,7 @@ replicate-ignore-db=performance_schema
 replicate-ignore-db=sys
 innodb_log_file_size=48M
 ${MYSQLD_EXTRA_MY_CNF_OPTS:-}
+${OPEN_XENGINE:-xengine=0}
 #core-file
 
 [client]
@@ -923,6 +924,15 @@ function require_rocksdb()
    if ! test -a $(dirname ${MYSQLD})/../lib/mysql/plugin/ha_rocksdb.so ; then
         skip_test "Requires RocksDB"
    fi
+}
+
+function require_xengine()
+{
+  if ! test -a $(dirname ${MYSQLD})/sst_dump ; then
+    skip_test "Requires Xengine"
+  else
+    OPEN_XENGINE="xengine=1"
+  fi
 }
 
 function init_rocksdb()
