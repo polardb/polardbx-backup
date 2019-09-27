@@ -31,6 +31,9 @@ extern char *kms_agent_cmd;
 /** Local command execution timeout */
 extern int cmd_timeout_sec;
 
+/** KMS agent port parameter */
+extern uint kms_agent_port_para;
+
 /**
   Accessor to KMS/Agent.
 */
