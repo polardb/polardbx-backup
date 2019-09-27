@@ -60,6 +60,9 @@ char *kms_agent_cmd = NULL;
 /** Local command execution timeout */
 int cmd_timeout_sec = 10;
 
+/** KMS agent port parameter */
+uint kms_agent_port_para = 0;
+
 KMS_Agent global_inst;
 KMS_Agent *kms_agent = &global_inst;  // The global instance
 
@@ -173,7 +176,8 @@ size_t KMS_Agent::generate(char *id_buff, size_t id_buff_len) {
   char cmd[MAX_CMD_LEN];
   char out[MAX_OUTPUT_LEN];
 
-  snprintf(cmd, sizeof(cmd), "%s %d generateKey", kms_agent_cmd, mysqld_port);
+  snprintf(cmd, sizeof(cmd), "%s %d generateKey", kms_agent_cmd,
+           kms_agent_port_para);
 
   size_t ret_len = execute_cmd(cmd, out, sizeof(out));
 
@@ -205,8 +209,8 @@ size_t KMS_Agent::fetch(const char *id, char *key_buff,
   char cmd[MAX_CMD_LEN];
   char out[MAX_OUTPUT_LEN];
 
-  snprintf(cmd, sizeof(cmd), "%s %d fetchKey %s", kms_agent_cmd, mysqld_port,
-           id);
+  snprintf(cmd, sizeof(cmd), "%s %d fetchKey %s", kms_agent_cmd,
+           kms_agent_port_para, id);
 
   size_t ret_len = execute_cmd(cmd, out, sizeof(out));
 

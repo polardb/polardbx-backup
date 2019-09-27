@@ -132,6 +132,10 @@ class Key_imp : public Key_interface {
                 const char *key_type MY_ATTRIBUTE((unused)),
                 const char *user_id MY_ATTRIBUTE((unused)),
                 size_t key_len MY_ATTRIBUTE((unused))) override {
+
+    keyring_rds::Logger::log(ERROR_LEVEL,
+                             "XtraBackup should never generate key.");
+    assert(0);
     if (!initialized) return true;
 
     Lock_helper wrlock(&LOCK_keyring_rds, true);
@@ -141,9 +145,12 @@ class Key_imp : public Key_interface {
     size_t gen_key_len = kms_agent->generate(k, sizeof(k));
     if (gen_key_len == 0) return true;
 
+  /* XtraBackup don't need store key to container or file. */
+#if 0
     // Store the new key id in cache and persist to local file
     Key_string key(k, gen_key_len);
     if (key_container->store(key)) return true;
+#endif
 
     return false;
   }
@@ -210,6 +217,9 @@ class Key_imp : public Key_interface {
  private:
   /* Get key from KMS by key id */
   bool fetch_key_of_id(const char *key_id, void **key, size_t *key_len) {
+
+  /* XtraBackup don't need to validate with container. */
+#if 0
     /* Validating the key_id */
     Key_string check_id(key_id);
     if (!key_container->exist(check_id)) {
@@ -219,6 +229,7 @@ class Key_imp : public Key_interface {
       */
       Logger::log(WARNING_LEVEL, "key id %s missed in cache", key_id);
     }
+#endif
 
     char *k = keyring_rds_malloc<char *>(AES_KEY_LENGTH);
     if (k == NULL) {

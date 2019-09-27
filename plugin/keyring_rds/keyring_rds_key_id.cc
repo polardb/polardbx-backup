@@ -76,11 +76,14 @@ bool init_key_id_mgr() {
     return true;
   }
 
+  /* XtraBackup don't need to init Keys_container from file. */
+#if 0
   if (key_container->init(keyring_file)) {
     delete key_container;
     key_container = NULL;
     return true;
   }
+#endif
 
   return false;
 }

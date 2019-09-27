@@ -36,7 +36,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include "kdf.h"
 #include "keyring_components.h"
 #include "keyring_operations_helper.h"
-#include "os0key.h" // is_keyring_rd
+#include "os0key.h" // is_keyring_rds
 
 #include "backup_mysql.h"
 #include "keyring_plugins.h"
@@ -314,6 +314,13 @@ bool xb_keyring_init_for_backup(MYSQL *connection) {
   }
 
   mysql_free_result(mysql_result);
+
+  /* For keyring_rds plugin, the port number of mysqld is needed. */
+  if (!strcmp(keyring_plugin_name.c_str(), "keyring_rds")) {
+    std::ostringstream var;
+    var << "--keyring_rds_kms_agent_port=" << opt_port;
+    keyring_plugin_args.push_back(var.str());
+  }
 
   int t_argc = keyring_plugin_args.size() + 1;
   char **t_argv = new char *[t_argc + 1];

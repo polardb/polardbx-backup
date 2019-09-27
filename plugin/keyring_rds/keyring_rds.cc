@@ -64,33 +64,38 @@ static int check_key_id_file(MYSQL_THD thd MY_ATTRIBUTE((unused)),
   return 0;
 }
 
-static MYSQL_SYSVAR_STR(
-    key_id_file_dir,                                /* name       */
-    keyring_rds::keyring_rds_dir,                   /* value      */
-    PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,      /* flags      */
-    "The path to the master key id file direction", /* comment    */
-    check_key_id_file,                              /* check()    */
-    NULL,                                           /* update()   */
-    "__##keyring_rds##__"                           /* default    */
-);
+static MYSQL_SYSVAR_STR(key_id_file_dir,
+                        keyring_rds::keyring_rds_dir,
+                        PLUGIN_VAR_RQCMDARG |
+                        PLUGIN_VAR_READONLY |
+                        PLUGIN_VAR_MEMALLOC,
+                        "The path to the master key id file direction",
+                        check_key_id_file, NULL, "__##keyring_rds##__");
 
-static MYSQL_SYSVAR_STR(kms_agent_cmd,              /* name       */
-                        keyring_rds::kms_agent_cmd, /* value      */
-                        PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY, /* flags */
-                        "KMS agent command line", /* comment    */
-                        NULL,                     /* check()    */
-                        NULL,                     /* update()   */
-                        "/home/mysql/kms_agent"   /* default    */
-);
+static MYSQL_SYSVAR_STR(kms_agent_cmd,
+                        keyring_rds::kms_agent_cmd,
+                        PLUGIN_VAR_RQCMDARG |
+                        PLUGIN_VAR_READONLY |
+                        PLUGIN_VAR_MEMALLOC,
+                        "KMS agent command line",
+                        NULL, NULL, "/home/mysql/kms_agent");
 
-static MYSQL_SYSVAR_INT(commandd_timeout_sec, keyring_rds::cmd_timeout_sec,
+static MYSQL_SYSVAR_INT(command_timeout_sec, keyring_rds::cmd_timeout_sec,
                         PLUGIN_VAR_OPCMDARG,
                         "KMS agent command execution timeout", NULL, NULL, 10,
                         1, std::numeric_limits<int>::max(), 0);
 
+static MYSQL_SYSVAR_UINT(kms_agent_port, keyring_rds::kms_agent_port_para,
+                         PLUGIN_VAR_OPCMDARG,
+                         "KMS agent port number to pass", NULL, NULL, 10,
+                         0, std::numeric_limits<int>::max(), 0);
+
 static SYS_VAR *keyring_rds_system_variables[] = {
-    MYSQL_SYSVAR(key_id_file_dir), MYSQL_SYSVAR(kms_agent_cmd),
-    MYSQL_SYSVAR(commandd_timeout_sec), NULL};
+  MYSQL_SYSVAR(key_id_file_dir),
+  MYSQL_SYSVAR(kms_agent_cmd),
+  MYSQL_SYSVAR(command_timeout_sec),
+  MYSQL_SYSVAR(kms_agent_port),
+  NULL};
 
 /* Log component service */
 static SERVICE_TYPE(registry) *reg_srv = NULL;

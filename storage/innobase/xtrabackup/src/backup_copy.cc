@@ -67,6 +67,7 @@ Place, Suite 330, Boston, MA 02111-1307 USA
 #include "utils.h"
 #include "xb0xb.h"
 #include "xb_regex.h"
+#include "os0key.h" // is_keyring_rds
 
 #include <cstdlib>
 #include "backup_copy.h"
@@ -1384,6 +1385,22 @@ static bool backup_rocksdb_checkpoint(Backup_context &context, bool final) {
   return result;
 }
 
+/* Backup the key if file of keyring_rds plugin. */
+static bool backup_keyring_rds_key_id_file(MYSQL *connection) {
+  char filepath[FN_REFLEN];
+  if (!get_key_id_filename(connection, filepath, sizeof(filepath))) {
+    return false;
+  }
+
+  if (!file_exists(filepath)) {
+    xb::error() << "Error key_id file " << filepath
+                << " not exists.";
+    return false;
+  }
+
+  return copy_file(ds_data, filepath, filepath, 0, FILE_PURPOSE_OTHER);
+}
+
 /* Backup non-InnoDB data.
 @param  backup_lsn   backup LSN
 @return true if success. */
@@ -1512,6 +1529,12 @@ bool backup_start(Backup_context &context) {
     xb::info() << "Executing FLUSH NO_WRITE_TO_BINLOG ENGINE LOGS...";
     xb_mysql_query(mysql_connection, "FLUSH NO_WRITE_TO_BINLOG ENGINE LOGS",
                    false);
+  }
+
+  if (is_keyring_rds) {
+    if (!backup_keyring_rds_key_id_file(mysql_connection)) {
+      return false;
+    }
   }
 
   return (true);

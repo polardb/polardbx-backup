@@ -1603,6 +1603,36 @@ cleanup:
   return (result);
 }
 
+/**
+ Get the file name of keyring_rds key id file
+
+ @param      connection  mysql connection
+ @para       filename buffer to update
+ @para       filename buffer length
+
+ @return     true if success
+*/
+bool get_key_id_filename(MYSQL *connection, char *filename, size_t len) {
+  char *key_id_dir;
+  bool result = true;
+  mysql_variable vars[] = {{"keyring_rds_key_id_file_dir", &key_id_dir},
+                           {nullptr, nullptr}};
+
+  read_mysql_variables(connection, "SHOW VARIABLES", vars, true);
+
+  if (key_id_dir == nullptr) {
+    xb::error() << "Error keyring_rds_key_id_file_dir is invalid";
+    result = false;
+    goto cleanup;
+  }
+
+  snprintf(filename, len, "%s%c%s", key_id_dir, FN_LIBCHAR, "master_key_id");
+
+cleanup:
+  free_mysql_variables(vars);
+  return (result);
+}
+
 /** Parse replication channels information from JSON.
 @param[in]   s            JSON string
 @param[out]  log_status   replication info */
