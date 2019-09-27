@@ -355,6 +355,7 @@ static constexpr const char *auto_event_names[] = {
     "os0atomic",
     "os0event",
     "os0file",
+    "os0key",
     "os0numa",
     "os0once",
     "os0proc",

@@ -37,6 +37,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA
 #include "os0file.h"
 #include "page0page.h"
 #include "ut0crc32.h"
+#include "os0key.h"
 
 #include <errno.h>
 #include <mysql/components/services/keyring_generator.h>
@@ -234,6 +235,14 @@ void Encryption::create_master_key(byte **master_key) noexcept {
   char *key_type = nullptr;
   char key_name[MASTER_KEY_NAME_MAX_LEN];
 
+  /* If using keyring_rds plugin, the master key id is generated in KMS,
+  and we try to fetch it by keyring_plugin, then update s_uuid and
+  s_master_key_id */
+  if (is_keyring_rds) {
+    rds_create_master_key(master_key);
+    return;
+  }
+
   /* If uuid does not match with current server uuid,
   set uuid as current server uuid. */
   if (strcmp(s_uuid, server_uuid) != 0) {
@@ -340,6 +349,17 @@ void Encryption::get_master_key(uint32_t *master_key_id,
   extern ib_mutex_t master_key_id_mutex;
   int retval;
   bool key_id_locked = false;
+
+  /* When using keyring_rds, the first master key id should not be generated
+  by Innobase itself, but by KMS/Agent. So we fetch it though keyring_rds */
+  if (is_keyring_rds && s_master_key_id == 0) {
+    /* Here need to lock master_key_id_mutex to prevent concurrent rotate */
+    if (!get_master_key_id()) {
+      *master_key = nullptr;
+      return;
+    }
+    /* If succeeded, s_master_key_id no longer eq 0 */
+  }
 
   if (s_master_key_id == DEFAULT_MASTER_KEY_ID) {
     /* Take mutex as master_key_id is going to change. */

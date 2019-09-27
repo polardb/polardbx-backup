@@ -36,6 +36,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include "kdf.h"
 #include "keyring_components.h"
 #include "keyring_operations_helper.h"
+#include "os0key.h" // is_keyring_rd
 
 #include "backup_mysql.h"
 #include "keyring_plugins.h"
@@ -326,6 +327,8 @@ bool xb_keyring_init_for_backup(MYSQL *connection) {
 
   init_plugins(t_argc, t_argv);
 
+  my_key_is_keyring_rds(&is_keyring_rds);
+
   delete[] t_argv;
 
   return (true);
@@ -354,6 +357,8 @@ bool xb_keyring_init_for_stats(int argc, char **argv) {
   }
 
   init_plugins(argc, argv);
+
+  my_key_is_keyring_rds(&is_keyring_rds);
 
   return (true);
 }
@@ -390,6 +395,8 @@ bool xb_keyring_init_for_prepare(int argc, char **argv) {
   }
 
   init_plugins(argc, argv);
+
+  my_key_is_keyring_rds(&is_keyring_rds);
 
   return (true);
 }
@@ -476,6 +483,8 @@ bool xb_keyring_init_for_copy_back(int argc, char **argv) {
       }
     }
     init_plugins(argc, argv);
+
+    my_key_is_keyring_rds(&is_keyring_rds);
 
     delete[] old_t_argv;
   }

@@ -39,6 +39,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA
  *******************************************************/
 
 #include "os0file.h"
+#include "os0key.h"
 #include "fil0fil.h"
 #include "ha_prototypes.h"
 #include "log0write.h"
