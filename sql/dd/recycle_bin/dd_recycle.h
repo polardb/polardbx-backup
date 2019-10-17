@@ -1,4 +1,4 @@
-/* Copyright (c) 2000, 2022, Oracle and/or its affiliates.
+/* Copyright (c) 2018, 2019, Alibaba and/or its affiliates. All rights reserved.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
@@ -20,34 +20,26 @@
    along with this program; if not, write to the Free Software
    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA */
 
-/* Defines to make different thread packages compatible */
+#ifndef SQL_DD_RECYCLE_BIN_DD_RECYCLE_INCLUDED
+#define SQL_DD_RECYCLE_BIN_DD_RECYCLE_INCLUDED
 
-#ifndef THREAD_TYPE_INCLUDED
-#define THREAD_TYPE_INCLUDED
+#include "sql/dd/dd.h"
+
+namespace im {
+namespace recycle_bin {
 
 /**
-  @file include/mysql/thread_type.h
+  Init thread to prepare recycle bin context
+
+  @param[in]    init_type     mysqld boot type
+
+  @retval       false         success
+  @retval       true          failure
 */
+bool init(dd::enum_dd_init_type init_type);
 
-/* Flags for the THD::system_thread variable */
-enum enum_thread_type {
-  NON_SYSTEM_THREAD = 0,
-  SYSTEM_THREAD_SLAVE_IO = 1,
-  SYSTEM_THREAD_SLAVE_SQL = 2,
-  SYSTEM_THREAD_NDBCLUSTER_BINLOG = 4,
-  SYSTEM_THREAD_EVENT_SCHEDULER = 8,
-  SYSTEM_THREAD_EVENT_WORKER = 16,
-  SYSTEM_THREAD_INFO_REPOSITORY = 32,
-  SYSTEM_THREAD_SLAVE_WORKER = 64,
-  SYSTEM_THREAD_COMPRESS_GTID_TABLE = 128,
-  SYSTEM_THREAD_BACKGROUND = 256,
-  SYSTEM_THREAD_DD_INITIALIZE = 512,
-  SYSTEM_THREAD_DD_RESTART = 1024,
-  SYSTEM_THREAD_SERVER_INITIALIZE = 2048,
-  SYSTEM_THREAD_INIT_FILE = 4096,
-  SYSTEM_THREAD_SERVER_UPGRADE = 8192,
-  SYSTEM_THREAD_GROUP_REPLICATION_CONNECTION = 16384,
-  SYSTEM_THREAD_RECYCLE_SCHEDULER = 32768
-};
+} /* namespace recycle_bin */
 
-#endif /* THREAD_TYPE_INCLUDED */
+} /* namespace im */
+
+#endif

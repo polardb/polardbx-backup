@@ -1,4 +1,4 @@
-/* Copyright (c) 2000, 2022, Oracle and/or its affiliates.
+/* Copyright (c) 2018, 2019, Alibaba and/or its affiliates. All rights reserved.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
@@ -20,34 +20,31 @@
    along with this program; if not, write to the Free Software
    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA */
 
-/* Defines to make different thread packages compatible */
+#ifndef SQL_RECYCLE_BIN_RECYCLE_PARSE_INCLUDED
+#define SQL_RECYCLE_BIN_RECYCLE_PARSE_INCLUDED
 
-#ifndef THREAD_TYPE_INCLUDED
-#define THREAD_TYPE_INCLUDED
+class THD;
+namespace im {
+
+namespace recycle_bin {
+
+class Recycle_process_context;
 
 /**
-  @file include/mysql/thread_type.h
+  It's the recycle logic entrance, we allowed to recycle table
+  when DROP TABLE or DATABASE by setting recycle state flag.
+
+  @param[in]      thd       thread context
+  @param[in]      context   Recycle process context
 */
+extern void recycle_state_rewrite(const THD *thd,
+                                  const Recycle_process_context *context);
 
-/* Flags for the THD::system_thread variable */
-enum enum_thread_type {
-  NON_SYSTEM_THREAD = 0,
-  SYSTEM_THREAD_SLAVE_IO = 1,
-  SYSTEM_THREAD_SLAVE_SQL = 2,
-  SYSTEM_THREAD_NDBCLUSTER_BINLOG = 4,
-  SYSTEM_THREAD_EVENT_SCHEDULER = 8,
-  SYSTEM_THREAD_EVENT_WORKER = 16,
-  SYSTEM_THREAD_INFO_REPOSITORY = 32,
-  SYSTEM_THREAD_SLAVE_WORKER = 64,
-  SYSTEM_THREAD_COMPRESS_GTID_TABLE = 128,
-  SYSTEM_THREAD_BACKGROUND = 256,
-  SYSTEM_THREAD_DD_INITIALIZE = 512,
-  SYSTEM_THREAD_DD_RESTART = 1024,
-  SYSTEM_THREAD_SERVER_INITIALIZE = 2048,
-  SYSTEM_THREAD_INIT_FILE = 4096,
-  SYSTEM_THREAD_SERVER_UPGRADE = 8192,
-  SYSTEM_THREAD_GROUP_REPLICATION_CONNECTION = 16384,
-  SYSTEM_THREAD_RECYCLE_SCHEDULER = 32768
-};
+} /* namespace recycle_bin */
 
-#endif /* THREAD_TYPE_INCLUDED */
+} /* namespace im */
+
+
+
+
+#endif
