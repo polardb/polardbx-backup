@@ -126,6 +126,7 @@ static MEM_ROOT argv_alloc{PSI_NOT_INSTRUMENTED, 512};
 /* we cannot include sql/log.h because it conflicts with innodb headers */
 bool init_error_log();
 void destroy_error_log();
+void flush_error_log_messages();
 int sys_var_init();
 
 bool innodb_inited = 0;
@@ -8020,6 +8021,10 @@ int main(int argc, char **argv) {
   backup_cleanup();
 
   xb_regex_end();
+
+  /* Make sure all the log messages are ejected and 'completed OK!'
+  is the last one. */
+  flush_error_log_messages();
 
   msg_ts("completed OK!\n");
 
