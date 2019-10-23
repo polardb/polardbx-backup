@@ -270,6 +270,8 @@ void unlock_all(MYSQL *connection);
 
 bool write_current_binlog_file(MYSQL *connection);
 
+bool get_key_id_filename(MYSQL *connection, char *filename, size_t len);
+
 /** Read binaty log position and InnoDB LSN from p_s.log_status.
 @param[in]   conn         mysql connection handle */
 const log_status_t &log_status_get(MYSQL *conn);

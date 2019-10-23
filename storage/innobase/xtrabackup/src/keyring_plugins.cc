@@ -32,6 +32,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #include <ut0crc32.h>
 #include "common.h"
 #include "kdf.h"
+#include "os0key.h" // is_keyring_rds
 
 #include "backup_mysql.h"
 #include "keyring_plugins.h"
@@ -249,6 +250,13 @@ bool xb_keyring_init_for_backup(MYSQL *connection) {
 
   mysql_free_result(mysql_result);
 
+  /* For keyring_rds plugin, the port number of mysqld is needed. */
+  if (!strcmp(keyring_plugin_name.c_str(), "keyring_rds")) {
+    std::ostringstream var;
+    var << "--keyring_rds_kms_agent_port=" << opt_port;
+    keyring_plugin_args.push_back(var.str());
+  }
+
   int t_argc = keyring_plugin_args.size() + 1;
   char **t_argv = new char *[t_argc + 1];
 
@@ -260,6 +268,8 @@ bool xb_keyring_init_for_backup(MYSQL *connection) {
   }
 
   init_plugins(t_argc, t_argv);
+
+  my_key_is_keyring_rds(&is_keyring_rds);
 
   delete[] t_argv;
 
@@ -295,6 +305,8 @@ bool xb_keyring_init_for_stats(int argc, char **argv) {
   }
 
   init_plugins(argc, argv);
+
+  my_key_is_keyring_rds(&is_keyring_rds);
 
   return (true);
 }
@@ -348,6 +360,8 @@ bool xb_keyring_init_for_prepare(int argc, char **argv) {
   }
 
   init_plugins(argc, argv);
+
+  my_key_is_keyring_rds(&is_keyring_rds);
 
   return (true);
 }
@@ -452,6 +466,8 @@ bool xb_keyring_init_for_copy_back(int argc, char **argv) {
   }
 
   init_plugins(argc, argv);
+
+  my_key_is_keyring_rds(&is_keyring_rds);
 
   delete[] old_t_argv;
 
