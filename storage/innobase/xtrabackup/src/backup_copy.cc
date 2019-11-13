@@ -1388,9 +1388,7 @@ static bool backup_rocksdb_checkpoint(Backup_context &context, bool final) {
 /* Backup the key if file of keyring_rds plugin. */
 static bool backup_keyring_rds_key_id_file(MYSQL *connection) {
   char filepath[FN_REFLEN];
-  if (!get_key_id_filename(connection, filepath, sizeof(filepath))) {
-    return false;
-  }
+  get_key_id_filename(connection, filepath, sizeof(filepath));
 
   if (!file_exists(filepath)) {
     xb::error() << "Error key_id file " << filepath
@@ -1398,7 +1396,14 @@ static bool backup_keyring_rds_key_id_file(MYSQL *connection) {
     return false;
   }
 
-  return copy_file(ds_data, filepath, filepath, 0, FILE_PURPOSE_OTHER);
+  if (filepath[0] == FN_LIBCHAR) {
+    /* If this is an absolute path, which means the master_key_id
+    file is not put under datadir, we will backup it as it's is
+    under datadir. */
+    return copy_file(ds_data, filepath, "master_key_id", 0, FILE_PURPOSE_OTHER);
+  } else {
+    return copy_file(ds_data, filepath, filepath, 0, FILE_PURPOSE_OTHER);
+  }
 }
 
 /* Backup non-InnoDB data.

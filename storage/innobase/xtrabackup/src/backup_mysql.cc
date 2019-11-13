@@ -1621,25 +1621,21 @@ cleanup:
 
  @return     true if success
 */
-bool get_key_id_filename(MYSQL *connection, char *filename, size_t len) {
-  char *key_id_dir;
-  bool result = true;
+void get_key_id_filename(MYSQL *connection, char *filename, size_t len) {
+  char *key_id_dir = nullptr;
   mysql_variable vars[] = {{"keyring_rds_key_id_file_dir", &key_id_dir},
                            {nullptr, nullptr}};
 
   read_mysql_variables(connection, "SHOW VARIABLES", vars, true);
 
-  if (key_id_dir == nullptr) {
-    xb::error() << "Error keyring_rds_key_id_file_dir is invalid";
-    result = false;
-    goto cleanup;
+  /* "" means key_id_dir is same as datadir */
+  if (strcmp(key_id_dir, "") == 0) {
+    snprintf(filename, len, "master_key_id");
+  } else {
+    snprintf(filename, len, "%s%c%s", key_id_dir, FN_LIBCHAR, "master_key_id");
   }
 
-  snprintf(filename, len, "%s%c%s", key_id_dir, FN_LIBCHAR, "master_key_id");
-
-cleanup:
   free_mysql_variables(vars);
-  return (result);
 }
 
 /** Parse replication channels information from JSON.

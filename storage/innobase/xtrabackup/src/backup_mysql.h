@@ -203,7 +203,7 @@ void unlock_all(MYSQL *connection);
 
 bool write_current_binlog_file(MYSQL *connection);
 
-bool get_key_id_filename(MYSQL *connection, char *filename, size_t len);
+void get_key_id_filename(MYSQL *connection, char *filename, size_t len);
 
 /** Read binary log position, InnoDB LSN and other storage engine information
 from p_s.log_status and update global log_status variable.
