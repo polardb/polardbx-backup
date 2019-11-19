@@ -31,7 +31,8 @@ enum mysql_flavor_t {
   FLAVOR_UNKNOWN,
   FLAVOR_MYSQL,
   FLAVOR_PERCONA_SERVER,
-  FLAVOR_MARIADB
+  FLAVOR_MARIADB,
+  FLAVOR_X_CLUSTER
 };
 extern mysql_flavor_t server_flavor;
 extern unsigned long mysql_server_version;

@@ -1947,7 +1947,9 @@ bool backup_start(Backup_context &context) {
     }
   }
 
-  write_binlog_info(mysql_connection);
+  if (!write_binlog_info(mysql_connection)) {
+    return false;
+  }
 
   /* we are now at the consistent point, data in all engines will be
   recovered to this point */
