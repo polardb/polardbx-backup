@@ -131,7 +131,6 @@ class Myrocks_checkpoint {
   file_list data_files() const;
 };
 
-#define XENGINE_SUBDIR ".xengine"
 #define XENGINE_BACKUP_TMP_DIR "hotbackup_tmp"
 #define XENGINE_BACKUP_EXTENT_IDS_FILE "extent_ids.inc"
 #define XENGINE_BACKUP_EXTENTS_FILE "extent.inc"
@@ -148,12 +147,12 @@ public:
   using const_iterator = file_list::const_iterator;
 
   // Get all files from xengine backup dir
-  file_list files(const char *dest_dir = XENGINE_SUBDIR) const;
+  file_list files(const char *dest_dir) const;
 
   // Get all wal files from xengine backup dir
-  file_list wal_files(const char *dest_dir = XENGINE_SUBDIR) const;
+  file_list wal_files(const char *dest_dir) const;
 
-  file_list copy_back_files(const char *dest_dir = XENGINE_SUBDIR) const;
+  file_list copy_back_files(const char *dest_dir) const;
 
 private:
   void scan_dir(const std::string &dir, const char *dest_dir, file_list &result) const;
@@ -205,7 +204,7 @@ public:
   // Release xengine snapshots
   bool release_snapshots();
   // In prepare, copy incremental extents to backuped sst files
-  bool replay_sst_files();
+  bool replay_sst_files(const std::string backup_dir_path);
   // Parallel copy files
   bool copy_files(ds_ctxt_t *ds, file_list &files, const bool record_files = true);
 
@@ -323,6 +322,8 @@ char *get_xtrabackup_info(MYSQL *connection);
 bool write_xtrabackup_info(MYSQL *connection);
 
 bool write_backup_config_file();
+
+bool write_xtrabackup_xengine_info();
 
 bool lock_tables_for_backup(MYSQL *connection, int timeout, int retry_count);
 

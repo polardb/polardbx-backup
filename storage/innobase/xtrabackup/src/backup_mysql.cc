@@ -2165,6 +2165,14 @@ bool write_backup_config_file() {
   return backup_file_print("backup-my.cnf", s.str().c_str(), s.tellp());
 }
 
+bool write_xtrabackup_xengine_info() {
+  std::ostringstream s;
+  std::string xengine_datadir_name =
+      std::string(opt_xengine_datadir).substr(dirname_length(opt_xengine_datadir));
+  s << "datadir = " << xengine_datadir_name << "\n";
+  return backup_file_print(XTRABACKUP_XENGINE_INFO, s.str().c_str(), s.tellp());
+}
+
 static char *make_argv(char *buf, size_t len, int argc, char **argv) {
   size_t left = len;
   const char *arg;

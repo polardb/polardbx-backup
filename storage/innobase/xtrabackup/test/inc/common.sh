@@ -308,6 +308,7 @@ replicate-ignore-db=sys
 innodb_log_file_size=48M
 ${MYSQLD_EXTRA_MY_CNF_OPTS:-}
 ${OPEN_XENGINE:-xengine=0}
+${OPEN_XENGINE_EXTRA:-}
 #core-file
 
 [client]
@@ -932,6 +933,7 @@ function require_xengine()
     skip_test "Requires Xengine"
   else
     OPEN_XENGINE="xengine=1"
+    OPEN_XENGINE_EXTRA="recovery_inconsistency_check=off"
   fi
 }
 

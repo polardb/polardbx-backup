@@ -50,11 +50,11 @@ for i in {1..1000} ; do
   echo "INSERT INTO t (b, c) VALUES (FLOOR(RAND() * 1000000), UUID());"
 done | mysql test
 
-eval ${FULL_PREPARE_CMD}
-
 stop_server
 
 eval ${CLEANUP_CMD}
+
+eval ${FULL_PREPARE_CMD}
 
 eval ${RESTORE_CMD}
 

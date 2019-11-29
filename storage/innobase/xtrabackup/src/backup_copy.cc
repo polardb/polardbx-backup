@@ -99,6 +99,8 @@ static std::mutex rsync_mutex;
 /* skip these files on copy-back */
 static std::set<std::string> skip_copy_back_list;
 
+char xtrabackup_xengine_info_datadir[FN_REFLEN];
+
 class datadir_queue {
   std::queue<datadir_entry_t> queue;
   mysql_mutex_t mutex;
@@ -1483,11 +1485,10 @@ bool Xengine_backup::record_incemental_extents()
   return ret;
 }
 
-bool Xengine_backup::replay_sst_files()
+bool Xengine_backup::replay_sst_files(const std::string backup_dir_path)
 {
   bool ret = true;
   File extents_fd = -1;
-  std::string backup_dir_path = XENGINE_SUBDIR;
   std::string extents_file_path = backup_dir_path + FN_DIRSEP XENGINE_BACKUP_EXTENTS_FILE;
 
   if (!file_exists(extents_file_path.c_str())) {
@@ -1503,6 +1504,7 @@ bool Xengine_backup::replay_sst_files()
     copy_extent_func replay_extents = std::bind(&Xengine_backup::par_replay_extents, _1, _2, _3, extents_fd, &ret);
 
     if (ret && !read_and_copy_extent_content(backup_dir_path, O_WRONLY, replay_extents)) {
+      msg("xtrabackup: error: failed to read_and_copy_extent_content.\n");
       ret = false;
     }
   }
@@ -1648,11 +1650,12 @@ void Xengine_backup::par_copy_xengine_files(const file_list::const_iterator &sta
 {
   for (auto it = start; it != end; it++) {
     if (ends_with(it->path.c_str(), ".qp") ||
+        ends_with(it->path.c_str(), ".lz4") ||
         ends_with(it->path.c_str(), ".xbcrypt")) {
       continue;
     }
     if (!copy_file(ds, it->path.c_str(), it->rel_path.c_str(), thread_n,
-          FILE_PURPOSE_OTHER, it->file_size)) {
+                   FILE_PURPOSE_OTHER, it->file_size)) {
       *result = false;
     }
     if (!*result) {
@@ -1785,7 +1788,10 @@ bool backup_start(Backup_context &context) {
     }
 
     msg_ts("xtrabackup: XENGINE starts to copy sst files.\n");
-    auto xengine_files = Xengine_datadir(std::string(opt_xengine_datadir) + FN_DIRSEP XENGINE_BACKUP_TMP_DIR).files();
+    std::string xengine_datadir_name =
+        std::string(opt_xengine_datadir).substr(dirname_length(opt_xengine_datadir));
+    auto xengine_files = Xengine_datadir(std::string(opt_xengine_datadir)
+        + FN_DIRSEP XENGINE_BACKUP_TMP_DIR).files(xengine_datadir_name.c_str());
     if (!context.xengine_backup.copy_files(ds_uncompressed_data, xengine_files)) {
       return (false);
     }
@@ -1947,13 +1953,19 @@ bool backup_finish(Backup_context &context) {
       return (false);
     }
     msg_ts("xtrabackup: XENGINE starts to copy rest files.\n");
+    std::string xengine_datadir_name =
+        std::string(opt_xengine_datadir).substr(dirname_length(opt_xengine_datadir));
     auto xengine_files = Xengine_datadir(std::string(opt_xengine_datadir)
-        + FN_DIRSEP XENGINE_BACKUP_TMP_DIR).files();
+        + FN_DIRSEP XENGINE_BACKUP_TMP_DIR).files(xengine_datadir_name.c_str());
     if (!context.xengine_backup.copy_files(ds_uncompressed_data,
         xengine_files, false /* not need to record copied files*/)) {
       return (false);
     }
     if (!context.xengine_backup.release_snapshots()) {
+      return (false);
+    }
+
+    if (!write_xtrabackup_xengine_info()) {
       return (false);
     }
   }
@@ -2355,6 +2367,7 @@ bool should_skip_file_on_copy_back(const char *filepath) {
                             "xtrabackup_binlog_info",
                             "xtrabackup_checkpoints",
                             "xtrabackup_tablespaces",
+                            "xtrabackup_xengine_info",
                             ".qp",
                             ".lz4",
                             ".pmap",
@@ -2393,8 +2406,12 @@ bool should_skip_file_on_copy_back(const char *filepath) {
   }
 
   /* skip xengine files (we'll copy them to later to the xengine_datadir) */
-  if (strstr(filepath, FN_DIRSEP XENGINE_SUBDIR FN_DIRSEP) != nullptr) {
-    return true;
+  if (file_exists(XTRABACKUP_XENGINE_INFO)) {
+    std::string xengine_skip_pattern =
+        FN_DIRSEP + std::string(xtrabackup_xengine_info_datadir) + FN_DIRSEP;
+    if (strstr(filepath, xengine_skip_pattern.c_str()) != nullptr) {
+      return true;
+    }
   }
 
   if (skip_copy_back_list.count(filename) > 0) {
@@ -2520,6 +2537,30 @@ static bool load_backup_my_cnf() {
   return (true);
 }
 
+static bool xtrabackup_read_xengine_info(char *filename) {
+  FILE *fp;
+  bool r = TRUE;
+
+  fp = fopen(filename, "r");
+  if (!fp) {
+    msg("xtrabackup: Error: cannot open %s\n", filename);
+    return (FALSE);
+  }
+
+  if (fscanf(fp, "datadir = %s\n", xtrabackup_xengine_info_datadir) != 1) {
+    msg("xtrabackup: failed to fscanf\n");
+    r = FALSE;
+    goto end;
+  }
+
+  msg_ts("Xengine backup dir is: %s\n", xtrabackup_xengine_info_datadir);
+
+end:
+  fclose(fp);
+
+  return (r);
+}
+
 bool copy_back(int argc, char **argv) {
   char *innobase_data_file_path_copy;
   bool ret = true, err;
@@ -2627,6 +2668,16 @@ bool copy_back(int argc, char **argv) {
   if (!srv_sys_space.parse_params(innobase_data_file_path, true, false)) {
     msg("syntax error in innodb_data_file_path\n");
     return (false);
+  }
+
+  /* Read xengine bakcup dir from file XTRABACKUP_XENGINE_INFO */
+  if (file_exists(XTRABACKUP_XENGINE_INFO)) {
+    char xengine_info_path[FN_REFLEN];
+    sprintf(xengine_info_path, "%s/%s", xtrabackup_target_dir, XTRABACKUP_XENGINE_INFO);
+    if (!xtrabackup_read_xengine_info(xengine_info_path)) {
+      msg("xtrabackup: error: failed to read xengine info from %s\n", xengine_info_path);
+      return (false);
+    }
   }
 
   /* temporally dummy value to avoid crash */
@@ -2847,13 +2898,13 @@ bool copy_back(int argc, char **argv) {
   }
 
   /* copy xengine datadir */
-  if (directory_exists(XENGINE_SUBDIR, false)) {
+  if (file_exists(XTRABACKUP_XENGINE_INFO)) {
     Xengine_backup xengine_backup;
-    Xengine_datadir xengine(XENGINE_SUBDIR);
+    Xengine_datadir xengine(xtrabackup_xengine_info_datadir);
     std::string xengine_datadir =
       (opt_xengine_datadir != nullptr && *opt_xengine_datadir != 0)
       ? opt_xengine_datadir
-      : std::string(mysql_data_home) + FN_DIRSEP + XENGINE_SUBDIR;
+      : std::string(mysql_data_home) + FN_DIRSEP + ".xengine";
 
     std::string xengine_wal_dir =
       (opt_xengine_wal_dir != nullptr && *opt_xengine_wal_dir != 0)
@@ -3072,3 +3123,40 @@ void version_check() {
   pclose(pipe);
 }
 #endif
+
+bool xtrabackup_xengine_prepare_func() {
+  if (file_exists(XTRABACKUP_XENGINE_INFO)) {
+    // Read xengine backup dir from XTRABACKUP_XENGINE_INFO
+    char xengine_info_path[FN_REFLEN];
+    sprintf(xengine_info_path, "%s/%s", xtrabackup_target_dir, XTRABACKUP_XENGINE_INFO);
+    if (!xtrabackup_read_xengine_info(xengine_info_path)) {
+      msg("xtrabackup: error: failed to read xengine info from %s\n", xengine_info_path);
+      return (false);
+    }
+
+    Xengine_backup xengine_backup;
+    if (!xengine_backup.replay_sst_files(xtrabackup_xengine_info_datadir)) {
+      msg("xtrbackup: error: failed to replay sst files\n");
+      return (false);
+    }
+
+    // Do cleanup, delete inc files
+    char xengine_inc_filepath[FN_REFLEN];
+    sprintf(xengine_inc_filepath, "%s/%s/%s", xtrabackup_target_dir,
+        xtrabackup_xengine_info_datadir, XENGINE_BACKUP_EXTENT_IDS_FILE);
+    if (my_delete(xengine_inc_filepath, MYF(MY_WME)) != 0) {
+      msg("xtrabakcup: error: failed to delete xengine backup extent id file %s",
+          xengine_inc_filepath);
+      return (false);
+    }
+
+    sprintf(xengine_inc_filepath, "%s/%s/%s", xtrabackup_target_dir,
+        xtrabackup_xengine_info_datadir, XENGINE_BACKUP_EXTENTS_FILE);
+    if (my_delete(xengine_inc_filepath, MYF(MY_WME)) != 0) {
+      msg("xtrabakcup: error: failed to delete xengine backup extent file %s",
+          xengine_inc_filepath);
+      return (false);
+    }
+  }
+  return (true);
+}

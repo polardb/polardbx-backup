@@ -6653,12 +6653,10 @@ skip_check:
     exit(EXIT_FAILURE);
   }
 
-  /* have xengine, do xengine prepare */
-  if (directory_exists(XENGINE_SUBDIR, false)) {
-    Xengine_backup xengine_backup;
-    if (!xengine_backup.replay_sst_files()) {
-      exit(EXIT_FAILURE);
-    }
+  /* if have xengine, do xengine prepare */
+  if (!xtrabackup_xengine_prepare_func()) {
+    msg("xtrabackup: Error: failed to prepare xengine\n");
+    exit(EXIT_FAILURE);
   }
 
   trx_pool_close();

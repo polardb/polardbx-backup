@@ -7,7 +7,7 @@ require_xengine
 start_server
 shutdown_server
 
-xengine_datadir=${TEST_VAR_ROOT}/xengine/data
+xengine_datadir=${TEST_VAR_ROOT}/xengine
 
 mkdir -p ${TEST_VAR_ROOT}/xengine
 mv $mysql_datadir/.xengine $xengine_datadir
@@ -22,7 +22,7 @@ mysql -e "INSERT INTO t (a) VALUES (1), (2), (3)" test
 
 xtrabackup --backup --target-dir=$topdir/backup
 
-if ! [ -d $topdir/backup/.xengine ] ; then
+if ! [ -d $topdir/backup/xengine ] ; then
     die "XENGINE haven't been backed up"
 fi
 
