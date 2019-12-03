@@ -339,8 +339,8 @@ dberr_t Datafile::read_first_page(bool read_only_mode) {
   while (page_size >= UNIV_PAGE_SIZE_MIN) {
     ulint n_read = 0;
 
-    err = os_file_read_no_error_handling(request, m_handle, m_first_page, 0,
-                                         page_size, &n_read);
+    err = os_file_read_no_error_handling(request, m_filename, m_handle,
+                                         m_first_page, 0, page_size, &n_read);
 
     if (err == DB_IO_ERROR && n_read >= UNIV_PAGE_SIZE_MIN) {
       page_size >>= 1;
@@ -606,8 +606,8 @@ dberr_t Datafile::validate_first_page(space_id_t space_id, lsn_t *flush_lsn,
 
   } else if (m_space_id != 0 && space_id != m_space_id &&
              space_id != SPACE_UNKNOWN) {
-  /* Tablespace ID mismatch. The file could be in use
-  by another tablespace. */
+    /* Tablespace ID mismatch. The file could be in use
+    by another tablespace. */
 
 #ifndef UNIV_HOTBACKUP
     ut_d(ib::info(ER_IB_MSG_398)
@@ -684,7 +684,7 @@ dberr_t Datafile::validate_first_page(space_id_t space_id, lsn_t *flush_lsn,
       if (srv_backup_mode) {
         mutex_enter(&recv_sys->mutex);
         for (const auto &recv_key : *recv_sys->keys) {
-          if (recv_key.space_id == space_id) {
+          if (recv_key.space_id == m_space_id) {
             memcpy(m_encryption_key, recv_key.ptr, ENCRYPTION_KEY_LEN);
             memcpy(m_encryption_iv, recv_key.iv, ENCRYPTION_KEY_LEN);
             found = true;
@@ -700,7 +700,7 @@ dberr_t Datafile::validate_first_page(space_id_t space_id, lsn_t *flush_lsn,
         ut_free(m_encryption_iv);
         m_encryption_key = NULL;
         m_encryption_iv = NULL;
-        return (DB_CORRUPTION);
+        return (DB_INVALID_ENCRYPTION_META);
       }
     } else {
       ib::info(ER_IB_MSG_402) << "Read encryption metadata from " << m_filepath
@@ -811,7 +811,8 @@ dberr_t Datafile::find_space_id() {
       ulint n_bytes = j * page_size;
       IORequest request(IORequest::READ);
 
-      err = os_file_read(request, m_handle, page, n_bytes, page_size);
+      err =
+          os_file_read(request, m_filename, m_handle, page, n_bytes, page_size);
 
       if (err == DB_IO_DECOMPRESS_FAIL) {
         /* If the page was compressed on the fly then
@@ -820,7 +821,7 @@ dberr_t Datafile::find_space_id() {
         n_bytes = os_file_compressed_page_size(page);
 
         if (n_bytes != ULINT_UNDEFINED) {
-          err = os_file_read(request, m_handle, page, page_size,
+          err = os_file_read(request, m_filename, m_handle, page, page_size,
                              UNIV_PAGE_SIZE_MAX);
 
           if (err != DB_SUCCESS) {

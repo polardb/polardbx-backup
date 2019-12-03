@@ -1,4 +1,4 @@
-# Copyright (c) 2006, 2018, Oracle and/or its affiliates. All rights reserved.
+# Copyright (c) 2006, 2019, Oracle and/or its affiliates. All rights reserved.
 # 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License, version 2.0,
@@ -29,6 +29,7 @@ IF(MAN1_NDB AND NOT WITH_NDBCLUSTER)
   LIST(REMOVE_ITEM MAN1 ${MAN1_NDB})
 ENDIF()
 INSTALL(FILES ${MAN1} DESTINATION ${INSTALL_MANDIR}/man1 COMPONENT ManPages)
+INSTALL(FILES ${MAN8} DESTINATION ${INSTALL_MANDIR}/man8 COMPONENT ManPages)
 
 IF(MAN8_NDB AND NOT WITH_NDBCLUSTER)
   LIST(REMOVE_ITEM MAN8 ${MAN8_NDB})

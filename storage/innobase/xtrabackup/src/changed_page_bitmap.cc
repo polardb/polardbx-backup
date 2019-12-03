@@ -187,8 +187,8 @@ static bool log_online_read_bitmap_page(
   ut_a(bitmap_file->offset <= bitmap_file->size - MODIFIED_PAGE_BLOCK_SIZE);
   ut_a(bitmap_file->offset % MODIFIED_PAGE_BLOCK_SIZE == 0);
 
-  success = os_file_read(read_request, bitmap_file->file, page,
-                         bitmap_file->offset, MODIFIED_PAGE_BLOCK_SIZE);
+  success = os_file_read(read_request, bitmap_file->name, bitmap_file->file,
+                         page, bitmap_file->offset, MODIFIED_PAGE_BLOCK_SIZE);
 
   if (UNIV_UNLIKELY(!success)) {
     /* The following call prints an error message */
@@ -564,7 +564,7 @@ static bool xb_find_lsn_in_bitmap_file(
 
  @return the built bitmap tree or NULL if unable to read the full interval for
  any reason. */
-xb_page_bitmap *xb_page_bitmap_init(void)
+xb_page_bitmap *xb_page_bitmap_init(lsn_t checkpoint_lsn_start)
 /*=====================*/
 {
   log_online_bitmap_file_t bitmap_file;

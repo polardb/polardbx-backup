@@ -27,6 +27,8 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA
 #include "xbstream.h"
 #include "xtrabackup_config.h"
 
+#define XB_LOG_FILENAME "xtrabackup_logfile"
+
 #ifdef __WIN__
 #define XB_FILE_UNDEFINED {NULL};
 #else
@@ -43,6 +45,7 @@ typedef struct {
   ulint page_size;
   ulint zip_size;
   ulint space_id;
+  ulint space_flags;
 } xb_delta_info_t;
 
 /* ======== Datafiles iterator ======== */
@@ -70,9 +73,6 @@ extern char *innobase_directories;
 extern ds_ctxt_t *ds_meta;
 extern ds_ctxt_t *ds_data;
 extern ds_ctxt_t *ds_uncompressed_data;
-
-/* The last checkpoint LSN at the backup startup time */
-extern lsn_t checkpoint_lsn_start;
 
 extern xb_page_bitmap *changed_page_bitmap;
 
@@ -162,6 +162,8 @@ extern char *opt_binlog_index_name;
 
 extern char *opt_rocksdb_datadir;
 extern char *opt_rocksdb_wal_dir;
+extern int opt_rocksdb_checkpoint_max_age;
+extern int opt_rocksdb_checkpoint_max_count;
 
 extern char *opt_xengine_datadir;
 extern char *opt_xengine_wal_dir;
@@ -182,6 +184,8 @@ extern uint opt_lock_wait_timeout;
 extern uint opt_lock_wait_threshold;
 extern uint opt_debug_sleep_before_unlock;
 extern uint opt_safe_slave_backup_timeout;
+extern uint opt_backup_lock_timeout;
+extern uint opt_backup_lock_retry_count;
 
 extern const char *opt_history;
 extern bool opt_decrypt;

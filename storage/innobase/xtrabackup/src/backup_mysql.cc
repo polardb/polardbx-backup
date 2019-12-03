@@ -39,7 +39,6 @@ Place, Suite 330, Boston, MA 02111-1307 USA
 
 *******************************************************/
 
-#include <binlog_event.h>
 #include <ha_prototypes.h>
 #include <my_rapidjson_size_t.h>
 #include <my_sys.h>
@@ -57,6 +56,7 @@ Place, Suite 330, Boston, MA 02111-1307 USA
 #include "common.h"
 #include "keyring_plugins.h"
 #include "mysqld.h"
+#include "os0event.h"
 #include "space_map.h"
 #include "typelib.h"
 #include "xb0xb.h"
@@ -214,7 +214,9 @@ MYSQL_RES *xb_mysql_query(MYSQL *connection, const char *query, bool use_result,
   MYSQL_RES *mysql_result = NULL;
 
   if (mysql_query(connection, query)) {
-    msg("Error: failed to execute query %s: %s\n", query,
+    msg("Error: failed to execute query '%s': %u (%s) %s\n", query,
+        mysql_errno(connection),
+        mysql_errno_to_sqlstate(mysql_errno(connection)),
         mysql_error(connection));
     if (die_on_error) {
       exit(EXIT_FAILURE);
@@ -227,7 +229,9 @@ MYSQL_RES *xb_mysql_query(MYSQL *connection, const char *query, bool use_result,
     if ((mysql_result = mysql_store_result(connection)) == NULL) {
       msg("Error: failed to fetch query result %s: %s\n", query,
           mysql_error(connection));
-      exit(EXIT_FAILURE);
+      if (die_on_error) {
+        exit(EXIT_FAILURE);
+      }
     }
 
     if (!use_result) {
@@ -248,11 +252,6 @@ my_ulonglong xb_mysql_numrows(MYSQL *connection, const char *query,
   }
   return rows_count;
 }
-
-struct mysql_variable {
-  const char *name;
-  char **value;
-};
 
 /*********************************************************************/ /**
  Read mysql_variable from MYSQL_RES, return number of rows consumed. */
@@ -297,14 +296,14 @@ static int read_mysql_variables_from_result(MYSQL_RES *mysql_result,
   return rows_read;
 }
 
-static void read_mysql_variables(MYSQL *connection, const char *query,
-                                 mysql_variable *vars, bool vertical_result) {
+void read_mysql_variables(MYSQL *connection, const char *query,
+                          mysql_variable *vars, bool vertical_result) {
   MYSQL_RES *mysql_result = xb_mysql_query(connection, query, true);
   read_mysql_variables_from_result(mysql_result, vars, vertical_result);
   mysql_free_result(mysql_result);
 }
 
-static void free_mysql_variables(mysql_variable *vars) {
+void free_mysql_variables(mysql_variable *vars) {
   mysql_variable *var;
 
   for (var = vars; var->name; var++) {
@@ -1022,7 +1021,7 @@ static void start_query_killer() {
   kill_query_thread_started = os_event_create("kill_query_thread_started");
   kill_query_thread_stopped = os_event_create("kill_query_thread_stopped");
 
-  os_thread_create(PSI_NOT_INSTRUMENTED, kill_query_thread);
+  os_thread_create(PSI_NOT_INSTRUMENTED, kill_query_thread).start();
 
   os_event_wait(kill_query_thread_started);
 }
@@ -1030,31 +1029,54 @@ static void start_query_killer() {
 static void stop_query_killer() {
   os_event_set(kill_query_thread_stop);
   os_event_wait_time(kill_query_thread_stopped, 60000);
+
+  os_event_destroy(kill_query_thread_stop);
+  os_event_destroy(kill_query_thread_started);
+  os_event_destroy(kill_query_thread_stopped);
+}
+
+static bool execute_query_with_timeout(MYSQL *mysql, const char *query,
+                                       int timeout, int retry_count) {
+  bool success = false;
+  if (have_lock_wait_timeout) {
+    char query[200];
+    snprintf(query, sizeof(query), "SET SESSION lock_wait_timeout=%d", timeout);
+    xb_mysql_query(mysql, query, false, true);
+  }
+
+  for (int i = 0; i <= retry_count; ++i) {
+    msg_ts("Executing %s...\n", query);
+    xb_mysql_query(mysql, query, true);
+    uint err = mysql_errno(mysql);
+    if (err == ER_LOCK_WAIT_TIMEOUT) {
+      os_thread_sleep(1000000);
+      continue;
+    }
+    if (err == 0) {
+      success = true;
+    }
+    break;
+  }
+
+  return (success);
 }
 
 /*********************************************************************/ /**
  Function acquires a backup tables lock if supported by the server.
  Allows to specify timeout in seconds for attempts to acquire the lock.
  @returns true if lock acquired */
-bool lock_tables_for_backup(MYSQL *connection, int timeout) {
-  if (have_lock_wait_timeout) {
-    char query[200];
-
-    snprintf(query, sizeof(query), "SET SESSION lock_wait_timeout=%d", timeout);
-
-    xb_mysql_query(connection, query, false);
-  }
-
+bool lock_tables_for_backup(MYSQL *connection, int timeout, int retry_count) {
   if (have_backup_locks) {
-    msg_ts("Executing LOCK TABLES FOR BACKUP...\n");
-    xb_mysql_query(connection, "LOCK TABLES FOR BACKUP", true);
+    execute_query_with_timeout(connection, "LOCK TABLES FOR BACKUP", timeout,
+                               retry_count);
     tables_locked = true;
+
     return (true);
   }
 
+  execute_query_with_timeout(connection, "LOCK INSTANCE FOR BACKUP", timeout,
+                             retry_count);
   instance_locked = true;
-  msg_ts("Executing LOCK INSTANCE FOR BACKUP...\n");
-  xb_mysql_query(connection, "LOCK INSTANCE FOR BACKUP", true);
 
   return (true);
 }
@@ -1123,7 +1145,7 @@ bool lock_tables_ftwrl(MYSQL *connection) {
  acquired. If slave_info option is specified and slave is not
  using auto_position.
  @returns true if lock acquired */
-bool lock_tables_maybe(MYSQL *connection) {
+bool lock_tables_maybe(MYSQL *connection, int timeout, int retry_count) {
   bool force_ftwrl = opt_slave_info && !slave_auto_position &&
                      !(server_flavor == FLAVOR_PERCONA_SERVER);
 
@@ -1136,7 +1158,7 @@ bool lock_tables_maybe(MYSQL *connection) {
   }
 
   if (have_backup_locks && !force_ftwrl) {
-    return lock_tables_for_backup(connection);
+    return lock_tables_for_backup(connection, timeout, retry_count);
   }
 
   return lock_tables_ftwrl(connection);
