@@ -213,7 +213,7 @@ static bool is_keyring_rds(THD *, plugin_ref plugin, void *arg) {
   if (plugin) {
     static const char *keyring_rds = "keyring_rds";
     static const size_t len = strlen(keyring_rds);
-    LEX_STRING *name = plugin_name(plugin);
+    LEX_CSTRING *name = plugin_name(plugin);
     *key_data = (len == name->length) &&
                 (memcmp(keyring_rds, name->str, len) == 0);
   }
