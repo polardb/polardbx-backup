@@ -2174,7 +2174,7 @@ bool write_backup_config_file() {
   }
   s << "master_key_id=" << Encryption::s_master_key_id << "\n";
 
-  s << "encrypt_algorithm="
+  s << "innodb_encrypt_algorithm="
     << innodb_encrypt_algorithm_names[encrypt_algorithm] << "\n";
 
   return backup_file_print("backup-my.cnf", s.str().c_str(), s.tellp());

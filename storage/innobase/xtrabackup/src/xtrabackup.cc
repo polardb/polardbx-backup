@@ -1559,7 +1559,7 @@ Disable with --skip-innodb-checksums.",
      &rds_table_level_mode, &rds_table_level_mode, 0,
      GET_BOOL, NO_ARG, 0, 0, 0, 0, 0, 0},
 
-    {"encrypt_algorithm", OPT_RDS_ENCRYPT_ALGORITHM,
+    {"innodb_encrypt_algorithm", OPT_RDS_ENCRYPT_ALGORITHM,
      "Page data encrypt algorithm: sm4, aes_256_cbc.", &encrypt_algorithm,
      &encrypt_algorithm, &innodb_encrypt_algorithm_typelib,
      GET_ENUM, REQUIRED_ARG, AES_256_CBC, 0, 0, 0, 0, 0},
