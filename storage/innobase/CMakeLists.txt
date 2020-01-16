@@ -46,6 +46,7 @@ SET(INNOBASE_ZIP_DECOMPRESS_SOURCES
 	mem/memory.cc
 	os/file.cc
 	os/os0thread.cc
+	os/os0encrypt.cc
 	page/zipdecompress.cc
 	rem/rec.cc
 	ut/crc32.cc
@@ -226,8 +227,8 @@ MYSQL_ADD_PLUGIN(innobase
   ${INNOBASE_SOURCES} ${INNOBASE_ZIP_DECOMPRESS_SOURCES} STORAGE_ENGINE
   MANDATORY
   MODULE_OUTPUT_NAME ha_innodb
-  LINK_LIBRARIES sql_dd sql_gis ${ZLIB_LIBRARY} ${LZ4_LIBRARY} ${NUMA_LIBRARY})
-
+  LINK_LIBRARIES sql_dd sql_gis ${ZLIB_LIBRARY} ${LZ4_LIBRARY} ${NUMA_LIBRARY}
+  mysys_ssl)
 
 # Avoid generating Hardware Capabilities due to crc32 instructions
 IF(SOLARIS_INTEL)

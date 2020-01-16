@@ -53,6 +53,7 @@ The tablespace memory cache */
 #include "my_dbug.h"
 #include "my_inttypes.h"
 #include "os0file.h"
+#include "os0encrypt.h"
 #include "page0zip.h"
 #include "srv0start.h"
 
@@ -7301,7 +7302,7 @@ void fil_io_set_encryption(IORequest &req_type, const page_id_t &page_id,
   req_type.encryption_key(space->encryption_key, space->encryption_klen,
                           space->encryption_iv);
 
-  req_type.encryption_algorithm(Encryption::AES);
+  req_type.encryption_algorithm(encrypt_type());
 }
 
 /** Get the AIO mode.
@@ -8346,7 +8347,7 @@ static dberr_t fil_iterate(const Fil_page_iterator &iter, buf_block_t *block,
       read_request.encryption_key(iter.m_encryption_key, ENCRYPTION_KEY_LEN,
                                   iter.m_encryption_iv);
 
-      read_request.encryption_algorithm(Encryption::AES);
+      read_request.encryption_algorithm(encrypt_type());
     }
 
     err = os_file_read(read_request, iter.m_filepath, iter.m_file, io_buffer,
@@ -8388,7 +8389,7 @@ static dberr_t fil_iterate(const Fil_page_iterator &iter, buf_block_t *block,
       write_request.encryption_key(iter.m_encryption_key, ENCRYPTION_KEY_LEN,
                                    iter.m_encryption_iv);
 
-      write_request.encryption_algorithm(Encryption::AES);
+      write_request.encryption_algorithm(encrypt_type());
     }
 
     /* A page was updated in the set, write back to disk.

@@ -295,6 +295,9 @@ struct Encryption {
 
     /** Use AES */
     AES = 1,
+
+    /** Use SM4 */
+    SM4 = 2,
   };
 
   /** Encryption information format version */
@@ -320,6 +323,7 @@ struct Encryption {
     switch (m_type) {
       case NONE:
       case AES:
+      case SM4:
 
       default:
         ut_error;

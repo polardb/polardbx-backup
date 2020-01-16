@@ -40,6 +40,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA
 
 #include "os0file.h"
 #include "os0key.h"
+#include "os0encrypt.h"
 #include "fil0fil.h"
 #include "ha_prototypes.h"
 #include "log0log.h"
@@ -7962,6 +7963,7 @@ const char *Encryption::to_string(Type type) {
   switch (type) {
     case NONE:
       return ("N");
+    case SM4:
     case AES:
       return ("Y");
   }
@@ -8590,16 +8592,19 @@ bool Encryption::encrypt_log_block(const IORequest &type, byte *src_ptr,
     case Encryption::NONE:
       ut_error;
 
+    case Encryption::SM4:
     case Encryption::AES: {
       ut_ad(m_klen == ENCRYPTION_KEY_LEN);
+      Encrypt_func encrypt_func = get_encrypt_func(m_type);
+      ut_ad(encrypt_func != NULL);
 
-      auto elen = my_aes_encrypt(
+      auto elen = encrypt_func(
           src_ptr + LOG_BLOCK_HDR_SIZE, static_cast<uint32>(main_len),
           dst_ptr + LOG_BLOCK_HDR_SIZE,
           reinterpret_cast<unsigned char *>(m_key), static_cast<uint32>(m_klen),
-          my_aes_256_cbc, reinterpret_cast<unsigned char *>(m_iv), false);
+          reinterpret_cast<unsigned char *>(m_iv), false);
 
-      if (elen == MY_AES_BAD_DATA) {
+      if (elen == ENCRYPT_BAD_DATA) {
         return (false);
       }
 
@@ -8619,14 +8624,14 @@ bool Encryption::encrypt_log_block(const IORequest &type, byte *src_ptr,
       if (remain_len != 0) {
         remain_len = MY_AES_BLOCK_SIZE * 2;
 
-        elen =
-            my_aes_encrypt(dst_ptr + LOG_BLOCK_HDR_SIZE + data_len - remain_len,
-                           static_cast<uint32>(remain_len), remain_buf,
-                           reinterpret_cast<unsigned char *>(m_key),
-                           static_cast<uint32>(m_klen), my_aes_256_cbc,
-                           reinterpret_cast<unsigned char *>(m_iv), false);
+        elen = encrypt_func(
+            dst_ptr + LOG_BLOCK_HDR_SIZE + data_len - remain_len,
+            static_cast<uint32>(remain_len), remain_buf,
+            reinterpret_cast<unsigned char *>(m_key),
+            static_cast<uint32>(m_klen),
+            reinterpret_cast<unsigned char *>(m_iv), false);
 
-        if (elen == MY_AES_BAD_DATA) {
+        if (elen == ENCRYPT_BAD_DATA) {
           return (false);
         }
 
@@ -8767,18 +8772,21 @@ byte *Encryption::encrypt(const IORequest &type, byte *src, ulint src_len,
     case Encryption::NONE:
       ut_error;
 
+    case Encryption::SM4:
     case Encryption::AES: {
+      Encrypt_func encrypt_func = get_encrypt_func(m_type);
+      ut_ad(encrypt_func != NULL);
       lint elen;
 
       ut_ad(m_klen == ENCRYPTION_KEY_LEN);
 
-      elen = my_aes_encrypt(src + FIL_PAGE_DATA, static_cast<uint32>(main_len),
-                            dst + FIL_PAGE_DATA,
-                            reinterpret_cast<unsigned char *>(m_key),
-                            static_cast<uint32>(m_klen), my_aes_256_cbc,
-                            reinterpret_cast<unsigned char *>(m_iv), false);
+      elen = encrypt_func(src + FIL_PAGE_DATA, static_cast<uint32>(main_len),
+                          dst + FIL_PAGE_DATA,
+                          reinterpret_cast<unsigned char *>(m_key),
+                          static_cast<uint32>(m_klen),
+                          reinterpret_cast<unsigned char *>(m_iv), false);
 
-      if (elen == MY_AES_BAD_DATA) {
+      if (elen == ENCRYPT_BAD_DATA) {
         ulint page_no = mach_read_from_4(src + FIL_PAGE_OFFSET);
         ulint space_id =
             mach_read_from_4(src + FIL_PAGE_ARCH_LOG_NO_OR_SPACE_ID);
@@ -8800,13 +8808,13 @@ byte *Encryption::encrypt(const IORequest &type, byte *src, ulint src_len,
       if (remain_len != 0) {
         remain_len = MY_AES_BLOCK_SIZE * 2;
 
-        elen = my_aes_encrypt(dst + FIL_PAGE_DATA + data_len - remain_len,
-                              static_cast<uint32>(remain_len), remain_buf,
-                              reinterpret_cast<unsigned char *>(m_key),
-                              static_cast<uint32>(m_klen), my_aes_256_cbc,
-                              reinterpret_cast<unsigned char *>(m_iv), false);
+        elen = encrypt_func(dst + FIL_PAGE_DATA + data_len - remain_len,
+                            static_cast<uint32>(remain_len), remain_buf,
+                            reinterpret_cast<unsigned char *>(m_key),
+                            static_cast<uint32>(m_klen),
+                            reinterpret_cast<unsigned char *>(m_iv), false);
 
-        if (elen == MY_AES_BAD_DATA) {
+        if (elen == ENCRYPT_BAD_DATA) {
           ulint page_no = mach_read_from_4(src + FIL_PAGE_OFFSET);
           ulint space_id =
               mach_read_from_4(src + FIL_PAGE_ARCH_LOG_NO_OR_SPACE_ID);
@@ -8895,7 +8903,10 @@ dberr_t Encryption::decrypt_log_block(const IORequest &type, byte *src,
 
   ptr += LOG_BLOCK_HDR_SIZE;
   switch (m_type) {
+    case Encryption::SM4:
     case Encryption::AES: {
+      Decrypt_func decrypt_func = get_decrypt_func(m_type);
+      ut_ad(decrypt_func != NULL);
       lint elen;
 
       /* First decrypt the last 2 blocks data of data, since
@@ -8908,12 +8919,12 @@ dberr_t Encryption::decrypt_log_block(const IORequest &type, byte *src,
         /* Copy the last 2 blocks. */
         memcpy(remain_buf, ptr + data_len - remain_len, remain_len);
 
-        elen = my_aes_decrypt(remain_buf, static_cast<uint32>(remain_len),
-                              dst + data_len - remain_len,
-                              reinterpret_cast<unsigned char *>(m_key),
-                              static_cast<uint32>(m_klen), my_aes_256_cbc,
-                              reinterpret_cast<unsigned char *>(m_iv), false);
-        if (elen == MY_AES_BAD_DATA) {
+        elen = decrypt_func(remain_buf, static_cast<uint32>(remain_len),
+                            dst + data_len - remain_len,
+                            reinterpret_cast<unsigned char *>(m_key),
+                            static_cast<uint32>(m_klen),
+                            reinterpret_cast<unsigned char *>(m_iv), false);
+        if (elen == ENCRYPT_BAD_DATA) {
           return (DB_IO_DECRYPT_FAIL);
         }
 
@@ -8927,11 +8938,11 @@ dberr_t Encryption::decrypt_log_block(const IORequest &type, byte *src,
       }
 
       /* Then decrypt the main data */
-      elen = my_aes_decrypt(dst, static_cast<uint32>(main_len), ptr,
-                            reinterpret_cast<unsigned char *>(m_key),
-                            static_cast<uint32>(m_klen), my_aes_256_cbc,
-                            reinterpret_cast<unsigned char *>(m_iv), false);
-      if (elen == MY_AES_BAD_DATA) {
+      elen = decrypt_func(dst, static_cast<uint32>(main_len), ptr,
+                          reinterpret_cast<unsigned char *>(m_key),
+                          static_cast<uint32>(m_klen),
+                          reinterpret_cast<unsigned char *>(m_iv), false);
+      if (elen == ENCRYPT_BAD_DATA) {
         return (DB_IO_DECRYPT_FAIL);
       }
 
@@ -9102,7 +9113,10 @@ dberr_t Encryption::decrypt(const IORequest &type, byte *src, ulint src_len,
   remain_len = data_len - main_len;
 
   switch (m_type) {
+    case Encryption::SM4:
     case Encryption::AES: {
+      Decrypt_func decrypt_func = get_decrypt_func(m_type);
+      ut_ad(decrypt_func != NULL);
       lint elen;
 
       /* First decrypt the last 2 blocks data of data, since
@@ -9115,12 +9129,12 @@ dberr_t Encryption::decrypt(const IORequest &type, byte *src, ulint src_len,
         /* Copy the last 2 blocks. */
         memcpy(remain_buf, ptr + data_len - remain_len, remain_len);
 
-        elen = my_aes_decrypt(remain_buf, static_cast<uint32>(remain_len),
-                              dst + data_len - remain_len,
-                              reinterpret_cast<unsigned char *>(m_key),
-                              static_cast<uint32>(m_klen), my_aes_256_cbc,
-                              reinterpret_cast<unsigned char *>(m_iv), false);
-        if (elen == MY_AES_BAD_DATA) {
+        elen = decrypt_func(remain_buf, static_cast<uint32>(remain_len),
+                            dst + data_len - remain_len,
+                            reinterpret_cast<unsigned char *>(m_key),
+                            static_cast<uint32>(m_klen),
+                            reinterpret_cast<unsigned char *>(m_iv), false);
+        if (elen == ENCRYPT_BAD_DATA) {
           if (block != NULL) {
             os_free_block(block);
           }
@@ -9138,11 +9152,11 @@ dberr_t Encryption::decrypt(const IORequest &type, byte *src, ulint src_len,
       }
 
       /* Then decrypt the main data */
-      elen = my_aes_decrypt(dst, static_cast<uint32>(main_len), ptr,
-                            reinterpret_cast<unsigned char *>(m_key),
-                            static_cast<uint32>(m_klen), my_aes_256_cbc,
-                            reinterpret_cast<unsigned char *>(m_iv), false);
-      if (elen == MY_AES_BAD_DATA) {
+      elen = decrypt_func(dst, static_cast<uint32>(main_len), ptr,
+                          reinterpret_cast<unsigned char *>(m_key),
+                          static_cast<uint32>(m_klen),
+                          reinterpret_cast<unsigned char *>(m_iv), false);
+      if (elen == ENCRYPT_BAD_DATA) {
         if (block != NULL) {
           os_free_block(block);
         }

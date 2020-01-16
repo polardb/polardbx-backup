@@ -62,6 +62,7 @@ Place, Suite 330, Boston, MA 02111-1307 USA
 #include "xb0xb.h"
 #include "xtrabackup.h"
 #include "xtrabackup_version.h"
+#include "os0encrypt.h"
 
 #include "backup_mysql.h"
 #include "table_info.h"
@@ -90,6 +91,9 @@ extern const char *innodb_flush_method_names[];
 
 /** Enumeration of innodb_flush_method */
 extern TYPELIB innodb_flush_method_typelib;
+
+/** Allowed values of encrypt_algorithm */
+extern const char *innodb_encrypt_algorithm_names[];
 
 char *tool_name;
 char tool_args[2048];
@@ -2169,6 +2173,9 @@ bool write_backup_config_file() {
     s << "server_uuid=" << server_uuid << "\n";
   }
   s << "master_key_id=" << Encryption::s_master_key_id << "\n";
+
+  s << "encrypt_algorithm="
+    << innodb_encrypt_algorithm_names[encrypt_algorithm] << "\n";
 
   return backup_file_print("backup-my.cnf", s.str().c_str(), s.tellp());
 }

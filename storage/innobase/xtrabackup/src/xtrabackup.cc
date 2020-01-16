@@ -89,6 +89,7 @@ Place, Suite 330, Boston, MA 02111-1307 USA
 
 #include "sql/dd/impl/sdi.h"
 #include "sql_thd_internal_api.h"
+#include "os0encrypt.h"
 
 #define G_PTR uchar *
 
@@ -471,6 +472,9 @@ extern const char *innodb_flush_method_names[];
 /** Enumeration of innodb_flush_method */
 extern TYPELIB innodb_flush_method_typelib;
 
+/** Enumeration of encrypt_algorithm */
+extern TYPELIB innodb_encrypt_algorithm_typelib;
+
 #include "caching_sha2_passwordopt-vars.h"
 #include "sslopt-vars.h"
 
@@ -756,6 +760,7 @@ enum options_xtrabackup {
   OPT_XTRA_READ_BUFFER_SIZE,
   OPT_RDS_XB_REDO_FS_BUFFER,
   OPT_RDS_XTRA_TABLE_LEVEL,
+  OPT_RDS_ENCRYPT_ALGORITHM,
 };
 
 struct my_option xb_client_options[] = {
@@ -1553,6 +1558,11 @@ Disable with --skip-innodb-checksums.",
      "must be used together with xbstream when backup.",
      &rds_table_level_mode, &rds_table_level_mode, 0,
      GET_BOOL, NO_ARG, 0, 0, 0, 0, 0, 0},
+
+    {"encrypt_algorithm", OPT_RDS_ENCRYPT_ALGORITHM,
+     "Page data encrypt algorithm: sm4, aes_256_cbc.", &encrypt_algorithm,
+     &encrypt_algorithm, &innodb_encrypt_algorithm_typelib,
+     GET_ENUM, REQUIRED_ARG, AES_256_CBC, 0, 0, 0, 0, 0},
 
     {0, 0, 0, 0, 0, 0, GET_NO_ARG, NO_ARG, 0, 0, 0, 0, 0, 0}};
 

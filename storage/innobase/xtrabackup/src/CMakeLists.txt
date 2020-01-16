@@ -127,6 +127,7 @@ TARGET_LINK_LIBRARIES(xtrabackup
   ${ICU_LIBRARIES}
   crc
   cjson
+  mysys_ssl
   )
 
 IF(WITH_VERSION_CHECK)

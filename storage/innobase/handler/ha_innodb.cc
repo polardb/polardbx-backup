@@ -185,6 +185,7 @@ this program; if not, write to the Free Software Foundation, Inc.,
 
 #include "log0log.h"
 #include "os0file.h"
+#include "os0encrypt.h"
 
 #include <mutex>
 #include <string>
@@ -479,6 +480,17 @@ static const char *innodb_change_buffering_names[] = {
 static TYPELIB innodb_change_buffering_typelib = {
     array_elements(innodb_change_buffering_names) - 1,
     "innodb_change_buffering_typelib", innodb_change_buffering_names, NULL};
+
+/** Allowed values of encrypt_algorithm */
+const char *innodb_encrypt_algorithm_names[] = {
+    "sm4",           /* SM4 */
+    "aes_256_cbc",   /* AES */
+    NullS};
+
+/** Enumeration of encrypt_algorithm */
+TYPELIB innodb_encrypt_algorithm_typelib = {
+    array_elements(innodb_encrypt_algorithm_names) - 1,
+    "innodb_encrypt_algorithm_typelib", innodb_encrypt_algorithm_names, NULL};
 
 /** Retrieve the FTS Relevance Ranking result for doc with doc_id
 of m_prebuilt->fts_doc_id
@@ -22084,6 +22096,12 @@ static MYSQL_SYSVAR_ENUM(change_buffering, innodb_change_buffering,
                          NULL, NULL, IBUF_USE_ALL,
                          &innodb_change_buffering_typelib);
 
+static MYSQL_SYSVAR_ENUM(encrypt_algorithm, encrypt_algorithm,
+                         PLUGIN_VAR_RQCMDARG | PLUGIN_VAR_READONLY,
+                         "Page data encrypt algorithm: sm4, aes_256_cbc",
+                         NULL, NULL, AES_256_CBC,
+                         &innodb_encrypt_algorithm_typelib);
+
 static MYSQL_SYSVAR_UINT(
     change_buffer_max_size, srv_change_buffer_max_size, PLUGIN_VAR_RQCMDARG,
     "Maximum on-disk size of change buffer in terms of percentage"
@@ -22491,6 +22509,7 @@ static SYS_VAR *innobase_system_variables[] = {
     MYSQL_SYSVAR(ddl_log_crash_reset_debug),
 #endif /* UNIV_DEBUG */
     MYSQL_SYSVAR(parallel_read_threads),
+    MYSQL_SYSVAR(encrypt_algorithm),
     NULL};
 
 mysql_declare_plugin(innobase){
