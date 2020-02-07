@@ -34,6 +34,8 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA
 #include "fil_cur.h"
 #include "read_filt.h"
 #include "xtrabackup.h"
+#include "os0encrypt.h"
+
 
 /***********************************************************************
 Reads the space flags from a given data file and returns the
@@ -342,7 +344,7 @@ read_retry:
     return (XB_FIL_CUR_ERROR);
   }
 
-  read_request.encryption_algorithm(Encryption::AES);
+  read_request.encryption_algorithm(encrypt_type());
   read_request.encryption_key(cursor->encryption_key, cursor->encryption_klen,
                               cursor->encryption_iv);
   read_request.block_size(cursor->block_size);
