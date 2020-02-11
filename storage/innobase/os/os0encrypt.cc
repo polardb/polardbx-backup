@@ -42,7 +42,7 @@ static int wrap_sm4_encrypt(const unsigned char *source, uint32 source_length,
                             unsigned char *dest, const unsigned char *key,
                             uint32 key_length, const unsigned char *iv, bool) {
   int ret =
-      my_sm4_decrypt(source, source_length, dest, key, key_length, SM4_CTR, iv);
+      my_sm4_encrypt(source, source_length, dest, key, key_length, SM4_CTR, iv);
   return (ret < 0) ? ENCRYPT_BAD_DATA : ret;
 }
 
