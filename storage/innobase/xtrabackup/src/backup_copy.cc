@@ -1932,6 +1932,10 @@ bool backup_start(Backup_context &context) {
 
   write_binlog_info(mysql_connection);
 
+  /* we are now at the consistent point, data in all engines will be
+  recovered to this point */
+  backup_consistent_time = time(NULL);
+
   if (have_flush_engine_logs) {
     msg_ts("Executing FLUSH NO_WRITE_TO_BINLOG ENGINE LOGS...\n");
     xb_mysql_query(mysql_connection, "FLUSH NO_WRITE_TO_BINLOG ENGINE LOGS",
@@ -2037,9 +2041,10 @@ bool backup_finish(Backup_context &context) {
   }
 
   msg_ts("Backup time: 'total %ld, innodb_data %ld, FTWRL_lock %ld, "
-         "innodb_log %ld'\n", time(NULL) - history_start_time,
-         history_innodb_data_backup_time, history_lock_time,
-         history_innodb_log_backup_time);
+         "innodb_log %ld, consistent_time %ld'\n",
+         time(NULL) - history_start_time, history_innodb_data_backup_time,
+         history_lock_time, history_innodb_log_backup_time,
+         backup_consistent_time);
 
   return (true);
 }

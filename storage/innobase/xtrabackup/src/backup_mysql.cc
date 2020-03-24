@@ -134,6 +134,7 @@ time_t history_end_time;
 time_t history_lock_time;
 time_t history_innodb_log_backup_time;
 time_t history_innodb_data_backup_time;
+time_t backup_consistent_time;
 
 /* Stream type name, to be used with xtrabackup_stream_fmt */
 const char *xb_stream_format_name[] = {"file", "xbstream"};

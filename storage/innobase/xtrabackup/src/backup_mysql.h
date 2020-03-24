@@ -264,6 +264,7 @@ extern time_t history_end_time;
 extern time_t history_lock_time;
 extern time_t history_innodb_log_backup_time;
 extern time_t history_innodb_data_backup_time;
+extern time_t backup_consistent_time;
 
 extern bool sql_thread_started;
 extern std::string mysql_slave_position;
