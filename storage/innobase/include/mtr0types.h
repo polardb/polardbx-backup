@@ -242,7 +242,11 @@ enum mlog_id_t {
   MLOG_TEST = 65,
 
   /** biggest value (used in assertions) */
-  MLOG_BIGGEST_TYPE = MLOG_TEST
+  MLOG_BIGGEST_TYPE = MLOG_TEST,
+
+  /** To avoid conflicts to MySQL redo types, it uses a number close to the
+      maximum value. Type takes 7bits, thus the maximum is 127 */
+  MLOG_SERVER_DATA = 120
 };
 
 /* @} */

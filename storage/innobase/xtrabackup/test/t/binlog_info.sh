@@ -18,10 +18,6 @@ function test_binlog_info() {
     INSERT INTO p VALUES (1), (2), (3);
 EOF
 
-    binlog_file_innodb=`get_binlog_file`
-    binlog_pos_innodb=`get_binlog_pos`
-    binlog_info_innodb="$binlog_file_innodb	$binlog_pos_innodb"
-
     # Generate some non-InnoDB entries in the binary log
     run_cmd $MYSQL $MYSQL_ARGS test <<EOF
     CREATE TABLE t (a INT) ENGINE=MyISAM;
@@ -31,6 +27,11 @@ EOF
     if [ $gtid = 1 ] ; then
         gtid_executed=`get_gtid_executed`
     fi
+
+    # In rds 8.0, MyISAM tables's binlog pos is upated into innodb.
+    binlog_file_innodb=`get_binlog_file`
+    binlog_pos_innodb=`get_binlog_pos`
+    binlog_info_innodb="$binlog_file_innodb	$binlog_pos_innodb"
 
     xb_binlog_info=$topdir/backup/xtrabackup_binlog_info
     xb_binlog_info_innodb=$topdir/backup/xtrabackup_binlog_pos_innodb
