@@ -8,11 +8,9 @@ Group:         Applications/Databases
 License:       GPLv2
 URL:           http://gitlab.alibaba-inc.com/rds_mysql/rds_xtrabackup_80
 
+BuildArch: aarch64
 BuildRequires: cmake >= 2.8.12, libaio-devel, libgcrypt-devel, ncurses-devel, readline-devel
-BuildRequires: zlib-devel, libev-devel, libcurl-devel
-BuildRequires: devtoolset-7-gcc
-BuildRequires: devtoolset-7-gcc-c++
-BuildRequires: devtoolset-7-binutils
+BuildRequires: zlib-devel, libev-devel
 
 %if "%{?dist}" == ".alios7" || "%{?dist}" == ".el7"
 %define os_version 7
@@ -38,11 +36,14 @@ Percona XtraBackup is OpenSource online (non-blockable) backup solution for Inno
 %build
 cd $OLDPWD/../
 
-CC=/opt/rh/devtoolset-7/root/usr/bin/gcc
-CXX=/opt/rh/devtoolset-7/root/usr/bin/g++
-CFLAGS="-O3 -g -fexceptions -static-libgcc -fno-omit-frame-pointer -fno-strict-aliasing"
-CXXFLAGS="-O3 -g -fexceptions -static-libgcc -fno-omit-frame-pointer -fno-strict-aliasing"
+CC=gcc
+CXX=g++
+CFLAGS="-O3 -g -fexceptions -fno-strict-aliasing -DARM_crypto -mcpu=cortex-a72 -march=armv8-a+crypto+crc -Wl,-Bsymbolic"
+CXXFLAGS="-O3 -g -fexceptions -fno-strict-aliasing -DARM_crypto -mcpu=cortex-a72 -march=armv8-a+crypto+crc -Wl,-Bsymbolic"
 export CC CXX CFLAGS CXXFLAGS
+
+# install libcurl-devel, as buildrequires not work for ARM docker image..
+sudo yum install libcurl-devel -y
 
 cmake -DBUILD_CONFIG=xtrabackup_release -DCMAKE_BUILD_TYPE="RelWithDebInfo" \
       -DCMAKE_INSTALL_PREFIX=%{prefix} -DBUILD_MAN_OS=%{os_version}  \
