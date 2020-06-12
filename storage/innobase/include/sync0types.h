@@ -465,6 +465,7 @@ enum latch_id_t {
   /** Lizard mutex start */
   LATCH_ID_LIZARD_SCN,
   LATCH_ID_LIZARD_UNDO_HDR_HASH,
+  LATCH_ID_LIZARD_VISION_LIST,
   /** Lizard mutex end */
   LATCH_ID_FILE_PURGE_LIST,
   LATCH_ID_XTRA_DATAFILES_ITER_MUTEX,
