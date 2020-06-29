@@ -60,6 +60,8 @@ extern bool meb_replay_file_ops;
 extern volatile bool is_online_redo_copy;
 /** the last redo log flush len as seen by MEB */
 extern volatile lsn_t backup_redo_log_flushed_lsn;
+/** the start checkpoint lsn */
+extern volatile lsn_t backup_redo_log_checkpoint_lsn;
 /** TRUE when the redo log is being backed up */
 extern bool recv_is_making_a_backup;
 

@@ -104,7 +104,7 @@ volatile bool recv_recovery_on;
 
 volatile bool is_online_redo_copy = true;
 volatile lsn_t backup_redo_log_flushed_lsn;
-
+volatile lsn_t backup_redo_log_checkpoint_lsn;
 #ifdef UNIV_HOTBACKUP
 extern bool meb_is_space_loaded(const space_id_t space_id);
 
@@ -1672,41 +1672,41 @@ static byte *recv_parse_or_apply_log_rec_body(
       If MEB gets the last_redo_flush_lsn and that is less than the
       lsn of the current record MEB fails the backup process.
       Error out in case of online backup and emit a warning in case
-      of offline backup and continue. */
+      of offline backup and continue.
+
+      3. Bug#PXB-2205, if lock-ddl not set, xtrabackup prepare may
+      crash or remove ibd file directly when apply replace ddl. Rds xtrabackup
+      use backup_redo_log_checkpoint_lsn to fail backup for this condition. */
       if (!recv_recovery_on) {
-        if (!opt_lock_ddl_per_table) {
-          if (backup_redo_log_flushed_lsn < recv_sys->recovered_lsn) {
-            ib::info() << "Last flushed lsn: " << backup_redo_log_flushed_lsn
-                       << " load_index lsn " << recv_sys->recovered_lsn;
+        if ((backup_redo_log_flushed_lsn < recv_sys->recovered_lsn) ||
+            (!opt_lock_ddl &&
+              backup_redo_log_checkpoint_lsn < recv_sys->recovered_lsn)) {
 
-            if (backup_redo_log_flushed_lsn == 0) {
-              ib::error(ER_IB_MSG_715) << "PXB was not able"
-                                       << " to determine the"
-                                       << " InnoDB Engine"
-                                       << " Status";
-            }
+          ib::info() << "Start checkpoint lsn: " << backup_redo_log_checkpoint_lsn
+                      << " last flushed lsn: " << backup_redo_log_flushed_lsn
+                      << " load_index lsn " << recv_sys->recovered_lsn;
 
-            ib::error(ER_IB_MSG_716) << "An optimized (without"
-                                     << " redo logging) DDL"
-                                     << " operation has been"
-                                     << " performed. All modified"
-                                     << " pages may not have been"
-                                     << " flushed to the disk yet.\n"
-                                     << "    PXB will not be able to"
-                                     << " take a consistent backup."
-                                     << " Retry the backup"
-                                     << " operation";
-            exit(EXIT_FAILURE);
+          if (backup_redo_log_flushed_lsn == 0) {
+            ib::error(ER_IB_MSG_715) << "PXB was not able"
+                                      << " to determine the"
+                                      << " InnoDB Engine"
+                                      << " Status";
           }
-          /** else the index is flushed to disk before
-          backup started hence no error */
-        } else {
-          /* offline backup */
-          ib::info() << "Last flushed lsn: " << backup_redo_log_flushed_lsn
-                     << " load_index lsn " << recv_sys->recovered_lsn;
 
-          ib::warn(ER_IB_MSG_717);
+          ib::error(ER_IB_MSG_716) << "An optimized (without"
+                                    << " redo logging) DDL"
+                                    << " operation has been"
+                                    << " performed. All modified"
+                                    << " pages may not have been"
+                                    << " flushed to the disk yet.\n"
+                                    << "    PXB will not be able to"
+                                    << " take a consistent backup."
+                                    << " Retry the backup"
+                                    << " operation";
+          exit(EXIT_FAILURE);
         }
+        /** else the index is flushed to disk before
+        backup started hence no error */
       }
 #endif /* UNIV_HOTBACKUP */
       if (end_ptr < ptr + 8) {

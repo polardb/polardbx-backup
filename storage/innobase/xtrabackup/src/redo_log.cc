@@ -88,7 +88,7 @@ bool Redo_Log_Reader::find_start_checkpoint_lsn() {
   }
 
   log_scanned_lsn = checkpoint_lsn_start;
-
+  backup_redo_log_checkpoint_lsn = checkpoint_lsn_start;
   return (true);
 }
 
