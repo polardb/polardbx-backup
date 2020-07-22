@@ -228,7 +228,7 @@ static bool datafile_open(const char *file, datafile_cur_t *cursor,
   return (true);
 }
 
-static xb_fil_cur_result_t datafile_read(datafile_cur_t *cursor) {
+static xb_fil_cur_result_t datafile_read(datafile_cur_t *cursor, uint thread_n) {
   ulint to_read;
   ulint count;
 
@@ -244,6 +244,12 @@ static xb_fil_cur_result_t datafile_read(datafile_cur_t *cursor) {
   count = my_read(cursor->fd, cursor->buf, to_read, MYF(0));
   if (count == MY_FILE_ERROR) {
     return (XB_FIL_CUR_ERROR);
+  }
+
+  if (count == 0 && my_errno() == HA_ERR_FILE_TOO_SHORT) {
+    msg_ts("[%02u] warning: file was shrunk, file size = %ld, cur offset = %ld, read count = %ld\n",
+        thread_n, cursor->statinfo.st_size, cursor->buf_offset, count);
+    return (XB_FIL_CUR_EOF);
   }
 
   posix_fadvise(cursor->fd, cursor->buf_offset, count, POSIX_FADV_DONTNEED);
@@ -758,7 +764,7 @@ bool copy_file(ds_ctxt_t *datasink, const char *src_file_path,
   }
 
   /* The main copy loop */
-  while ((res = datafile_read(&cursor)) == XB_FIL_CUR_SUCCESS) {
+  while ((res = datafile_read(&cursor, thread_n)) == XB_FIL_CUR_SUCCESS) {
     if (file_purpose == FILE_PURPOSE_DATAFILE) {
       if (cursor.buf_offset == cursor.buf_read)
         page_size.copy_from(fsp_header_get_page_size(cursor.buf));

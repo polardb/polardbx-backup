@@ -4,8 +4,8 @@
 
 require_xengine
 
-start_server
-shutdown_server
+#start_server
+#shutdown_server
 
 xengine_wal_dir=${TEST_VAR_ROOT}/xengine/wal
 
