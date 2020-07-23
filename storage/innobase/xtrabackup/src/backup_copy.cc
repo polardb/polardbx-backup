@@ -246,6 +246,11 @@ static xb_fil_cur_result_t datafile_read(datafile_cur_t *cursor, uint thread_n) 
     return (XB_FIL_CUR_ERROR);
   }
 
+  /*
+   * In XEngine, SSTable file might be shrunk, if the free space of this SSTable
+   * file exceeds the threshold. Therefore, we should stop reading from this file,
+   * when we read to the end of the file.
+   */
   if (count == 0 && my_errno() == HA_ERR_FILE_TOO_SHORT) {
     msg_ts("[%02u] warning: file was shrunk, file size = %ld, cur offset = %ld, read count = %ld\n",
         thread_n, cursor->statinfo.st_size, cursor->buf_offset, count);
