@@ -29,7 +29,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA
 #include <sstream>
 #include "mysql/service_mysql_keyring.h"
 #include "ut0mutex.h"
-#include "os0file.h"
+#include "os0enc.h"
 
 /** If early-load-plugin is keyring_rds.so */
 bool is_keyring_rds = false;
@@ -37,7 +37,7 @@ bool is_keyring_rds = false;
 /** Fetch current master key id from keyring_rds plugin.
 @param[in]    lock_master_key_id      if protect s_master_key_id
 @return true if success */
-bool get_master_key_id(bool lock_master_key_id) {
+bool rds_get_master_key_id(bool lock_master_key_id) {
 #ifndef UNIV_HOTBACKUP
   int ret;
   size_t key_len;
@@ -72,12 +72,12 @@ bool get_master_key_id(bool lock_master_key_id) {
 
   /* Fill uuid and seq */
   {
-    static const size_t prefix_len = strlen(ENCRYPTION_MASTER_KEY_PRIFIX);
+    static const size_t prefix_len = strlen(Encryption::MASTER_KEY_PREFIX);
     const char *uuid_p = master_key_id, *seq_p, *tmp;
     ulint seq;
 
     /* Skip prefix INNODBKey- */
-    if (memcmp(uuid_p, ENCRYPTION_MASTER_KEY_PRIFIX, prefix_len) == 0 &&
+    if (memcmp(uuid_p, Encryption::MASTER_KEY_PREFIX, prefix_len) == 0 &&
         uuid_p[prefix_len] == '-') {
       uuid_p += (prefix_len + 1);
     }
@@ -85,7 +85,7 @@ bool get_master_key_id(bool lock_master_key_id) {
     /* Check uuid */
     seq_p = strrchr(uuid_p, '-');
     if (seq_p == nullptr ||
-        (uint)(seq_p - uuid_p) > ENCRYPTION_SERVER_UUID_LEN) {
+        (uint)(seq_p - uuid_p) > Encryption::SERVER_UUID_LEN) {
       ib::error(ER_IB_MSG_1287)
           << "Fetched invalid new master key id: {" << master_key_id << "}";
       result = false;
@@ -131,7 +131,7 @@ END:
 /** Create new master key for key rotation by keyring_rds.
 @param[in,out]	master_key	master key */
 void rds_create_master_key(byte **master_key) {
-  if (get_master_key_id(false)) {
+  if (rds_get_master_key_id(false)) {
     ulint unused;
     Encryption::get_master_key(&unused, master_key);
   } else {

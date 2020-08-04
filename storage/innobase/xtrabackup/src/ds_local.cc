@@ -1,5 +1,5 @@
 /******************************************************
-Copyright (c) 2011-2013 Percona LLC and/or its affiliates.
+Copyright (c) 2011-2019 Percona LLC and/or its affiliates.
 
 Local datasink implementation for XtraBackup.
 
@@ -37,6 +37,7 @@ typedef struct {
 typedef struct {
   File fd;
   ds_local_ctxt_t *local_ctxt;
+  size_t last_seek;  // to track last page sparse_file
 } ds_local_file_t;
 
 static ds_ctxt_t *local_init(const char *root);
@@ -125,6 +126,7 @@ static ds_file_t *local_open(ds_ctxt_t *ctxt, const char *path,
 
   local_file->fd = fd;
   local_file->local_ctxt = (ds_local_ctxt_t*) ctxt->ptr;
+  local_file->last_seek = 0;
 
   file->path = (char *)local_file + sizeof(ds_local_file_t);
   memcpy(file->path, fullpath, path_len);
@@ -135,8 +137,10 @@ static ds_file_t *local_open(ds_ctxt_t *ctxt, const char *path,
 }
 
 static int local_write(ds_file_t *file, const void *buf, size_t len) {
-  File fd = ((ds_local_file_t *)file->ptr)->fd;
-  ds_local_ctxt_t *local_ctxt = ((ds_local_file_t *) file->ptr)->local_ctxt;
+  auto local_file = ((ds_local_file_t *)file->ptr);
+  File fd = local_file->fd;
+  ds_local_ctxt_t *local_ctxt = local_file->local_ctxt;
+  local_file->last_seek = 0;
 
   if (!my_write(fd, static_cast<const uchar *>(buf), len,
                 MYF(MY_WME | MY_NABP))) {
@@ -155,8 +159,9 @@ static int local_write(ds_file_t *file, const void *buf, size_t len) {
 static int local_write_sparse(ds_file_t *file, const void *buf, size_t len,
                               size_t sparse_map_size,
                               const ds_sparse_chunk_t *sparse_map) {
-  File fd = ((ds_local_file_t *)file->ptr)->fd;
-  ds_local_ctxt_t *local_ctxt = ((ds_local_file_t *) file->ptr)->local_ctxt;
+  auto local_file = ((ds_local_file_t *)file->ptr);
+  ds_local_ctxt_t *local_ctxt = local_file->local_ctxt;
+  File fd = local_file->fd;
   size_t written_len = 0;
 
   const uchar *ptr = static_cast<const uchar *>(buf);
@@ -178,6 +183,11 @@ static int local_write_sparse(ds_file_t *file, const void *buf, size_t len,
 
     written_len += sparse_map[i].len;
   }
+  /* to track if last page is sparse */
+  if (sparse_map[sparse_map_size - 1].len == 0) {
+    local_file->last_seek = sparse_map[sparse_map_size - 1].skip;
+  } else
+    local_file->last_seek = 0;
 
   /* increment datasink size counter */
   pthread_mutex_lock(&local_ctxt->mutex);
@@ -189,7 +199,23 @@ static int local_write_sparse(ds_file_t *file, const void *buf, size_t len,
 }
 
 static int local_close(ds_file_t *file) {
-  File fd = ((ds_local_file_t *)file->ptr)->fd;
+  auto local_file = ((ds_local_file_t *)file->ptr);
+  File fd = local_file->fd;
+
+  /* Write the last page complete in full size. We achieve this by writing the
+   * last byte of page as zero, this can only happen in case of sparse file */
+  if (local_file->last_seek > 0) {
+    size_t rc;
+    rc = my_seek(fd, -1, MY_SEEK_CUR, MYF(MY_WME));
+    if (rc == MY_FILEPOS_ERROR) {
+      return 1;
+    }
+    unsigned char b = 0;
+    rc = my_write(fd, &b, 1, MYF(MY_WME | MY_NABP));
+    if (rc != 0) {
+      return 1;
+    }
+  }
 
   my_free(file);
 

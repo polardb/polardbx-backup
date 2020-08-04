@@ -1,6 +1,6 @@
 /******************************************************
 hot backup tool for InnoDB
-(c) 2009-2015 Percona LLC and/or its affiliates
+(c) 2009-2020 Percona LLC and/or its affiliates
 Originally Created 3/3/2009 Yasufumi Kinoshita
 Written by Alexey Kopytov, Aleksandr Kuzminsky, Stewart Smith, Vadim Tkachenko,
 Yasufumi Kinoshita, Ignacio Nin and Baron Schwartz.
@@ -894,7 +894,7 @@ static bool reencrypt_datafile_header(const char *dir, const char *filepath,
                                       uint thread_n) {
   char fullpath[FN_REFLEN];
   byte buf[UNIV_PAGE_SIZE_MAX * 2];
-  byte encrypt_info[ENCRYPTION_INFO_SIZE];
+  byte encrypt_info[Encryption::INFO_SIZE];
   fil_space_t space;
 
   fn_format(fullpath, filepath, dir, "", MYF(MY_RELATIVE_PATH));
@@ -922,14 +922,14 @@ static bool reencrypt_datafile_header(const char *dir, const char *filepath,
   msg_ts("[%02u] Encrypting %s tablespace header with new master key.\n",
          thread_n, fullpath);
 
-  memset(encrypt_info, 0, ENCRYPTION_INFO_SIZE);
+  memset(encrypt_info, 0, Encryption::INFO_SIZE);
 
   space.id = page_get_space_id(page);
   bool found = xb_fetch_tablespace_key(space.id, space.encryption_key,
                                        space.encryption_iv);
   ut_a(found);
   space.encryption_type = Encryption::AES;
-  space.encryption_klen = ENCRYPTION_KEY_LEN;
+  space.encryption_klen = Encryption::KEY_LEN;
 
   const page_size_t page_size(fsp_header_get_page_size(page));
 
@@ -942,7 +942,7 @@ static bool reencrypt_datafile_header(const char *dir, const char *filepath,
 
   ulint offset = fsp_header_get_encryption_offset(page_size);
 
-  memcpy(page + offset, encrypt_info, ENCRYPTION_INFO_SIZE);
+  memcpy(page + offset, encrypt_info, Encryption::INFO_SIZE);
 
   page_checksum_fix(page, page_size);
 
@@ -1038,6 +1038,8 @@ static void backup_thread_func(datadir_thread_ctxt_t *ctx, bool prep_mode,
     } else if (!prep_mode) {
       /* backup fake file into empty directory */
       char opath[FN_REFLEN + 10];
+      /* remove trailing / */
+      if (path[strlen(path) - 1] == '/') path[strlen(path) - 1] = '\0';
       snprintf(opath, sizeof(opath), "%s/db.opt", path);
       if (!(ret = backup_file_printf(trim_dotslash(opath), "%s", ""))) {
         msg("Failed to create file %s\n", opath);
@@ -2520,8 +2522,12 @@ static void copy_back_thread_func(datadir_thread_ctxt_t *ctx) {
 
     std::string dst_path = entry.rel_path;
 
-    if (file_purpose == FILE_PURPOSE_DATAFILE ||
-        file_purpose == FILE_PURPOSE_UNDO_LOG) {
+    if (file_purpose == FILE_PURPOSE_UNDO_LOG) {
+      /* undo tablespace can only be in undo_dir or data dir */
+      std::string dst_dir =
+          (srv_undo_dir && *srv_undo_dir) ? srv_undo_dir : mysql_data_home;
+      dst_path = dst_dir + "/" + dst_path;
+    } else if (file_purpose == FILE_PURPOSE_DATAFILE) {
       std::string tablespace_name = entry.path;
       /* Remove starting ./ and trailing .ibd/.ibu from tablespace name */
       tablespace_name = tablespace_name.substr(2, tablespace_name.length() - 6);
@@ -2675,7 +2681,8 @@ bool copy_back(int argc, char **argv) {
       msg("xtrabackup: Error: can't read master_key_id\n");
       return (false);
     }
-    int ret = fscanf(f, "%lu", &Encryption::s_master_key_id);
+    auto key = Encryption::get_master_key_id();
+    int ret = fscanf(f, "%lu", &key);
     ut_a(ret == 1);
     fclose(f);
 
@@ -2705,8 +2712,7 @@ bool copy_back(int argc, char **argv) {
     ulint master_key_id;
     Encryption::get_master_key(&master_key_id, &master_key);
 
-    msg_ts("Generated new master key with ID '%s-%lu'.\n", server_uuid,
-           master_key_id);
+    msg_ts("Generated new master key");
 
     my_free(master_key);
   }

@@ -1,6 +1,7 @@
 #!/bin/bash
 
 set -e
+set -o xtrace
 
 function usage()
 {
@@ -13,7 +14,7 @@ Prepares a server binary directory to be used by run.sh when running XtraBackup
 tests.
 
 If the argument is one of the build targets passed to build.sh
-(i.e. innodb51 innodb55 innodb56 xtradb51 xtradb55) then the
+(i.e. innodb80 innodb57 innodb56 xtradb80 xtradb57) then the
 appropriate Linux tarball is downloaded from a pre-defined location and
 unpacked into the specified installation  directory ('./server' by default).
 
@@ -48,18 +49,23 @@ function ssl_version()
             ;;
     esac
 
+    if [ $sslv -eq '102' -a -f '/usr/bin/yum' ]; then
+        sslv="${sslv}.rpm"
+    elif [ $sslv -eq '102' ]; then
+        sslv="${sslv}.deb"
+    fi
     echo $sslv
 }
 
 case "$1" in
     innodb80)
         url="https://dev.mysql.com/get/Downloads/MySQL-8.0"
-        tarball="mysql-8.0.18-linux-glibc2.12-${arch}.tar.xz"
+        tarball="mysql-8.0.20-linux-glibc2.12-${arch}.tar.xz"
         ;;
 
     xtradb80)
-        url="https://www.percona.com/downloads/Percona-Server-8.0/Percona-Server-8.0.15-6/binary/tarball"
-        tarball="Percona-Server-8.0.15-6-Linux.${arch}.ssl$(ssl_version).tar.gz"
+        url="https://www.percona.com/downloads/Percona-Server-8.0/Percona-Server-8.0.18-9/binary/tarball"
+        tarball="Percona-Server-8.0.18-9-Linux.${arch}.ssl$(ssl_version).tar.gz"
         ;;
 
     *)

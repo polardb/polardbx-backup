@@ -1,5 +1,5 @@
 /******************************************************
-Copyright (c) 2011-2018 Percona LLC and/or its affiliates.
+Copyright (c) 2011-2020 Percona LLC and/or its affiliates.
 
 The xbstream utility: serialize/deserialize files in the XBSTREAM format.
 
@@ -18,6 +18,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA
 
 *******************************************************/
 
+#include "xbstream.h"
 #include <gcrypt.h>
 #include <my_base.h>
 #include <my_getopt.h>
@@ -27,15 +28,14 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA
 #include <pthread.h>
 #include <typelib.h>
 #include <unordered_map>
-
 #include "common.h"
 #include "crc_glue.h"
 #include "datasink.h"
 #include "ds_decompress.h"
 #include "ds_decompress_lz4.h"
 #include "ds_decrypt.h"
+#include "template_utils.h"
 #include "xbcrypt_common.h"
-#include "xbstream.h"
 #include "xtrabackup_version.h"
 #include <libgen.h>
 #include <dirent.h>
@@ -121,8 +121,8 @@ static struct my_option my_long_options[] = {
     {"decrypt", 'd', "Decrypt files ending with .xbcrypt.", &opt_encrypt_algo,
      &opt_encrypt_algo, &xbstream_encrypt_algo_typelib, GET_ENUM, REQUIRED_ARG,
      0, 0, 0, 0, 0, 0},
-    {"encrypt-key", 'k', "Encryption key.", &opt_encrypt_key, &opt_encrypt_key,
-     0, GET_STR_ALLOC, REQUIRED_ARG, 0, 0, 0, 0, 0, 0},
+    {"encrypt-key", 'k', "Encryption key", 0, 0, 0, GET_STR_ALLOC, REQUIRED_ARG,
+     0, 0, 0, 0, 0, 0},
     {"encrypt-key-file", 'f', "File which contains encryption key.",
      &opt_encrypt_key_file, &opt_encrypt_key_file, 0, GET_STR_ALLOC,
      REQUIRED_ARG, 0, 0, 0, 0, 0, 0},
@@ -317,6 +317,9 @@ static bool get_one_option(int optid,
       if (set_run_mode(RUN_MODE_PRINT)) {
         return true;
       }
+	  break;
+    case 'k':
+      hide_option(argument, &opt_encrypt_key);
       break;
     case '?':
       usage();

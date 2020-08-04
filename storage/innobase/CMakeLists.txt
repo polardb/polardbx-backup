@@ -120,22 +120,22 @@ SET(INNOBASE_SOURCES
 	handler/i_s.cc
 	handler/p_s.cc
 	ibuf/ibuf0ibuf.cc
-        lob/lob0first.cc
-        lob/lob0index.cc
-        lob/lob0ins.cc
-        lob/lob0pages.cc
-        lob/lob0purge.cc
-        lob/lob0update.cc
-        lob/lob0impl.cc
+    lob/lob0first.cc
+    lob/lob0index.cc
+    lob/lob0ins.cc
+    lob/lob0pages.cc
+    lob/lob0purge.cc
+    lob/lob0update.cc
+    lob/lob0impl.cc
 	lob/lob0lob.cc
 	lob/lob0del.cc
 	lob/lob0undo.cc
 	lob/lob0util.cc
-        lob/zlob0index.cc
-        lob/zlob0ins.cc
-        lob/zlob0update.cc
-        lob/zlob0first.cc
-        lob/zlob0read.cc
+    lob/zlob0index.cc
+    lob/zlob0ins.cc
+    lob/zlob0update.cc
+    lob/zlob0first.cc
+    lob/zlob0read.cc
 	lock/lock0iter.cc
 	lock/lock0prdt.cc
 	lock/lock0lock.cc
@@ -153,6 +153,7 @@ SET(INNOBASE_SOURCES
 	mtr/mtr0log_ext.cc
 	mtr/mtr0mtr.cc
 	os/os0file.cc
+	os/os0enc.cc
 	os/os0proc.cc
 	os/os0event.cc
 	os/os0key.cc
@@ -178,6 +179,7 @@ SET(INNOBASE_SOURCES
 	row/row0pread.cc
 	row/row0purge.cc
 	row/row0pread-adapter.cc
+	row/row0pread-histogram.cc
 	row/row0row.cc
 	row/row0sel.cc
 	row/row0uins.cc
@@ -240,6 +242,16 @@ IF(SOLARIS_INTEL)
       COMPILE_FLAGS "-Wa,-nH"
     )
   ENDIF()
+ENDIF()
+
+# On linux: /usr/include/stdio.h:#define BUFSIZ 8192
+# On Solaris: /usr/include/iso/stdio_iso.h:#define    BUFSIZ  1024
+IF(SOLARIS AND MY_COMPILER_IS_GNU)
+  ADD_COMPILE_FLAGS(
+    row/row0import.cc
+    row/row0quiesce.cc
+    COMPILE_FLAGS "-Wno-format-truncation"
+    )
 ENDIF()
 
 # Generated code with logical-op warnings
