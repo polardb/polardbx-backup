@@ -41,7 +41,7 @@ For all modes, the default options are read from the **xtrabackup** and
 #. :file:`/usr/etc/my.cnf`
 #. :file:`~/.my.cnf`. 
 
-As the first parameter to |program| (in place of the :option:`defaults-file`,
+As the first parameter to |program| (in place of the :option:`--defaults-file`,
 you may supply one of the following:
 
 - :option:`--print-defaults` to have |program| print the argument list and exit.
@@ -74,6 +74,14 @@ Options
 
    Make a backup and place it in :option:`--target-dir`. See
    :ref:`Creating a backup <creating_a_backup>`.
+
+.. option:: --backup-lock-timeout
+
+   The timeout in seconds for attempts to acquire metadata locks.
+
+.. option:: --backup-lock-retry-count
+
+   The number of attempts to acquire metadata locks.
 
 .. option:: --backup-locks
 
@@ -179,6 +187,11 @@ Options
    When combined with the :option:`--copy-back` or
    :option:`--move-back` option, :option:`--datadir`
    refers to the destination directory.
+
+   Once connected to the server, in order to perform a backup you will need
+   ``READ`` and ``EXECUTE`` permissions at a filesystem level in the
+   server's :term:`datadir`.
+
 
 .. option:: --debug-sleep-before-unlock=#
 
@@ -510,7 +523,7 @@ Options
    same behavior in InnoDB and XtraDB:
 
    .. hlist::
-      :colums: 2
+      :columns: 2
       
       - --innodb-adaptive-hash-index
       - --innodb-additional-mem-pool-size
@@ -552,7 +565,7 @@ Options
 .. option:: --keyring-file-data=FILENAME
 
    The path to the keyring file. Combine this option with
-   :option:`xtrabackup --xtrabackup-plugin-dir`.
+   :option:`--xtrabackup-plugin-dir`.
 
 .. option:: --kill-long-queries-timeout=SECONDS
 
@@ -603,6 +616,10 @@ Options
 
    This option specifies the time interval between checks done by the log
    copying thread in milliseconds (default is 1 second).
+
+.. option:: --login-path
+
+   Read the given path from the login file.
 
 .. option:: --move-back
 
@@ -698,7 +715,7 @@ Options
 .. option:: --rebuild-indexes
 
    Rebuilds indexes in a compact backup. This option only has effect when the
-   :option:`--prepare` and :option:`rebuild-threads` options are provided.
+   :option:`--prepare` and :option:`--rebuild-threads` options are provided.
 
 .. option:: --rebuild-threads=#
 
@@ -720,6 +737,15 @@ Options
 
    RocksDB WAL directory.
 
+.. option:: --rocksdb-checkpoint-max-age
+
+   The checkpoint cannot be older than this number of seconds when the backup
+   completes.
+
+.. option:: --rocksdb-checkpoint-max-count
+
+   Complete the backup even if the checkpoint age requirement has not been met after
+   this number of checkpoints.
 
 .. option:: --rollback-prepared-trx
 
@@ -777,11 +803,11 @@ Options
 .. option:: --slave-info
 
    This option is useful when backing up a replication slave server. It prints
-   the binary log position of the master server. It also writes this
-   information to the :file:`xtrabackup_slave_info` file as a ``CHANGE MASTER``
-   command. A new slave for this master can be set up by starting a slave
-   server on this backup and issuing a ``CHANGE MASTER`` command with the
-   binary log position saved in the :file:`xtrabackup_slave_info` file.
+   the binary log position of the master server. It also writes the binary log
+   coordinates to the :file:`xtrabackup_slave_info` file as a ``CHANGE MASTER``
+   command. A new slave for this master can be set up by starting a slave server
+   on this backup and issuing a ``CHANGE MASTER`` command with the binary log
+   position saved in the :file:`xtrabackup_slave_info` file.
 
 .. option:: --socket
 
@@ -873,7 +899,7 @@ Options
 .. option:: --stream=FORMAT
 
    Stream all backup files to the standard output in the specified format.
-   Currently supported formats are ``xbstream`` and ``tar``.
+   Currently, this option only supports the `xbstream` format.
 
 .. option:: --strict
 
@@ -915,6 +941,11 @@ Options
 
    If this option is a relative path, it is interpreted as being relative to
    the current working directory from which :program:`xtrabackup` is executed.
+
+   In order to perform a backup, you need ``READ``, ``WRITE``, and ``EXECUTE``
+   permissions at a filesystem level for the directory that you supply as the
+   value of :option:`--target-dir`.
+
 
 .. option:: --innodb-temp-tablespaces-dir=DIRECTORY
 

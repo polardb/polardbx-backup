@@ -35,7 +35,7 @@ extern bool is_keyring_rds;
 /** Fetch current master key id from keyring_rds plugin.
 @param[in]	lock_master_key_id	if protect s_master_key_id
 @return true if success */
-extern bool get_master_key_id(bool lock_master_key_id);
+extern bool rds_get_master_key_id(bool lock_master_key_id);
 
 /** Create new master key for key rotation by keyring_rds.
 @param[in,out]	master_key	master key */
