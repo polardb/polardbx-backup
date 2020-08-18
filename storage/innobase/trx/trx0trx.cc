@@ -1153,7 +1153,7 @@ void trx_lists_init_at_db_start(void) {
     // }
     trx_add_to_rw_trx_list(trx);
 
-    lizard::lizard_sys_mod_min_active_trx_id(true, trx);
+    lizard::lizard_sys_mod_min_active_trx_id(trx);
   }
 }
 
@@ -1456,7 +1456,7 @@ static void trx_start_low(
 
     trx_add_to_rw_trx_list(trx);
 
-    lizard::lizard_sys_mod_min_active_trx_id(true, trx);
+    lizard::lizard_sys_mod_min_active_trx_id(trx);
 
     trx->state.store(TRX_STATE_ACTIVE, std::memory_order_relaxed);
 
@@ -1857,7 +1857,7 @@ static void trx_erase_lists(trx_t *trx) {
 
   // ut_ad(*it == trx->id);
   // trx_sys->rw_trx_ids.erase(it);
-
+  //
   assert_trx_in_recovery(trx);
 
   if (trx->read_only ||
@@ -1866,7 +1866,6 @@ static void trx_erase_lists(trx_t *trx) {
   } else {
     trx_remove_from_rw_trx_list(trx);
     ut_ad(trx_sys_validate_trx_list());
-    lizard::lizard_sys_mod_min_active_trx_id(false, trx);
 
     // if (trx->read_view != nullptr) {
     //   trx_sys->mvcc->view_close(trx->read_view, true);
@@ -1875,7 +1874,10 @@ static void trx_erase_lists(trx_t *trx) {
     if (trx->vision.is_active()) {
       lizard::trx_vision_release(&trx->vision);
     }
+
+    lizard::lizard_sys_mod_min_active_trx_id(trx);
   }
+
   DEBUG_SYNC_C("after_trx_erase_lists");
 }
 
@@ -2351,7 +2353,7 @@ void trx_cleanup_at_db_startup(trx_t *trx) /*!< in: transaction */
   ut_a(!trx->read_only);
   trx_remove_from_rw_trx_list(trx);
 
-  lizard::lizard_sys_mod_min_active_trx_id(false, trx);
+  lizard::lizard_sys_mod_min_active_trx_id(trx);
 
   trx_sys_mutex_exit();
 
@@ -3571,7 +3573,7 @@ void trx_set_rw_mode(trx_t *trx) /*!< in/out: transaction that is RW */
   }
   trx_add_to_rw_trx_list(trx);
 
-  lizard::lizard_sys_mod_min_active_trx_id(true, trx);
+  lizard::lizard_sys_mod_min_active_trx_id(trx);
 
   trx_sys_mutex_exit();
 
