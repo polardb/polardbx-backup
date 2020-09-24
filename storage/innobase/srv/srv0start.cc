@@ -131,6 +131,7 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include "lizard0sys.h"
 #include "lizard0txn.h"
 #include "lizard0undo0types.h"
+#include "lizard0scn0hist.h"
 
 /** fil_space_t::flags for hard-coded tablespaces */
 extern uint32_t predefined_flags;
@@ -165,7 +166,9 @@ enum srv_start_state_t {
   /** Started purge thread(s) */
   SRV_START_STATE_PURGE = 2,
   /** Started bufdump + dict stat and FTS optimize thread. */
-  SRV_START_STATE_STAT = 4
+  SRV_START_STATE_STAT = 4,
+  /*!< Started scn history generator thread.*/
+  SRV_START_STATE_SCN_HIST = 128,
 };
 
 /** Track server thrd starting phases */
@@ -1454,6 +1457,10 @@ void srv_shutdown_exit_threads() {
         /* Wakeup purge threads. */
         srv_purge_wakeup();
       }
+    }
+
+    if (srv_start_state_is_set(SRV_START_STATE_SCN_HIST)) {
+      lizard::srv_scn_history_shutdown();
     }
 
     if (srv_start_state_is_set(SRV_START_STATE_IO)) {
@@ -2823,6 +2830,16 @@ void srv_start_threads_after_ddl_recovery() {
 
   /* If recovered, should do write back the dynamic metadata. */
   dict_persist_to_dd_table_buffer();
+
+  /** Create scn history background thread */
+  srv_threads.m_scn_hist =
+      os_thread_create(scn_history_thread_key, 0, lizard::srv_scn_history_thread);
+
+  lizard::srv_scn_history_thread_init();
+
+  srv_threads.m_scn_hist.start();
+
+  srv_start_state_set(SRV_START_STATE_SCN_HIST);
 }
 
 /** Set srv_shutdown_state to a given state and validate change is proper.
@@ -2935,6 +2952,10 @@ void srv_pre_dd_shutdown() {
 
   srv_shutdown_set_state(SRV_SHUTDOWN_PRE_DD_AND_SYSTEM_TRANSACTIONS);
 
+  if (srv_start_state_is_set(SRV_START_STATE_SCN_HIST)) {
+    lizard::srv_scn_history_shutdown();
+  }
+
   if (srv_start_state_is_set(SRV_START_STATE_STAT)) {
     fts_optimize_shutdown();
     dict_stats_shutdown();
@@ -2983,6 +3004,20 @@ void srv_pre_dd_shutdown() {
     case PURGE_STATE_STOP:
       ut_d(ut_error);
   }
+
+  for (uint32_t count = 1; srv_thread_is_active(srv_threads.m_scn_hist);
+       ++count) {
+    os_event_set(lizard::scn_history_event);
+    if (count % SHUTDOWN_SLEEP_ROUNDS == 0) {
+      ib::info(ER_STOP_SCN_HOSTORY_THREAD);
+    }
+    std::this_thread::sleep_for(
+        std::chrono::microseconds(SHUTDOWN_SLEEP_TIME_US));
+  }
+  if (srv_start_state_is_set(SRV_START_STATE_SCN_HIST)) {
+    lizard::srv_scn_history_thread_deinit();
+  }
+  ut_a(!srv_thread_is_active(srv_threads.m_scn_hist));
 
   /* After this phase plugins are asked to be shut down, in which case they
   will be marked as DELETED. Note: we cannot leave any transaction in the THD,
@@ -3223,7 +3258,8 @@ void srv_shutdown() {
       std::cref(srv_threads.m_ts_alter_encrypt),
       std::cref(srv_threads.m_fts_optimize),
       std::cref(srv_threads.m_recv_writer),
-      std::cref(srv_threads.m_dict_stats)};
+      std::cref(srv_threads.m_dict_stats),
+      std::cref(srv_threads.m_scn_hist)};
 
   for (const auto &thread : threads_stopped_before_shutdown) {
     ut_a(!srv_thread_is_active(thread));
