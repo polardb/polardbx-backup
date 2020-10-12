@@ -898,8 +898,8 @@ static PSI_thread_info all_innodb_threads[] = {
                    PSI_DOCUMENT_ME),
     PSI_THREAD_KEY(meb::redo_log_archive_consumer_thread, "ib_meb_rl",
                    PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME),
-    PSI_THREAD_KEY(scn_history_thread, "ib_scn_history_thread",
-                   PSI_FLAG_SINGLETON, 0, PSI_DOCUMENT_ME)};
+    PSI_THREAD_KEY(scn_history_thread, "ib_scn_history", PSI_FLAG_SINGLETON, 0,
+                   PSI_DOCUMENT_ME)};
 #endif /* UNIV_PFS_THREAD */
 
 #ifdef UNIV_PFS_IO
