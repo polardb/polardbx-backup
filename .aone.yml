@@ -1,6 +1,7 @@
 t-rds-xtrabackup-80:
   pkgpara:
-    DOCKER:
+  machine:
+    docker:
       el6: rpmbuild6u2
       alios7:
         x86_64: rpmbuild7u2
