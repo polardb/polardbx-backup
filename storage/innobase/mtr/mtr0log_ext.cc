@@ -39,10 +39,10 @@ void mlog_log_server_log(const byte *ptr, ulint len, mtr_t *mtr) {
     Open 30 bytes for Log Type and Log Length fields. The unused space will be
     released by mlog_close automatically.
   */
-  log_ptr = mlog_open(mtr, 30);
-
-  // Logging is disabled during crash recovery
-  if (log_ptr == nullptr) return;
+  if (!mlog_open(mtr, 30, log_ptr)) {
+    // Logging is disabled during crash recovery
+    return;
+  }
 
   // Log Type
   mach_write_to_1(log_ptr, MLOG_SERVER_DATA);
