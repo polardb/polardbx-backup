@@ -3,7 +3,7 @@
 ########################################################################
 
 . inc/common.sh
-
+skip_test "RDS NOT SUPPORT"
 require_server_version_higher_than 5.6.0
 
 MYSQLD_EXTRA_MY_CNF_OPTS="

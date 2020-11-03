@@ -14,9 +14,9 @@ function compare_files() {
 dir1=$1
 dir2=$2
 
-ign_list="(innodb_temp|xtrabackup_binlog_pos_innodb|*.dblwr)"
+ign_list="(innodb_temp|xtrabackup_binlog_pos_innodb|*.dblwr|__recycle_bin__\/db.opt|ALISQL_PERFORMANCE_AGENT)"
 
-# files that present in the backup directory, but not present in the datadir
+echo "compare_files# files that present in the backup directory, but not present in the datadir"
 diff -u <( ( ( cd $dir1; find . | grep -Ev $ign_list )
              ( cd $dir2; find . | grep -Ev $ign_list )
              ( cd $dir2; find . | grep -Ev $ign_list ) ) | sort | uniq -u ) - <<EOF
@@ -37,22 +37,16 @@ else
     XTRA_DOUBLEWRITE=""
 fi
 
-# files that present in the datadir, but not present in the backup
+echo "compare_files# files that present in the datadir, but not present in the backup"
 diff -B -u <( ( ( cd $dir1; find . | grep -Ev $ign_list )
                 ( cd $dir1; find . | grep -Ev $ign_list )
                 ( cd $dir2; find . | grep -Ev $ign_list ) ) | sort | uniq -u ) - <<EOF
 ./auto.cnf
-./ca-key.pem
-./ca.pem
-./client-cert.pem
-./client-key.pem
 ./mysql-bin.000001
 ./mysql-bin.000002
 ./mysqld1.err
 ./private_key.pem
 ./public_key.pem
-./server-cert.pem
-./server-key.pem
 ${XTRA_DOUBLEWRITE}
 EOF
 
@@ -63,7 +57,7 @@ function compare_files_inc() {
 dir1=$1
 dir2=$2
 
-# files that present in the backup directory, but not present in the datadir
+echo "compare_files_inc# files that present in the backup directory, but not present in the datadir"
 diff -u <( ( ( cd $dir1; find . | grep -Ev $ign_list )
              ( cd $dir2; find . | grep -Ev $ign_list )
              ( cd $dir2; find . | grep -Ev $ign_list ) ) | sort | uniq -u ) - <<EOF
@@ -76,23 +70,20 @@ diff -u <( ( ( cd $dir1; find . | grep -Ev $ign_list )
 ./xtrabackup_tablespaces
 EOF
 
-# files that present in the datadir, but not present in the backup
+echo "compare_files_inc# files that present in the datadir, but not present in the backup"
 diff -B -u <( ( ( cd $dir1; find . | grep -Ev $ign_list )
                 ( cd $dir1; find . | grep -Ev $ign_list )
                 ( cd $dir2; find . | grep -Ev "innodb_temp|*.dblwr" ) ) | sort | uniq -u ) - <<EOF
+./ALISQL_PERFORMANCE_AGENT_GENERAL.log
+./ALISQL_PERFORMANCE_AGENT_IO.log
+./ALISQL_PERFORMANCE_AGENT_PERF.csv
 ./auto.cnf
-./ca-key.pem
-./ca.pem
-./client-cert.pem
-./client-key.pem
 ./mysql-bin.000001
 ./mysql-bin.000002
 ./mysql-bin.000003
 ./mysqld1.err
 ./private_key.pem
 ./public_key.pem
-./server-cert.pem
-./server-key.pem
 ${XTRA_DOUBLEWRITE}
 EOF
 

@@ -9,8 +9,8 @@ slave_id=2
 slave2_id=3
 slave3_id=4
 binlog_slave_info_pattern='^CHANGE MASTER TO MASTER_LOG_FILE='\''mysql-bin.[0-9]+'\'', MASTER_LOG_POS=[0-9]+;$'
-pxb_log_binlog_info_pattern='filename '\''mysql-bin.[0-9]+'\'', position '\''[0-9]+'\'''
-pxb_log_slave_info_pattern='master host '\''[a-zA-Z0-9\.-]+'\'', filename '\''mysql-bin.[0-9]+'\'', position '\''[0-9]+'\'', channel name: '\''[a-zA-Z0-9\.-]*'\'''
+pxb_log_binlog_info_pattern='filename '\''mysql-bin.[0-9]+'\'', position [0-9]+'
+pxb_log_slave_info_pattern='master host '\''[a-zA-Z0-9\.-]+'\'', filename '\''mysql-bin.[0-9]+'\'', position [0-9]+'
 
 start_server_with_id $master_id
 start_server_with_id $slave_id

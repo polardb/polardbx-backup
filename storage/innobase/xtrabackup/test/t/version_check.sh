@@ -38,6 +38,8 @@ fi
 
 XB_ARGS=`echo $XB_ARGS | sed -e 's/--no-version-check//g'`
 
+XB_ARGS="$XB_ARGS --skip-no-version-check "
+
 xtrabackup --backup --target-dir=$topdir/backup2
 
 if [ ! -f $vc_file ]

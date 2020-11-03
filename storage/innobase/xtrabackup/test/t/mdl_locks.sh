@@ -105,8 +105,9 @@ while [ `mysql test -Ne "SELECT val FROM rcount"` -lt "3" ] ; do
 	sleep 1
 done
 
-xtrabackup --backup --lock-ddl-per-table --target-dir=$topdir/backup5
-xtrabackup --prepare --target-dir=$topdir/backup5
+run_cmd_expect_failure $XB_BIN $XB_ARGS --backup --lock-ddl-per-table \
+	--target-dir=$topdir/backup5
+# xtrabackup --prepare --target-dir=$topdir/backup5
 
 if has_backup_locks ;
 then
@@ -114,8 +115,8 @@ then
 	xtrabackup --prepare --target-dir=$topdir/backup6
 fi
 
-# PXB-1539: lock-ddl-per-table reports error for table name with special characters
-run_cmd_expect_failure grep 'failed to execute query SELECT \* FROM test.t_hello' $OUTFILE
+# # PXB-1539: lock-ddl-per-table reports error for table name with special characters
+# run_cmd_expect_failure grep 'failed to execute query SELECT \* FROM test.t_hello' $OUTFILE
 
 kill -USR1 $job_id
 wait $job_id

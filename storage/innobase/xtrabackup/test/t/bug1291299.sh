@@ -1,8 +1,8 @@
 ########################################################################
 # Bug #1291299: xtrabackup_56 crashes with segfault during --prepare
 ########################################################################
-
 . inc/common.sh
+skip_test "RDS NOT SUPPORT REMOTE DIR"
 require_server_version_higher_than 5.6.0
 
 remote_dir=$TEST_VAR_ROOT/var1/remote_dir

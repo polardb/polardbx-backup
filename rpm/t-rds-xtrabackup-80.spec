@@ -61,7 +61,7 @@ export CC CXX CFLAGS CXXFLAGS
 
 cmake -DBUILD_CONFIG=xtrabackup_release -DCMAKE_BUILD_TYPE="RelWithDebInfo" \
       -DCMAKE_INSTALL_PREFIX=%{prefix} -DBUILD_MAN_OS=%{os_version}  \
-      -DINSTALL_MANDIR=%{_mandir} -DWITH_BOOST="extra/boost/boost_1_70_0.tar.gz" \
+      -DINSTALL_MANDIR=%{_mandir} -DWITH_BOOST="extra/boost/boost_1_72_0.tar.gz" \
       -DINSTALL_PLUGINDIR="lib/plugin" \
       -DFORCE_INSOURCE_BUILD=1 .
 

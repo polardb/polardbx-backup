@@ -41,6 +41,8 @@ innodb_log_file_size=4M"
       "ALTER TABLE test ENGINE=InnoDB ROW_FORMAT=compressed \
 KEY_BLOCK_SIZE=$page_size" incremental_sample
 
+  stop_server
+  start_server
   # Adding 10k rows
 
   multi_row_insert incremental_sample.test \({1..10000},10000\)

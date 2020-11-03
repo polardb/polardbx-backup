@@ -3,7 +3,7 @@
 ########################################################################
 
 . inc/common.sh
-
+skip_test "Not support --dump-innodb-buffer-pool for rds"
 require_server_version_higher_than 5.6.0
 MYSQLD_EXTRA_MY_CNF_OPTS="
 innodb_buffer_pool_filename=ib_buffer_pool
