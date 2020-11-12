@@ -1651,6 +1651,11 @@ static byte *recv_parse_or_apply_log_rec_body(
           recv_sys->bytes_to_ignore_before_checkpoint != 0 ||
               recv_sys->recovered_lsn + parsed_bytes <
                   backup_redo_log_flushed_lsn));
+
+    case MLOG_FILE_EXTEND:
+      /* RDS: no need to support this redo type now */
+      ut_a(0);
+
 #endif /* !UNIV_HOTBACKUP */
     case MLOG_INDEX_LOAD:
 #if defined(UNIV_HOTBACKUP) || defined(XTRABACKUP)
@@ -2311,6 +2316,7 @@ static void recv_add_to_hash_table(mlog_id_t type, space_id_t space_id,
   ut_ad(type != MLOG_FILE_DELETE);
   ut_ad(type != MLOG_FILE_CREATE);
   ut_ad(type != MLOG_FILE_RENAME);
+  ut_ad(type != MLOG_FILE_EXTEND);
   ut_ad(type != MLOG_DUMMY_RECORD);
   ut_ad(type != MLOG_INDEX_LOAD);
 
@@ -2940,6 +2946,10 @@ static bool recv_single_rec(byte *ptr, byte *end_ptr) {
                   " len " ULINTPF " " PAGE_ID_PF,
                   old_lsn, get_mlog_string(type), len, space_id, page_no));
       break;
+
+    case MLOG_FILE_EXTEND:
+      /* RDS: no need to support this redo type now */
+      ut_ad(0);
   }
 
   return (false);
@@ -3076,6 +3086,10 @@ static bool recv_multi_rec(byte *ptr, byte *end_ptr) {
         /* These were already handled by
         recv_parse_or_apply_log_rec_body(). */
         break;
+
+      case MLOG_FILE_EXTEND:
+      /* RDS: no need to support this redo type now */
+        ut_a(0);
 
       default:
 
@@ -4222,6 +4236,11 @@ const char *get_mlog_string(mlog_id_t type) {
 
     case MLOG_FILE_RENAME:
       return ("MLOG_FILE_RENAME");
+
+    case MLOG_FILE_EXTEND:
+      /* RDS: no need to support this redo type now */
+      ut_a(0);
+      return ("MLOG_FILE_EXTEND");
 
     case MLOG_PAGE_CREATE_RTREE:
       return ("MLOG_PAGE_CREATE_RTREE");

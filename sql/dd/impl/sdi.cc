@@ -445,7 +445,9 @@ bool generic_deserialize(
   }
 
   if (comp_checker(doc)) {
+    /* RDS: Don't return even if not support 8022 (dd_version) yet.
     return checked_return(true);
+    */
   }
 
   DBUG_ASSERT(doc.HasMember("dd_object_type"));

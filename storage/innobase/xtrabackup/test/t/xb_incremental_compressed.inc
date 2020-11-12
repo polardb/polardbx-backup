@@ -41,6 +41,9 @@ innodb_log_file_size=4M"
       "ALTER TABLE test ENGINE=InnoDB ROW_FORMAT=compressed \
 KEY_BLOCK_SIZE=$page_size" incremental_sample
 
+  # RDS: DDL operations can cause use cases to fail
+  sleep 10;
+
   stop_server
   start_server
   # Adding 10k rows
