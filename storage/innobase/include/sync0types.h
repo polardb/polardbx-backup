@@ -469,6 +469,9 @@ enum latch_id_t {
   LATCH_ID_XTRA_DATAFILES_ITER_MUTEX,
   LATCH_ID_XTRA_COUNT_MUTEX,
   LATCH_ID_XTRA_DATADIR_ITER_T_MUTEX,
+  /** Lizard mutex start */
+  LATCH_ID_LIZARD_SCN,
+  /** Lizard mutex end */
   LATCH_ID_TEST_MUTEX,
   LATCH_ID_MAX = LATCH_ID_TEST_MUTEX
 };

@@ -44,6 +44,8 @@ struct xb_fil_cur_t {
                                page_size */
   bool is_system;              /*!< TRUE for system tablespace, FALSE
                                otherwise */
+  bool is_lizard;              /*!< TRUE for lizard tablespace, FALSE
+                               otherwise */
   bool is_ibd;                 /*!< TRUE for IBD tablespace tablespace,
                                FALSE otherwise */
   bool is_compressable;        /*!< TRUE for uncompressed and unencrypted
@@ -122,6 +124,9 @@ specified possibly absolute path.
 
 For user tablespaces both "./database/table.ibd" and
 "/remote/dir/database/table.ibd" result in "database/table.ibd".
+
+For lizard tablepsaces (i.e. When is_lizard is TRUE) both "/remote/dir/lizard.ibd"
+and "./lizard.ibd" yield "lizard.ibd" in the output.
 
 For system tablepsaces (i.e. When is_system is TRUE) both "/remote/dir/ibdata1"
 and "./ibdata1" yield "ibdata1" in the output. */

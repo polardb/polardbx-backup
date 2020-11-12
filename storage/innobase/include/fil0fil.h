@@ -333,6 +333,9 @@ struct fil_space_t {
   /** Redo log tablespace */
   static fil_space_t *s_redo_space;
 
+  /** Lizard tablespace */
+  static fil_space_t *s_lizard_space;
+
 #ifdef UNIV_DEBUG
   /** Print the extent descriptor pages of this tablespace into
   the given output stream.
@@ -904,6 +907,12 @@ class Fil_path {
 
   /** A full absolute path to the same file. */
   std::string m_abs_path;
+
+ public:
+  /** Check if the name is an lizard tablespace name.
+  @param[in]	name		Tablespace name
+  @return true if it is an lizard tablespace name */
+  static bool is_lizard_tablespace_name(const std::string &name);
 };
 
 /** The MySQL server --datadir value */

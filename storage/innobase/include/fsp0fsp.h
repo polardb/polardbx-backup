@@ -51,6 +51,8 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include "buf0buf.h"
 #endif /* UNIV_HOTBACKUP */
 
+#include "lizard0fspspace.h"
+
 class DDL_Record;
 extern std::vector<DDL_Record *> ts_encrypt_ddl_records;
 extern mysql_cond_t resume_encryption_cond;
@@ -700,6 +702,7 @@ or a general shared tablespace, where user tables exist.
 UNIV_INLINE
 bool fsp_is_ibd_tablespace(space_id_t space_id) {
   return (space_id != TRX_SYS_SPACE && !fsp_is_undo_tablespace(space_id) &&
+          !lizard::fsp_is_lizard_tablespace(space_id) &&
           !fsp_is_system_temporary(space_id));
 }
 
