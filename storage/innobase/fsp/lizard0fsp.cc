@@ -36,6 +36,7 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include "lizard0fil.h"
 #include "lizard0fsp.h"
 #include "lizard0fspspace.h"
+#include "lizard0txn.h"
 
 namespace lizard {
 
@@ -87,7 +88,6 @@ page_no_t fsp_header_get_lizard_tablespace_size(void) {
 
   return size;
 }
-
 /** Frees the memory */
 void LizardTablespace::shutdown() {
   Tablespace::shutdown();

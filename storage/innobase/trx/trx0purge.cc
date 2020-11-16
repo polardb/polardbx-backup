@@ -62,6 +62,8 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include "trx0rseg.h"
 #include "trx0trx.h"
 
+#include "lizard0txn.h"
+
 /** Maximum allowable purge history length.  <=0 means 'infinite'. */
 ulong srv_max_purge_lag = 0;
 
@@ -1230,7 +1232,7 @@ static bool trx_purge_mark_undo_for_truncate(size_t truncate_count) {
 
   /* If we get here, there are no undo spaces currently being truncated
   and none that are SET INACTIVE explicitly. */
-  ut_a(num_active > 0);
+  ut_a(num_active > 0 + FSP_IMPLICIT_TXN_TABLESPACES);
 
   /* There may be some reasons not to truncate implicitly.
   If truncate is disabled, do not truncate. */
@@ -1240,7 +1242,7 @@ static bool trx_purge_mark_undo_for_truncate(size_t truncate_count) {
 
   if (normal_operation) {
     /* Skip truncate if there is only one active undo tablespace to check. */
-    if (num_active == 1) {
+    if (num_active == 1 + FSP_IMPLICIT_TXN_TABLESPACES) {
       return (false);
     }
 
@@ -1268,7 +1270,7 @@ static bool trx_purge_mark_undo_for_truncate(size_t truncate_count) {
   do {
     auto undo_space = undo::spaces->find(space_num);
 
-    if (undo_space->needs_truncation()) {
+    if (!undo_space->is_txn() && undo_space->needs_truncation()) {
       /* Tablespace qualifies for truncate. */
       undo_trunc->increment_scan();
       undo_trunc->mark(undo_space);
@@ -2502,7 +2504,7 @@ The vector has been pre-allocated to 128 so read threads will
 not loose what is pointed to. If tablespace_name and file_name
 are standard names, they are optional.
 @param[in]	ref_undo_space	undo tablespace */
-void undo::Tablespaces::add(Tablespace &ref_undo_space) {
+void undo::Tablespaces::add(Tablespace &ref_undo_space, int pos) {
   ut_ad(is_reserved(ref_undo_space.id()));
 
   if (contains(ref_undo_space.num())) {
@@ -2511,7 +2513,10 @@ void undo::Tablespaces::add(Tablespace &ref_undo_space) {
 
   auto undo_space = UT_NEW_NOKEY(Tablespace(ref_undo_space));
 
-  m_spaces.push_back(undo_space);
+  m_spaces.insert((pos < 0 || pos > (int)m_spaces.size())
+                      ? m_spaces.end()
+                      : m_spaces.begin() + pos,
+                  undo_space);
 }
 
 /** Drop an existing explicit undo::Tablespace.
