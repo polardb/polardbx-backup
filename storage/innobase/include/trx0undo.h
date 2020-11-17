@@ -349,6 +349,27 @@ void trx_undo_mem_free(trx_undo_t *undo); /* in: the undo object to be freed */
 in the corresponding transaction object */
 
 struct trx_undo_t {
+  /** Undo log may could be allocated to store transaction GTIDs. */
+  enum class Gtid_storage {
+    /* No storage is allocated for GTID. */
+    NONE,
+    /* Storage is allocated for commit GTID. */
+    COMMIT,
+    /* Storage is allocated for both prepare and commit GTID. For external
+    XA transaction, we have GTID fr both prepare and commit. */
+    PREPARE_AND_COMMIT
+  };
+
+  /** Check if space for GTID is allocated in undo.
+  @param[in]	is_prepare	if XA prepare GTID
+  @return true iff space for GTID is allocated. */
+  bool gtid_allocated(bool is_prepare) const;
+
+  /** Get offset and flag for GTID stored in undo.
+  @param[in]	is_prepare	if XA prepare GTID
+  @return GTID flag and offset in a tuple. */
+  std::tuple<int, size_t> gtid_get_details(bool is_prepare) const;
+
   /* Set undo segment to prepared state and set XID
   @param[in]	in_xid	transaction XID. */
   void set_prepared(const XID *in_xid);
@@ -375,8 +396,8 @@ struct trx_undo_t {
   ulint flag;      /*!< flag for current transaction XID and GTID.
                    Persisted in TRX_UNDO_FLAGS flag of undo header. */
 
-  /** Set if space for GTID is allocated. */
-  bool gtid_allocated;
+  /** Storage space allocated for GTIDs. */
+  Gtid_storage m_gtid_storage{Gtid_storage::NONE};
 
   ibool dict_operation; /*!< TRUE if a dict operation trx */
   trx_rseg_t *rseg;     /*!< rseg where the undo log belongs */
@@ -424,13 +445,6 @@ struct trx_undo_t {
   uint8_t txn_ext_flag; /*!< TXN ext_flag, only useful on TXN. */
 };
 
-/** Write any previous GTIDs to disk. Used for external XA
-Commit and Rollback to write XA prepare GTID to disk table
-before updating undo log GTID with commit/rollback GTID.
-@param[in]	trx	transaction
-*/
-void trx_undo_gtid_flush_prepare(trx_t *trx);
-
 /** For saving GTID add update undo slot, if required.
 @param[in]	trx		transaction
 @param[in]	prepare		operation is prepare
@@ -440,8 +454,9 @@ dberr_t trx_undo_gtid_add_update_undo(trx_t *trx, bool prepare, bool rollback);
 
 /** Set GTID flag in undo if transaction has GTID/
 @param[in,out]	trx		transaction
-@param[in,out]	undo		undo log memory object */
-void trx_undo_gtid_set(trx_t *trx, trx_undo_t *undo);
+@param[in,out]	undo		undo log memory object
+@param[in]	is_xa_prepare	GTID is for XA prepared transaction. */
+void trx_undo_gtid_set(trx_t *trx, trx_undo_t *undo, bool is_xa_prepare);
 
 /** Read and persist GTID from undo header during recovery.
 @param[in]	undo_log	undo log header */
@@ -451,9 +466,10 @@ void trx_undo_gtid_read_and_persist(trx_ulogf_t *undo_log);
 @param[in,out]	trx		transaction
 @param[in,out]	undo_header	undo log header
 @param[in,out]	undo		undo log memory object
-@param[in,out]	mtr		minit transaction for write */
+@param[in,out]	mtr		minit transaction for write
+@param[in]	is_xa_prepare	GTID is for XA prepared transaction. */
 void trx_undo_gtid_write(trx_t *trx, trx_ulogf_t *undo_header, trx_undo_t *undo,
-                         mtr_t *mtr);
+                         mtr_t *mtr, bool is_xa_prepare);
 
 #endif /* !UNIV_HOTBACKUP */
 
@@ -558,7 +574,9 @@ page of an update undo log segment. */
 #define TRX_UNDO_FLAG_GTID                   \
   0x02 /*!< TRUE if undo log header includes \
        GTID information from replication */
-
+#define TRX_UNDO_FLAG_XA_PREPARE_GTID        \
+  0x04 /*!< TRUE if undo log header includes \
+       GTID information for XA PREPARE */
 /* Lizard: define txn undo log */
 #define TRX_UNDO_FLAG_TXN                       \
   0x80 /*!< TRUE if undo log header is txn undo \
@@ -639,8 +657,16 @@ information */
 /** Total length of GTID */
 #define TRX_UNDO_LOG_GTID_LEN 64
 
-/** Total size of GTID information. */
-#define TRX_UNDO_LOG_HDR_SIZE (TRX_UNDO_LOG_GTID + TRX_UNDO_LOG_GTID_LEN)
+/** Total size with GTID information. */
+#define TRX_UNDO_LOG_GTID_HDR_SIZE (TRX_UNDO_LOG_GTID + TRX_UNDO_LOG_GTID_LEN)
+
+/** GTID offset for XA Prepare. */
+#define TRX_UNDO_LOG_GTID_XA (TRX_UNDO_LOG_GTID_HDR_SIZE)
+
+/** Total size with XA GTID information. For external XA transaction we need
+to store both prepare and commit GTID. */
+#define TRX_UNDO_LOG_GTID_XA_HDR_SIZE \
+  (TRX_UNDO_LOG_GTID_HDR_SIZE + TRX_UNDO_LOG_GTID_LEN)
 
 #include "trx0undo.ic"
 #endif

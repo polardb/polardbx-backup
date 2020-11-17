@@ -1125,7 +1125,8 @@ static dberr_t txn_undo_get_free(trx_t *trx, trx_rseg_t *rseg, ulint type,
   /** Current undo log hdr is UBA */
   lizard::trx_undo_hdr_write_uba(undo_page + offset, undo_addr, &mtr);
 
-  trx_undo_header_add_space_for_xid(undo_page, undo_page + offset, &mtr, false);
+  trx_undo_header_add_space_for_xid(undo_page, undo_page + offset, &mtr,
+                                    trx_undo_t::Gtid_storage::NONE);
 
   trx_undo_hdr_add_space_for_txn(undo_page, undo_page + offset, &mtr);
 
@@ -1200,8 +1201,8 @@ static dberr_t txn_undo_assign_undo(trx_t *trx, txn_undo_ptr_t *undo_ptr,
           ? nullptr
           :
 #endif
-          trx_undo_reuse_cached(trx, rseg, type, trx->id, trx->xid, false,
-                                &mtr);
+          trx_undo_reuse_cached(trx, rseg, type, trx->id, trx->xid,
+                                trx_undo_t::Gtid_storage::NONE, &mtr);
 
   if (undo == nullptr) {
      err = txn_undo_get_free(trx, rseg, type, trx->id, trx->xid, &undo);
@@ -1212,8 +1213,8 @@ static dberr_t txn_undo_assign_undo(trx_t *trx, txn_undo_ptr_t *undo_ptr,
   }
 
   if (undo == nullptr) {
-    err =
-        trx_undo_create(trx, rseg, type, trx->id, trx->xid, false, &undo, &mtr);
+    err = trx_undo_create(trx, rseg, type, trx->id, trx->xid,
+                          trx_undo_t::Gtid_storage::NONE, &undo, &mtr);
 
     if (err != DB_SUCCESS) {
       goto func_exit;
@@ -2052,11 +2053,11 @@ static bool txn_undo_hdr_lookup_func(txn_rec_t *txn_rec,
 
   /** ----------------------------------------------------------*/
   /** Phase 6: The offset (minus TRX_UNDO_SEG_HDR + TRX_UNDO_SEG_HDR_SIZE)
-  is a fixed multiple of TRX_UNDO_LOG_HDR_SIZE */
+  is a fixed multiple of TRX_UNDO_LOG_GTID_HDR_SIZE */
   lizard_ut_ad(undo_addr.offset >= TRX_UNDO_SEG_HDR + TRX_UNDO_SEG_HDR_SIZE);
   lizard_ut_ad((undo_addr.offset
                   - (TRX_UNDO_SEG_HDR + TRX_UNDO_SEG_HDR_SIZE))
-               % TRX_UNDO_LOG_HDR_SIZE == 0);
+               % TRX_UNDO_LOG_GTID_HDR_SIZE == 0);
 
   /** ----------------------------------------------------------*/
   /** Phase 7: Check the flag in undo hdr, should be TRX_UNDO_FLAG_TXN,
