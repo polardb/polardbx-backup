@@ -57,6 +57,9 @@ this program; if not, write to the Free Software Foundation, Inc.,
 
 #include "current_thd.h"
 
+#include "lizard0mtr.h"
+#include "lizard0undo.h"
+
 /** This many pages must be undone before a truncate is tried within
 rollback */
 static const ulint TRX_ROLL_TRUNC_THRESHOLD = 1;
@@ -183,6 +186,9 @@ static dberr_t trx_rollback_low(trx_t *trx) {
   active MySQL transaction (or recovered prepared transaction)
   that is associated with the current thread. */
 
+  mtr_t mtr;
+  lizard::Mtr_wrapper mtr_wrapper(&mtr);
+
   switch (trx->state) {
     case TRX_STATE_FORCED_ROLLBACK:
     case TRX_STATE_NOT_STARTED:
@@ -201,6 +207,19 @@ static dberr_t trx_rollback_low(trx_t *trx) {
       /* Check an validate that undo is available for GTID. */
       trx_undo_gtid_add_update_undo(trx, false, true);
       ut_ad(!trx_is_autocommit_non_locking(trx));
+
+      /** Lizard: Deal with txn undo firstly under one mtr */
+      if (trx->rsegs.m_txn.rseg != NULL &&
+          lizard::trx_is_txn_rseg_updated(trx)) {
+        txn_undo_ptr_t *undo_ptr = &trx->rsegs.m_txn;
+
+        mtr_wrapper.start();
+
+        undo_ptr->rseg->latch();
+        trx_undo_set_state_at_prepare(trx, undo_ptr->txn_undo, true, &mtr);
+        undo_ptr->rseg->unlatch();
+      }
+
       if (trx->rsegs.m_redo.rseg != nullptr && trx_is_redo_rseg_updated(trx)) {
         /* Flush prepare GTID for XA prepared transactions. */
         trx_undo_gtid_flush_prepare(trx);
@@ -211,17 +230,18 @@ static dberr_t trx_rollback_low(trx_t *trx) {
         recovery will perform the rollback. */
         trx_undo_ptr_t *undo_ptr = &trx->rsegs.m_redo;
 
-        mtr_t mtr;
-
-        mtr.start();
+        mtr_wrapper.start();
 
         trx->rsegs.m_redo.rseg->latch();
 
         if (undo_ptr->insert_undo != nullptr) {
+          ut_ad(lizard::trx_is_txn_rseg_updated(trx));
           trx_undo_set_state_at_prepare(trx, undo_ptr->insert_undo, true, &mtr);
         }
 
         if (undo_ptr->update_undo != nullptr) {
+          ut_ad(lizard::trx_is_txn_rseg_updated(trx));
+
           trx_undo_gtid_set(trx, undo_ptr->update_undo);
           trx_undo_set_state_at_prepare(trx, undo_ptr->update_undo, true, &mtr);
         }
@@ -230,9 +250,11 @@ static dberr_t trx_rollback_low(trx_t *trx) {
         /* Persist the XA ROLLBACK, so that crash
         recovery will replay the rollback in case
         the redo log gets applied past this point. */
-        mtr.commit();
-        ut_ad(mtr.commit_lsn() > 0 || !mtr_t::s_logging.is_enabled());
+        // mtr.commit();
+        // ut_ad(mtr.commit_lsn() > 0 || !mtr_t::s_logging.is_enabled());
       }
+      mtr_wrapper.commit();
+
 #ifdef ENABLED_DEBUG_SYNC
       if (trx->mysql_thd == nullptr) {
         /* We could be executing XA ROLLBACK after
@@ -655,6 +677,8 @@ static ibool trx_rollback_or_clean_resurrected(
       ib::info(ER_IB_MSG_1188)
           << "Cleaning up trx with id " << trx_get_id_for_print(trx);
 
+      /** If has committed, only left insert undo to cleanup */
+      lizard_ut_ad(trx->rsegs.m_txn.rseg == NULL);
       trx_cleanup_at_db_startup(trx);
       trx_free_resurrected(trx);
       return (TRUE);
@@ -868,6 +892,8 @@ static trx_undo_rec_t *trx_roll_pop_top_rec_of_trx_low(
     rseg->latch();
 
     trx_roll_try_truncate(trx, undo_ptr);
+
+    /** Lizard: txn undo is empty, it's unncessary to truncate */
 
     rseg->unlatch();
   }
