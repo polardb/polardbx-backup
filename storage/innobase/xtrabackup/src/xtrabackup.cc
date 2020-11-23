@@ -127,6 +127,7 @@ Place, Suite 330, Boston, MA 02111-1307 USA
 #include "lizard0fsp.h"
 #include "lizard0dict.h"
 #include "lizard0scn.h"
+#include "lizard0cleanout.h"
 
 /* TODO: replace with appropriate macros used in InnoDB 5.6 */
 #define PAGE_ZIP_MIN_SIZE_SHIFT 10
@@ -4699,6 +4700,8 @@ void xtrabackup_backup_func(void) {
 
   os_thread_close();
 
+  lizard::txn_undo_hash_close();
+  
   row_mysql_close();
 
   redo_mgr.close();

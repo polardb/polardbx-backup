@@ -129,6 +129,7 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include "xb0xb.h"
 #include "lizard0sys.h"
 #include "lizard0txn.h"
+#include "lizard0cleanout.h"
 
 /** fil_space_t::flags for hard-coded tablespaces */
 extern uint32_t predefined_flags;
@@ -3322,6 +3323,7 @@ void srv_shutdown() {
   lock_sys_close();
   trx_pool_close();
 
+  lizard::txn_undo_hash_close();
   lizard::lizard_sys_close();
   dict_close();
   dict_persist_close();

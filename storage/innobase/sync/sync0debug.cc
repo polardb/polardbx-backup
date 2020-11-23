@@ -58,6 +58,7 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include "ut0new.h"
 
 #include "lizard0scn.h"
+#include "lizard0cleanout.h"
 
 #ifdef UNIV_DEBUG
 #ifndef UNIV_NO_ERR_MSGS
@@ -1495,14 +1496,17 @@ static void sync_latch_meta_init() UNIV_NOTHROW {
 
   LATCH_ADD_MUTEX(TEST_MUTEX, SYNC_NO_ORDER_CHECK, PFS_NOT_INSTRUMENTED);
 
-  LATCH_ADD_MUTEX(LIZARD_SCN, SYNC_NO_ORDER_CHECK, lizard_scn_mutex_key);
-
   // xtrabackup
   LATCH_ADD_MUTEX(XTRA_DATAFILES_ITER_MUTEX, SYNC_MUTEX, PFS_NOT_INSTRUMENTED);
 
   LATCH_ADD_MUTEX(XTRA_COUNT_MUTEX, SYNC_MUTEX, PFS_NOT_INSTRUMENTED);
 
   LATCH_ADD_MUTEX(XTRA_DATADIR_ITER_T_MUTEX, SYNC_MUTEX, PFS_NOT_INSTRUMENTED);
+
+  LATCH_ADD_MUTEX(LIZARD_SCN, SYNC_NO_ORDER_CHECK, lizard_scn_mutex_key);
+
+  LATCH_ADD_MUTEX(LIZARD_UNDO_HDR_HASH, SYNC_NO_ORDER_CHECK,
+                  lizard_undo_hdr_hash_mutex_key);
 
   latch_id_t id = LATCH_ID_NONE;
 
