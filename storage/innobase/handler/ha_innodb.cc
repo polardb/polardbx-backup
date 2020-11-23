@@ -212,6 +212,7 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include "lizard0fsp.h"
 #include "lizard0scn.h"
 #include "lizard0txn.h"
+#include "lizard0mon.h"
 
 #ifndef UNIV_HOTBACKUP
 
@@ -21976,6 +21977,7 @@ static void innodb_log_checksums_update(THD *, SYS_VAR *, void *var_ptr,
 
 static SHOW_VAR innodb_status_variables_export[] = {
     {"Innodb", (char *)&show_innodb_vars, SHOW_FUNC, SHOW_SCOPE_GLOBAL},
+    {"Lizard", (char *)&lizard::show_lizard_vars, SHOW_FUNC, SHOW_SCOPE_GLOBAL},
     {NullS, NullS, SHOW_LONG, SHOW_SCOPE_GLOBAL}};
 
 static struct st_mysql_storage_engine innobase_storage_engine = {

@@ -68,29 +68,9 @@ then
   exit 1
 fi
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-build_type="release"
-=======
-build_type="debug"
->>>>>>> fc3d426ee289... [Feature] polarx_lizard_1_tablespace
-dest_dir=$HOME/tmp_run
-server_suffix="galaxy-dev"
-san_type=""
-asan=0
-tsan=0
-ubsan=0
-valg=0
-gcov=0
-enable_gcov=0
-enable_lizard_dbg=0
-with_initialize=0
-with_rebuild=0
-=======
 build_type="debug"
 dest_dir="/u01/mysql"
 server_suffix="rds-dev"
->>>>>>> f764f439ebaa... 1
 
 parse_options "$@"
 dump_options
@@ -128,11 +108,11 @@ export CC CFLAGS CXX CXXFLAGS
 
 rm -rf CMakeCache.txt
 make clean
-
+cat extra/boost/boost_1_77_0.tar.bz2.*  > extra/boost/boost_1_77_0.tar.bz2
 cmake .                                    \
     -DCMAKE_BUILD_TYPE="$build_type"       \
     -DCMAKE_INSTALL_PREFIX="$dest_dir"     \
-    -DCMAKE_EXPORT_COMPILE_COMMANDS=1      \
+    -DCMAKE_COMPILE_COMMANDS=1 \
     -DBUILD_CONFIG=xtrabackup_release      \
     -DWITH_DEBUG=$debug                    \
     -DFORCE_INSOURCE_BUILD=1               \
