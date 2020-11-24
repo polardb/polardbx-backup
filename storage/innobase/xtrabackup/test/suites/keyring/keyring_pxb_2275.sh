@@ -10,14 +10,14 @@ then
     skip_test "Requires server version 5.7"
 fi
 
-start_server --innodb-log-file-size=8M
+start_server --innodb-log-file-size=200M
 load_dbase_schema sakila
 load_dbase_data sakila
 mkdir $topdir/backup
 
 # Test 1 - should fail since we don't have any entry on keyring file yet
-run_cmd_expect_failure $XB_BIN $XB_ARGS --innodb-log-file-size=8M --xtrabackup-plugin-dir=${plugin_dir} --lock-ddl=false --backup \
---target-dir=$topdir/backup --debug-sync="xtrabackup_pause_after_redo_catchup" &
+run_cmd_expect_failure $XB_BIN $XB_ARGS --innodb-log-file-size=200M --xtrabackup-plugin-dir=${plugin_dir} --lock-ddl=false --backup \
+--target-dir=$topdir/backup --debug-sync="xtrabackup_pause_after_redo_catchup" --core-file &
 
 job_pid=$!
 
@@ -71,7 +71,7 @@ innodb_wait_for_flush_all
 
 
 # Test 2 - Should pass as keyring file alwady have encryption information
-run_cmd $XB_BIN $XB_ARGS --innodb-log-file-size=8M --xtrabackup-plugin-dir=${plugin_dir} --lock-ddl=false --backup \
+run_cmd $XB_BIN $XB_ARGS --innodb-log-file-size=200M --xtrabackup-plugin-dir=${plugin_dir} --lock-ddl=false --backup \
 --target-dir=$topdir/backup --debug-sync="xtrabackup_pause_after_redo_catchup" &
 
 job_pid=$!
@@ -110,5 +110,5 @@ rm -rf $mysql_datadir
 
 xtrabackup --copy-back --target-dir=$topdir/backup
 
-start_server --innodb-log-file-size=8M
+start_server --innodb-log-file-size=200M
 run_cmd $MYSQL $MYSQL_ARGS -Ns -e "SELECT * FROM tmp2;" sakila
