@@ -62,6 +62,7 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include "trx0rseg.h"
 #include "trx0trx.h"
 
+#include "lizard0undo.h"
 #include "lizard0txn.h"
 
 /** Maximum allowable purge history length.  <=0 means 'infinite'. */
@@ -387,8 +388,8 @@ void trx_purge_add_update_undo_to_history(
 @param[in,out]	rseg_hdr	rollback segment header
 @param[in]	log_hdr		undo log segment header
 @param[in,out]	mtr		mini transaction. */
-static void trx_purge_remove_log_hdr(trx_rsegf_t *rseg_hdr,
-                                     trx_ulogf_t *log_hdr, mtr_t *mtr) {
+void trx_purge_remove_log_hdr(trx_rsegf_t *rseg_hdr, trx_ulogf_t *log_hdr,
+                              mtr_t *mtr) {
   flst_remove(rseg_hdr + TRX_RSEG_HISTORY, log_hdr + TRX_UNDO_HISTORY_NODE,
               mtr);
 
@@ -555,9 +556,15 @@ loop:
     rseg->unlatch();
     mtr_commit(&mtr);
 
-    /* calls the trx_purge_remove_log_hdr()
-    inside trx_purge_free_segment(). */
-    trx_purge_free_segment(rseg, hdr_addr, is_temp);
+    /** Lizard: Put txn undo log segment to free list after purge */
+    if (lizard::fsp_is_txn_tablespace_by_id(rseg->space_id)) {
+      ut_ad(!is_temp);
+      lizard::txn_purge_segment_to_free_list(rseg, hdr_addr);
+    } else {
+      /* calls the trx_purge_remove_log_hdr()
+      inside trx_purge_free_segment(). */
+      trx_purge_free_segment(rseg, hdr_addr, is_temp);
+    }
 
   } else {
     /* Remove the log hdr from the rseg history. */
