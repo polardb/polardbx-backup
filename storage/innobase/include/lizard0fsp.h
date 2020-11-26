@@ -90,6 +90,11 @@ class LizardTablespace : public Tablespace {
     m_last_file_size_max = 0;
   }
 
+  /** Verify the size of the physical file.
+  @param[in]	file	data file object
+  @return DB_SUCCESS if OK else error code. */
+  dberr_t check_size(Datafile &file);
+
   /** Check the data file when innodb_init_files()
   @param[in]      create_new_db     Whether init db or restart
   @param[in]      min_expected_size The min siz of files (bytes)
