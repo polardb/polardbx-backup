@@ -37,6 +37,8 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include "ibuf0ibuf.h"
 #include "lob0lob.h"
 
+#include "lizard0row.h"
+
 /** Innodb B-tree index fill factor for bulk load. */
 long innobase_fill_factor;
 
@@ -219,6 +221,9 @@ void PageBulk::insert(const rec_t *rec, ulint *offsets) {
            cmp_rec_rec(rec, old_rec, offsets, old_offsets, m_index,
                        page_is_spatial_non_leaf(old_rec, m_index)) >= 0));
   }
+
+  /** All the bulk load need to validate LIZARD attrbutes. */
+  assert_row_lizard_valid(rec, m_index, offsets);
 
   m_total_data += rec_size;
 #endif /* UNIV_DEBUG */
