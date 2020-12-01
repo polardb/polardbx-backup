@@ -166,7 +166,6 @@ SET(INNOBASE_SOURCES
 	pars/pars0pars.cc
 	pars/pars0sym.cc
 	que/que0que.cc
-	read/read0read.cc
 	rem/rem0cmp.cc
 	rem/rem0rec.cc
 	row/row0ext.cc
@@ -328,7 +327,6 @@ SET(INNOBASE_SOURCES
   pars/pars0pars.cc
   pars/pars0sym.cc
   que/que0que.cc
-  read/read0read.cc
   rem/rem0cmp.cc
   rem/rem0rec.cc
   row/row0ext.cc
@@ -390,7 +388,8 @@ SET(INNOBASE_SOURCES
   btr/lizard0cleanout.cc
   ut/lizard0ut.cc
   page/lizard0page.cc
-  read/lizard0read.cc)
+  read/lizard0read.cc
+  trx/lizard0purge.cc)
 
 ADD_LIBRARY(innodb_zipdecompress STATIC ${INNOBASE_ZIP_DECOMPRESS_SOURCES})
 TARGET_COMPILE_DEFINITIONS(

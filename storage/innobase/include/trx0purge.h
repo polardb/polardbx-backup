@@ -46,6 +46,11 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include "trx0sys.h"
 #endif /* UNIV_HOTBACKUP */
 
+#include "lizard0purge.h"
+#include "lizard0read0types.h"
+#include "lizard0scn.h"
+#include "lizard0undo0types.h"
+
 /** The global data structure coordinating a purge */
 extern trx_purge_t *purge_sys;
 
@@ -61,7 +66,8 @@ fil_addr_t trx_purge_get_log_from_hist(
 mutex.
 @param[in]      n_purge_threads   number of purge threads
 @param[in,out]  purge_queue       UNDO log min binary heap */
-void trx_purge_sys_create(ulint n_purge_threads, purge_pq_t *purge_queue);
+void trx_purge_sys_create(ulint n_purge_threads,
+                          lizard::purge_heap_t *purge_heap);
 
 /** Frees the global purge system control structure. */
 void trx_purge_sys_close(void);
@@ -106,19 +112,21 @@ enum purge_state_t {
  @return purge state. */
 purge_state_t trx_purge_state(void);
 
-// Forward declaration
-struct TrxUndoRsegsIterator;
+namespace lizard {
+struct TxnUndoRsegsIterator;
+}  // namespace lizard
 
 /** This is the purge pointer/iterator. We need both the undo no and the
 transaction no up to which purge has parsed and applied the records. */
 struct purge_iter_t {
-  purge_iter_t() : trx_no(), undo_no(), undo_rseg_space(SPACE_UNKNOWN) {
+  purge_iter_t() : scn(), undo_no(), undo_rseg_space(SPACE_UNKNOWN) {
     // Do nothing
   }
 
-  trx_id_t trx_no;   /*!< Purge has advanced past all
-                     transactions whose number is less
-                     than this */
+  scn_t scn; /*!< Purge has advanced past all
+             transactions whose SCN number is less or equal
+             than this */
+
   undo_no_t undo_no; /*!< Purge has advanced past all records
                      whose undo number is less than this */
   space_id_t undo_rseg_space;
@@ -996,8 +1004,8 @@ struct trx_purge_t {
   /** The query graph which will do the parallelized purge operation */
   que_t *query;
 
-  /** The purge will not remove undo logs which are >= this view (purge view) */
-  ReadView view;
+  lizard::Vision vision; /*!< The purge will not remove undo logs
+                          which are > this vision(purge vision) */
 
   /** true if view is active */
   bool view_active;
@@ -1045,12 +1053,12 @@ struct trx_purge_t {
   /** Header byte offset on the page */
   ulint hdr_offset;
 
-  /** Iterator to get the next rseg to process */
-  TrxUndoRsegsIterator *rseg_iter;
+  lizard::TxnUndoRsegsIterator *rseg_iter; /*!< Iterator to get the next rseg
+                                           to process */
 
-  /** Binary min-heap, ordered on TrxUndoRsegs::trx_no. It is protected
-  by the pq_mutex */
-  purge_pq_t *purge_queue;
+  lizard::purge_heap_t *purge_heap; /*!< Binary min-heap, ordered on
+                                    TxnUndoRsegs::scn. It is protected
+                                    by the pq_mutex */
 
   /** Mutex protecting purge_queue */
   PQMutex pq_mutex;
@@ -1060,36 +1068,6 @@ struct trx_purge_t {
 
   /** Heap for reading the undo log records */
   mem_heap_t *heap;
-};
-
-/** Choose the rollback segment with the smallest trx_no. */
-struct TrxUndoRsegsIterator {
-  /** Constructor */
-  TrxUndoRsegsIterator(trx_purge_t *purge_sys);
-
-  /** Sets the next rseg to purge in m_purge_sys.
-  @return page size of the table for which the log is.
-  NOTE: if rseg is NULL when this function returns this means that
-  there are no rollback segments to purge and then the returned page
-  size object should not be used. */
-  const page_size_t set_next();
-
- private:
-  // Disable copying
-  TrxUndoRsegsIterator(const TrxUndoRsegsIterator &);
-  TrxUndoRsegsIterator &operator=(const TrxUndoRsegsIterator &);
-
-  /** The purge system pointer */
-  trx_purge_t *m_purge_sys;
-
-  /** The current element to process */
-  TrxUndoRsegs m_trx_undo_rsegs;
-
-  /** Track the current element in m_trx_undo_rseg */
-  Rseg_Iterator m_iter;
-
-  /** Sentinel value */
-  static const TrxUndoRsegs NullElement;
 };
 
 #include "trx0purge.ic"

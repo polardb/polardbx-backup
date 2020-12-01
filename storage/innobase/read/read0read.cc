@@ -745,3 +745,7 @@ void MVCC::set_view_creator_trx_id(ReadView *view, trx_id_t id) {
 
   view->creator_trx_id(id);
 }
+
+/** lizard begin */
+static_assert(0, "read0read.cc has been deprecated");
+/** lizard end */

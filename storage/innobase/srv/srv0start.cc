@@ -124,10 +124,11 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include "ut0new.h"
 #include "xb0xb.h"
 
+#include "lizard0cleanout.h"
 #include "lizard0fsp.h"
 #include "lizard0sys.h"
 #include "lizard0txn.h"
-#include "lizard0cleanout.h"
+#include "lizard0undo0types.h"
 
 
 /** fil_space_t::flags for hard-coded tablespaces */
@@ -1938,7 +1939,7 @@ dberr_t srv_start(bool create_new_db, lsn_t to_lsn) {
   dberr_t err;
   uint32_t srv_n_log_files_found = srv_n_log_files;
   mtr_t mtr;
-  purge_pq_t *purge_queue;
+  lizard::purge_heap_t *purge_heap;
   char logfilename[10000];
   char *logfile0 = nullptr;
   size_t dirnamelen;
@@ -2479,12 +2480,12 @@ files_checked:
     after the double write buffers haves been created. */
     trx_sys_create_sys_pages();
 
-    purge_queue = trx_sys_init_at_db_start();
+    purge_heap = trx_sys_init_at_db_start();
 
     /* The purge system needs to create the purge view and
     therefore requires that the trx_sys is inited. */
 
-    trx_purge_sys_create(srv_threads.m_purge_workers_n, purge_queue);
+    trx_purge_sys_create(srv_threads.m_purge_workers_n, purge_heap);
 
     err = dict_create();
 
@@ -2766,10 +2767,10 @@ files_checked:
 
     lizard::lizard_sys_init();
 
-    purge_queue = trx_sys_init_at_db_start();
+    purge_heap = trx_sys_init_at_db_start();
 
     if (srv_is_upgrade_mode) {
-      if (!purge_queue->empty()) {
+      if (!purge_heap->empty()) {
         ib::info(ER_IB_MSG_1144);
         srv_upgrade_old_undo_found = true;
       }
@@ -2783,12 +2784,12 @@ files_checked:
       srv_undo_tablespaces_upgrade();
     }
 
-    DBUG_EXECUTE_IF("check_no_undo", ut_ad(purge_queue->empty()););
+    DBUG_EXECUTE_IF("check_no_undo", ut_ad(purge_heap->empty()););
 
     /* The purge system needs to create the purge view and
     therefore requires that the trx_sys and trx lists were
     initialized in trx_sys_init_at_db_start(). */
-    trx_purge_sys_create(srv_threads.m_purge_workers_n, purge_queue);
+    trx_purge_sys_create(srv_threads.m_purge_workers_n, purge_heap);
   }
 
   /* Open temp-tablespace and keep it open until shutdown. */
