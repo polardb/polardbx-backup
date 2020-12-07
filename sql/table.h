@@ -61,6 +61,7 @@
 #include "sql/sql_sort.h"  // Sort_result
 #include "thr_lock.h"
 #include "typelib.h"
+#include "sql/table_ext.h"
 
 class Field;
 class Field_longlong;
@@ -2376,6 +2377,9 @@ struct TABLE {
             set or not
   */
   bool should_binlog_drop_if_temp(void) const;
+
+  /* Snapshot information */
+  im::Snapshot_info_t snapshot;
 };
 
 static inline void empty_record(TABLE *table) {
@@ -3909,6 +3913,11 @@ class Table_ref {
   MY_BITMAP write_set_saved;
   my_bitmap_map read_set_small[bitmap_buffer_size(64) / sizeof(my_bitmap_map)];
   my_bitmap_map write_set_small[bitmap_buffer_size(64) / sizeof(my_bitmap_map)];
+
+ public:
+  /** Snapshot struct.
+  Note that the table may be a view or a derived table (sub query). */
+  im::Table_snapshot snapshot_expr{0, 0};
 };
 
 /*
