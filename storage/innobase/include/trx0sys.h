@@ -220,13 +220,10 @@ ibool trx_assert_recovered(trx_id_t trx_id) /*!< in: transaction identifier */
     MY_ATTRIBUTE((warn_unused_result));
 #endif /* UNIV_DEBUG || UNIV_BLOB_LIGHT_DEBUG */
 
-/** Persist transaction number limit below which all transaction GTIDs
+/** Persist transaction scn limit below which all transaction GTIDs
 are persisted to disk table.
-@param[in]	gtid_trx_no	transaction number */
-void trx_sys_persist_gtid_num(trx_id_t gtid_trx_no);
-
-/** @return oldest transaction number yet to be committed. */
-trx_id_t trx_sys_oldest_trx_no();
+@param[in]	gtid_trx_scn	transaction scn */
+void trx_sys_persist_gtid_scn(scn_t gtid_trx_scn);
 
 /** Get a list of all binlog prepared transactions.
 @param[out]	trx_ids	all prepared transaction IDs. */
@@ -368,11 +365,11 @@ constexpr size_t TRX_SYS_OLD_TMP_RSEGS = 32;
                                   within that file */
 #define TRX_SYS_MYSQL_LOG_NAME 12 /*!< MySQL log file name */
 
-/** Reserve next 8 bytes for transaction number up to which GTIDs
+/** Reserve next 8 bytes for transaction scn up to which GTIDs
 are persisted to table */
-#define TRX_SYS_TRX_NUM_GTID \
+#define TRX_SYS_TRX_SCN_GTID \
   (TRX_SYS_MYSQL_LOG_INFO + TRX_SYS_MYSQL_LOG_NAME + TRX_SYS_MYSQL_LOG_NAME_LEN)
-#define TRX_SYS_TRX_NUM_END = (TRX_SYS_TRX_NUM_GTID + 8)
+#define TRX_SYS_TRX_NUM_END = (TRX_SYS_TRX_SCN_GTID + 8)
 
 /* The offset to WSREP XID headers */
 #define TRX_SYS_WSREP_XID_INFO (UNIV_PAGE_SIZE - 3500)
@@ -473,20 +470,6 @@ struct trx_sys_t {
                                 volatile because it can be accessed
                                 without holding any mutex during
                                 AC-NL-RO view creation. */
-  //  std::atomic<trx_id_t> min_active_id;
-  /*!< Minimal transaction id which is
-  still in active state. */
-
-  // Lizard: comment out
-  // trx_ut_list_t serialisation_list;
-
-  /*!< Ordered on trx_t::no of all the
-  currenrtly active RW transactions */
-#ifdef UNIV_DEBUG
-  // trx_id_t rw_max_trx_no;
-                            /*!< Max trx number of read-write
-                            transactions added for purge. */
-#endif                    /* UNIV_DEBUG */
 
   char pad1[64];             /*!< To avoid false sharing */
   trx_ut_list_t rw_trx_list; /*!< List of active and committed in
@@ -504,15 +487,6 @@ struct trx_sys_t {
                                 mysql_trx_list may additionally contain
                                 transactions that have not yet been
                                 started in InnoDB. */
-
-//  trx_ids_t rw_trx_ids; /*!< Array of Read write transaction IDs
-//                        for MVCC snapshot. A ReadView would take
-//                        a snapshot of these transactions whose
-//                        changes are not visible to it. We should
-//                        remove transactions from the list before
-//                        committing in memory and releasing locks
-//                        to ensure right order of removal and
-//                        consistent snapshot. */
 
   char pad3[64]; /*!< To avoid false sharing */
 

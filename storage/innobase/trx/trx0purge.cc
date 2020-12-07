@@ -264,11 +264,13 @@ void trx_purge_add_update_undo_to_history(
     }
   }
 
-  /* Update maximum transaction number for this rollback segment. */
-  mlog_write_ull(rseg_header + TRX_RSEG_MAX_TRX_NO, trx->no, mtr);
+  /* Update maximum transaction scn for this rollback segment. */
+  assert_trx_scn_allocated(trx);
+  mlog_write_ull(rseg_header + TRX_RSEG_MAX_TRX_SCN, trx->txn_desc.scn.first,
+                 mtr);
 
-  /* Write the trx number to the undo log header */
-  mlog_write_ull(undo_header + TRX_UNDO_TRX_NO, trx->no, mtr);
+  /* lizard: TRX_UNDO_TRX_NO is reserved */
+  //mlog_write_ull(undo_header + TRX_UNDO_TRX_NO, trx->no, mtr);
 
   /* Write information about delete markings to the undo log header */
 
@@ -282,7 +284,6 @@ void trx_purge_add_update_undo_to_history(
   if (rseg->last_page_no == FIL_NULL) {
     rseg->last_page_no = undo->hdr_page_no;
     rseg->last_offset = undo->hdr_offset;
-    // rseg->last_trx_no = trx->no;
     rseg->last_del_marks = undo->del_marks;
     rseg->last_scn = trx->txn_desc.scn.first;
   }
@@ -401,7 +402,6 @@ static void trx_purge_truncate_rseg_history(
   trx_ulogf_t *log_hdr;
   trx_usegf_t *seg_hdr;
   mtr_t mtr;
-  // trx_id_t undo_trx_no;
   scn_t undo_trx_scn;
   const bool is_temp = fsp_is_system_temporary(rseg->space_id);
 
@@ -1945,9 +1945,6 @@ static MY_ATTRIBUTE((warn_unused_result))
     return NULL;
   }
 
-  /* fprintf(stderr, "Thread %lu purging trx %llu undo record %llu\n",
-  os_thread_get_curr_id(), iter->trx_no, iter->undo_no); */
-
   *roll_ptr = trx_undo_build_roll_ptr(FALSE, purge_sys->rseg->space_id,
                                       purge_sys->page_no, purge_sys->offset);
 
@@ -2204,7 +2201,7 @@ ulint trx_purge(ulint n_purge_threads, /*!< in: number of purge tasks
 {
   que_thr_t *thr = nullptr;
   ulint n_pages_handled;
-  scn_t old_scn;
+  //scn_t old_scn;
 
   ut_a(n_purge_threads > 0);
 
@@ -2217,9 +2214,13 @@ ulint trx_purge(ulint n_purge_threads, /*!< in: number of purge tasks
 
   purge_sys->view_active = false;
 
-  old_scn = purge_sys->vision.snapshot_scn();
+  //old_scn = purge_sys->vision.snapshot_scn();
   lizard::trx_clone_oldest_vision(&purge_sys->vision);
-  ut_a(old_scn <= purge_sys->vision.snapshot_scn());
+  /* In the following special case, the purge view will back down:
+  If all transactions are with no GTIDs within a GTID persistence cycle,
+  and then one transation has GTID, Clone_persist_gtid will return an older
+  scn which leading to purge view fallback.*/
+  //ut_a(old_scn <= purge_sys->vision.snapshot_scn());
 
   purge_sys->view_active = true;
 

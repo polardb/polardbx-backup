@@ -30,7 +30,9 @@ this program; if not, write to the Free Software Foundation, Inc.,
  Created 3/26/1996 Heikki Tuuri
  *******************************************************/
 
+/*
 #include "read0read.h"
+*/
 
 /** Determines if a transaction is in the given state.
  The caller must hold trx_sys->mutex, or it must be the thread

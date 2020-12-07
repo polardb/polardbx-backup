@@ -22307,13 +22307,31 @@ static MYSQL_SYSVAR_STR(directories, srv_innodb_directories,
                         "'innodb-data-home-dir;innodb-undo-directory;datadir'",
                         nullptr, nullptr, nullptr);
 
-/* Lizard: It's no need to use cleanout-safe-mode */
+/* Lizard: It's no need to use cleanout-safe-mode, delayed cleanout */
 /*
 static MYSQL_SYSVAR_BOOL(
     cleanout_safe_mode, lizard::opt_cleanout_safe_mode,
     PLUGIN_VAR_OPCMDARG | PLUGIN_VAR_READONLY,
     "Whether to reboot innodb on safe cleanout mode (off by default)", NULL,
     NULL, FALSE);
+
+static MYSQL_SYSVAR_BOOL(
+    cleanout_disable, lizard::opt_cleanout_disable, PLUGIN_VAR_OPCMDARG,
+    "Whether to disable cleanout when read (off by default)", NULL, NULL,
+    FALSE);
+
+static MYSQL_SYSVAR_ULONG(cleanout_max_scans_on_page,
+                          lizard::cleanout_max_scans_on_page,
+                          PLUGIN_VAR_OPCMDARG,
+                          "max scan record count once cleanout one page", NULL,
+                          NULL, 0, 0, 1024 * 1024, 0);
+
+static MYSQL_SYSVAR_ULONG(cleanout_max_cleans_on_page,
+                          lizard::cleanout_max_cleans_on_page,
+                          PLUGIN_VAR_OPCMDARG,
+                          "max clean record count once cleanout one page", NULL,
+                          NULL, 1, 1, 1024 * 1024, 0);
+
 */
 
 static SYS_VAR *innobase_system_variables[] = {
@@ -22530,9 +22548,12 @@ static SYS_VAR *innobase_system_variables[] = {
 #endif /* UNIV_DEBUG */
     MYSQL_SYSVAR(parallel_read_threads),
     MYSQL_SYSVAR(encrypt_algorithm),
-    /* Lizard: It's no need to use cleanout-safe-mode */
+    /* Lizard: It's no need to use cleanout-safe-mode, delayed cleanout */
     /*
     MYSQL_SYSVAR(cleanout_safe_mode),
+    MYSQL_SYSVAR(cleanout_disable),
+    MYSQL_SYSVAR(cleanout_max_scans_on_page),
+    MYSQL_SYSVAR(cleanout_max_cleans_on_page),
     */
     nullptr};
 
