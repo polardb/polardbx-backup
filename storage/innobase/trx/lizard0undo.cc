@@ -257,6 +257,69 @@ bool trx_undo_hdr_uba_validation(const trx_ulogf_t *log_hdr, mtr_t *mtr) {
   return false;
 }
 
+/** Check if an update undo log has been marked as purged.
+@param[in]  rseg txn rseg
+@param[in]  page_size
+@return     true   if purged */
+bool txn_undo_log_has_purged(const trx_rseg_t *rseg,
+                             const page_size_t &page_size) {
+  if (fsp_is_txn_tablespace_by_id(rseg->space_id)) {
+    ut_ad(!rseg->last_del_marks);
+    /* Txn rseg is considered to be purged */
+    return true;
+  }
+
+  page_t *page;
+  trx_ulogf_t *log_hdr;
+  ulint type, flag;
+  trx_id_t trx_id;
+
+  undo_addr_t undo_addr;
+  undo_ptr_t uba_ptr;
+  trx_id_t txn_trx_id;
+  ulint txn_state;
+  trx_ulogf_t *txn_hdr;
+
+  mtr_t mtr;
+  mtr_start(&mtr);
+
+  /* Get current undo log header */
+  page = trx_undo_page_get_s_latched(
+      page_id_t(rseg->space_id, rseg->last_page_no), page_size, &mtr);
+
+  log_hdr = page + rseg->last_offset;
+  type = mach_read_from_2(page + TRX_UNDO_PAGE_HDR + TRX_UNDO_PAGE_TYPE);
+  flag = mach_read_from_1(log_hdr + TRX_UNDO_FLAGS);
+  trx_id = mach_read_from_8(log_hdr + TRX_UNDO_TRX_ID);
+  ut_ad(type == TRX_UNDO_UPDATE);
+  ut_ad(!(flag & TRX_UNDO_FLAG_TXN));
+
+  /* Get addr of the corresponding txn undo log header */
+  uba_ptr = trx_undo_hdr_read_uba(log_hdr, &mtr);
+  if (uba_ptr == UNDO_PTR_UNDO_HDR) goto no_txn;
+
+  undo_decode_undo_ptr(uba_ptr, &undo_addr);
+  ut_ad(undo_addr.state && fsp_is_txn_tablespace_by_id(undo_addr.space_id));
+
+  /* Get the txn undo log header */
+  txn_hdr = trx_undo_page_get_s_latched(
+                page_id_t(undo_addr.space_id, undo_addr.page_no),
+                univ_page_size, &mtr) +
+            undo_addr.offset;
+
+  txn_trx_id = mach_read_from_8(txn_hdr + TRX_UNDO_TRX_ID);
+  txn_state = mach_read_from_2(txn_hdr + TXN_UNDO_LOG_STATE);
+
+no_txn:
+  mtr_commit(&mtr);
+
+  /* No txn, so it is a tempory rseg, no need to check. */
+  if (uba_ptr == UNDO_PTR_UNDO_HDR) return true;
+
+  /* State of the txn undo log should be PURGED if not reused yet. */
+  return (txn_trx_id != trx_id || txn_state == TXN_UNDO_LOG_PURGED);
+}
+
 #endif
 
 /**
@@ -309,7 +372,7 @@ void trx_undo_hdr_write_scn(trx_ulogf_t *log_hdr,
   @param[in]      log_hdr       undo log header
   @param[in]      mtr           current mtr context
 */
-std::pair<scn_t, utc_t> trx_undo_hdr_read_scn(trx_ulogf_t *log_hdr,
+std::pair<scn_t, utc_t> trx_undo_hdr_read_scn(const trx_ulogf_t *log_hdr,
                                               mtr_t *mtr) {
   /** Here must hold the S/SX/X lock on the page */
   ut_ad(mtr_memo_contains_page_flagged(
@@ -357,22 +420,44 @@ void trx_undo_hdr_add_space_for_txn(page_t *undo_page, trx_ulogf_t *log_hdr,
 
   mlog_write_ulint(log_hdr + TRX_UNDO_LOG_START, new_free, MLOG_2BYTES, mtr);
 }
-
 /**
   Init the txn extension information.
 
+  @param[in]      undo          undo memory struct
   @param[in]      undo_page     undo log header page
   @param[in]      log_hdr       undo log hdr
+  @param[in]      prev_image    prev scn/utc if the undo log header is reused
   @param[in]      mtr
 */
 void trx_undo_hdr_init_for_txn(trx_undo_t *undo, page_t *undo_page,
-                               trx_ulogf_t *log_hdr, mtr_t *mtr) {
+                               trx_ulogf_t *log_hdr,
+                               const commit_scn_t *prev_image,
+                               mtr_t *mtr) {
   ut_ad(mach_read_from_2(undo_page + TRX_UNDO_PAGE_HDR + TRX_UNDO_PAGE_TYPE) ==
         TRX_UNDO_TXN);
 
   /* Write the magic number */
   mlog_write_ulint(log_hdr + TXN_UNDO_LOG_EXT_MAGIC, TXN_MAGIC_N, MLOG_4BYTES,
                    mtr);
+
+  /** Consider that a new page is initialized to zero when allocated, and
+  the scn/utc of a used txn header can never be zero, so we can check if
+  the txn undo header is reused by that. */
+  if (!prev_image || commit_scn_state(*prev_image) == SCN_STATE_INVALID) {
+    /* Write the prev scn */
+    mlog_write_ull(log_hdr + TXN_UNDO_PREV_SCN, PREV_SCN_UNDO_LOST, mtr);
+    /* Write the prev utc */
+    mlog_write_ull(log_hdr + TXN_UNDO_PREV_UTC, PREV_UTC_UNDO_LOST, mtr);
+  } else {
+    assert_commit_scn_allocated(*prev_image);
+    /* Write the prev scn */
+    mlog_write_ull(log_hdr + TXN_UNDO_PREV_SCN, prev_image->first, mtr);
+    /* Write the prev utc */
+    mlog_write_ull(log_hdr + TXN_UNDO_PREV_UTC, prev_image->second, mtr);
+  }
+
+  /* Write initial state */
+  txn_undo_set_state_at_init(log_hdr, mtr);
 
   /* Write the txn undo extension flag */
   mlog_write_ulint(log_hdr + TXN_UNDO_LOG_EXT_FLAG, 0, MLOG_1BYTE, mtr);
@@ -466,10 +551,17 @@ void trx_undo_hdr_read_txn(const page_t *undo_page,
 
   auto flag = mtr_read_ulint(undo_header + TRX_UNDO_FLAGS, MLOG_1BYTE, mtr);
 
-  ut_a((flag & TRX_UNDO_FLAG_TXN) != 0);
+  /** If in cleanout safe mode,  */
+  ut_a((flag & TRX_UNDO_FLAG_TXN) != 0 || opt_cleanout_safe_mode);
 
   txn_undo_ext->magic_n =
       mtr_read_ulint(undo_header + TXN_UNDO_LOG_EXT_MAGIC, MLOG_4BYTES, mtr);
+
+  txn_undo_ext->prev_image.first =
+      mach_read_from_8(undo_header + TXN_UNDO_PREV_SCN);
+
+  txn_undo_ext->prev_image.second =
+      mach_read_from_8(undo_header + TXN_UNDO_PREV_UTC);
 
   txn_undo_ext->flag =
       mtr_read_ulint(undo_header + TXN_UNDO_LOG_EXT_FLAG, MLOG_1BYTE, mtr);
@@ -571,6 +663,7 @@ static dberr_t txn_undo_get_free(trx_t *trx, trx_rseg_t *rseg, ulint type,
   ulint seg_size;
   ulint free_size;
   undo_addr_t undo_addr;
+  commit_scn_t prev_image;
 
   ulint slot_no = ULINT_UNDEFINED;
   dberr_t err = DB_SUCCESS;
@@ -661,7 +754,7 @@ static dberr_t txn_undo_get_free(trx_t *trx, trx_rseg_t *rseg, ulint type,
 
   rseg->incr_curr_size();
 
-  offset = trx_undo_header_create(undo_page, trx_id, &mtr);
+  offset = trx_undo_header_create(undo_page, trx_id, &prev_image, &mtr);
 
   ut_ad(offset == TRX_UNDO_SEG_HDR + TRX_UNDO_SEG_HDR_SIZE);
 
@@ -682,7 +775,8 @@ static dberr_t txn_undo_get_free(trx_t *trx, trx_rseg_t *rseg, ulint type,
   *undo =
       trx_undo_mem_create(rseg, slot_no, type, trx_id, xid, page_no, offset);
 
-  trx_undo_hdr_init_for_txn(*undo, undo_page, undo_page + offset, &mtr);
+  trx_undo_hdr_init_for_txn(*undo, undo_page, undo_page + offset,
+                            &prev_image, &mtr);
 
   ut_ad((*undo)->flag == TRX_UNDO_FLAG_TXN);
 
@@ -847,12 +941,13 @@ void trx_init_txn_desc(trx_t *trx) { trx->txn_desc = TXN_DESC_NULL; }
   @param[in]      undo page txn undo log header page
   @param[in]      offset    txn undo log header offset
   @param[in]      mtr       mini transaction
+  @param[out]     serialised
 
   @retval         scn       commit scn struture
 */
 commit_scn_t trx_commit_scn(trx_t *trx, commit_scn_t *scn_ptr, trx_undo_t *undo,
                             page_t *undo_hdr_page, ulint hdr_offset,
-                            mtr_t *mtr) {
+                            bool *serialised, mtr_t *mtr) {
   trx_usegf_t *seg_hdr;
   trx_ulogf_t *undo_hdr;
   commit_scn_t scn = COMMIT_SCN_NULL;
@@ -904,23 +999,30 @@ commit_scn_t trx_commit_scn(trx_t *trx, commit_scn_t *scn_ptr, trx_undo_t *undo,
     /** Generate a new scn */
     scn = lizard_sys->scn.new_commit_scn();
 
+    assert_trx_scn_initial(trx);
+    /** We don't want to call **ut_time_system_us** within the scope
+    of the lizard_sys mutex protection. So we just only set
+    trx->txn_desc.scn.first here */
+    trx->txn_desc.scn.first = scn.first;
+
     /** If a read only transaction (for example: start transaction read only),
     temporary table can be also modified. It doesn't matter if purge_sys purges
     them */
-    if (!trx->read_only) {
-      /** add to lizard_sys->serialisation_list_scn */
-      UT_LIST_ADD_LAST(lizard_sys->serialisation_list_scn, trx);
-    }
 
-    trx_mutex_enter(trx);
+    /** Revision:
+        Temp undo still need to purge/truncate, so delay it by adding into
+        serialisation list */
+
+    /** add to lizard_sys->serialisation_list_scn */
+    UT_LIST_ADD_LAST(lizard_sys->serialisation_list_scn, trx);
+
+    ut_ad(*serialised == false);
+    *serialised = true;
 
     lizard_sys_scn_mutex_exit();
 
-    assert_trx_scn_initial(trx);
+    trx->txn_desc.scn.second = scn.second = ut_time_system_us();
 
-    trx->txn_desc.scn = scn;
-
-    trx_mutex_exit(trx);
   } else {
     assert_trx_scn_allocated(trx);
     scn = *scn_ptr;
@@ -1472,6 +1574,7 @@ static bool txn_undo_hdr_lookup_loose(txn_rec_t *txn_rec) {
   trx_ulogf_t *undo_hdr;
   commit_scn_t commit_scn;
   txn_undo_ext_t txn_undo_ext;
+  ulint hdr_flag;
 
   /** ----------------------------------------------------------*/
   /** Phase 1: Read the undo header page */
@@ -1531,18 +1634,16 @@ static bool txn_undo_hdr_lookup_loose(txn_rec_t *txn_rec) {
                % TRX_UNDO_LOG_HDR_SIZE == 0);
 
   /** ----------------------------------------------------------*/
-  /** Phase 7: get last log offset in txn undo header, check if it is
-  valid. */
-  last_log_offset = mach_read_from_2(seg_hdr + TRX_UNDO_LAST_LOG);
-  if (last_log_offset < undo_addr.offset) {
-    /** The page must be reused and the undo record is lost */
-    lizard_stats.txn_undo_lost_page_offset_overflow.inc();
+  /** Phase 7: Check the flag in undo hdr, should be TRX_UNDO_FLAG_TXN,
+  unless it's in cleanout_safe_mode. */
+  undo_hdr = undo_page + undo_addr.offset;
+  hdr_flag = mtr_read_ulint(undo_hdr + TRX_UNDO_FLAGS, MLOG_1BYTE, &mtr);
+  if (!(hdr_flag & TRX_UNDO_FLAG_TXN)) {
     goto undo_lost;
   }
 
   /** ----------------------------------------------------------*/
   /** Phase 8: check the txn extension fields in txn undo header */
-  undo_hdr = undo_page + undo_addr.offset;
   trx_undo_hdr_read_txn(undo_page, undo_hdr, &mtr, &txn_undo_ext);
   if (txn_undo_ext.magic_n != TXN_MAGIC_N) {
     /** The header might be raw */
@@ -1564,11 +1665,17 @@ static bool txn_undo_hdr_lookup_loose(txn_rec_t *txn_rec) {
   real_trx_id = mach_read_from_8(undo_hdr + TRX_UNDO_TRX_ID);
   if (real_trx_id != txn_rec->trx_id) {
     lizard_stats.txn_undo_lost_trx_id_mismatch.inc();
-    goto undo_lost;
+    goto undo_reuse;
   }
+
+  /** Revision:
+    We don't check txn_undo_lost_page_offset_overflow again, because
+    it's a normal case: old UBAs point at the page that was reused,
+    but the remain txn hdrs might still be valid. */
 
   /** ----------------------------------------------------------*/
   /** Phase 10: get scn in txn undo header, and determine the scn state. */
+  last_log_offset = mach_read_from_2(seg_hdr + TRX_UNDO_LAST_LOG);
   commit_scn = trx_undo_hdr_read_scn(undo_hdr, &mtr);
   if (last_log_offset == undo_addr.offset) {
     if (real_trx_state == TRX_UNDO_ACTIVE ||
@@ -1594,7 +1701,17 @@ still_active:
   return false;
 
 undo_lost:
+  /** Can't never be lost if cleanout_safe_mode isn't taken into
+  consideration */
+  ut_a(opt_cleanout_safe_mode);
   txn_rec->scn = SCN_UNDO_LOST;
+  lizard_undo_ptr_set_commit(&txn_rec->undo_ptr);
+  mtr.commit();
+  return true;
+
+undo_reuse:
+  assert_commit_scn_allocated(txn_undo_ext.prev_image);
+  txn_rec->scn = txn_undo_ext.prev_image.first;
   lizard_undo_ptr_set_commit(&txn_rec->undo_ptr);
   mtr.commit();
   return true;

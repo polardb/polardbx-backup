@@ -5054,7 +5054,12 @@ static void rec_queue_validate_latched(const buf_block_t *block,
 
     trx_id = lock_clust_rec_some_has_impl(rec, index, offsets);
 
-    const trx_t *impl_trx = trx_rw_is_active_low(trx_id, nullptr);
+    const trx_t *impl_trx;
+    if (lizard::row_is_committed(trx_id, rec, index, offsets)) {
+      impl_trx = nullptr;
+    } else {
+      impl_trx = trx_rw_is_active_low(trx_id, NULL);
+    }
     if (impl_trx != nullptr) {
       ut_ad(owns_page_shard(block->get_page_id()));
       ut_ad(trx_sys_mutex_own());
@@ -5489,7 +5494,11 @@ static void lock_rec_convert_impl_to_expl(const buf_block_t *block,
 
     trx_id = lock_clust_rec_some_has_impl(rec, index, offsets);
 
-    trx = trx_rw_is_active(trx_id, nullptr, true);
+    if (lizard::row_is_committed(trx_id, rec, index, offsets)) {
+      trx = nullptr;
+    } else {
+      trx = trx_rw_is_active(trx_id, NULL, true);
+    }
   } else {
     ut_ad(!dict_index_is_online_ddl(index));
 

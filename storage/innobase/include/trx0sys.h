@@ -52,6 +52,10 @@ this program; if not, write to the Free Software Foundation, Inc.,
 
 #include "lizard0undo0types.h"
 
+namespace lizard {
+extern trx_id_t lizard_sys_get_min_active_trx_id();
+}
+
 #ifndef UNIV_HOTBACKUP
 typedef UT_LIST_BASE_NODE_T(trx_t) trx_ut_list_t;
 
@@ -512,7 +516,7 @@ struct trx_sys_t {
   transactions), protected by
   rseg->mutex */
 
-  TrxIdSet rw_trx_set; /*!< Mapping from transaction id
+  TrxIdHash rw_trx_hash; /*!< Mapping from transaction id
                        to transaction instance */
 
   ulint n_prepared_trx; /*!< Number of transactions currently
@@ -533,7 +537,7 @@ extern Space_Ids *trx_sys_undo_spaces;
 /** When a trx id which is zero modulo this number (which must be a power of
 two) is assigned, the field TRX_SYS_TRX_ID_STORE on the transaction system
 page is updated */
-#define TRX_SYS_TRX_ID_WRITE_MARGIN ((trx_id_t)256)
+#define TRX_SYS_TRX_ID_WRITE_MARGIN ((trx_id_t)8192)
 
 /** Test if trx_sys->mutex is owned. */
 #define trx_sys_mutex_own() (trx_sys->mutex.is_owned())

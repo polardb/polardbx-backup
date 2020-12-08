@@ -67,7 +67,7 @@ void SCN::init() {
           ut_uint64_align_up(mach_read_from_8(lzd_hdr + LIZARD_SYS_SCN),
                              LIZARD_SCN_NUMBER_MAGIN);
 
-  lizard_sys->min_safe_scn = m_scn;
+  lizard_sys->min_safe_scn = m_scn.load();
 
   ut_a(m_scn > 0 && m_scn < SCN_NULL);
   mtr.commit();
@@ -116,9 +116,7 @@ commit_scn_t SCN::new_commit_scn() {
 
   ut_ad(scn > SCN_RESERVERD_MAX);
 
-  /** Attention: it's unnecessary to hold mutex when get time */
-  utc_t utc = ut_time_monotonic_us();
-  return std::make_pair(scn, utc);
+  return std::make_pair(scn, UTC_NULL);
 }
 
 /** Get current scn which is committed.
@@ -130,13 +128,15 @@ scn_t SCN::acquire_scn(bool mutex_hold) {
     mutex_enter(&m_mutex);
   }
 
-  ret = m_scn;
+  ret = m_scn.load();
 
   if (!mutex_hold) {
     mutex_exit(&m_mutex);
   }
   return ret;
 }
+
+scn_t SCN::get_scn() { return m_scn.load(); }
 
 /**
   Check the commit scn state
