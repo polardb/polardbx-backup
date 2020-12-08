@@ -22401,7 +22401,6 @@ static MYSQL_SYSVAR_ULONG(
     PLUGIN_VAR_OPCMDARG,
     "how many days will records keep in scn_history_interval", NULL, NULL, 7, 1,
     30, 0);
-*/
 
 static MYSQL_SYSVAR_ULONG(txn_undo_page_reuse_max_percent,
                           lizard::txn_undo_page_reuse_max_percent,
@@ -22410,6 +22409,30 @@ static MYSQL_SYSVAR_ULONG(txn_undo_page_reuse_max_percent,
                           NULL, NULL, TXN_UNDO_PAGE_REUSE_MAX_PERCENT, 0,
                           TXN_UNDO_PAGE_REUSE_MAX_PERCENT, 0);
 
+
+static MYSQL_SYSVAR_ULONG(undo_retention,
+                          lizard::Undo_retention::retention_time,
+                          PLUGIN_VAR_OPCMDARG,
+                          "Retention time of undo data in seconds", NULL,
+                          lizard::Undo_retention::on_update,
+                          0, 0, UINT_MAX32, 0);
+
+static MYSQL_SYSVAR_ULONG(undo_space_supremum_size,
+                          lizard::Undo_retention::space_limit,
+                          PLUGIN_VAR_OPCMDARG,
+                          "Upper limitation size of undo file space in MiB",
+                          lizard::Undo_retention::check_limit,
+                          lizard::Undo_retention::on_update,
+                          100 * 1024, 0, UINT_MAX32, 0);
+
+static MYSQL_SYSVAR_ULONG(undo_space_reserved_size,
+                          lizard::Undo_retention::space_reserve,
+                          PLUGIN_VAR_OPCMDARG,
+                          "Reserved (infimum) size of undo file space in MiB",
+                          lizard::Undo_retention::check_reserve,
+                          lizard::Undo_retention::on_update,
+                          0, 0, UINT_MAX32, 0);
+*/
 
 static SYS_VAR *innobase_system_variables[] = {
     MYSQL_SYSVAR(api_trx_level),
@@ -22626,7 +22649,7 @@ static SYS_VAR *innobase_system_variables[] = {
     MYSQL_SYSVAR(parallel_read_threads),
     MYSQL_SYSVAR(encrypt_algorithm),
     /* Lizard: It's no need to use cleanout-safe-mode, delayed cleanout,
-       scn history, flashback query */
+       scn history, flashback query or others */
     /*
     MYSQL_SYSVAR(rds_flashback_enabled),
     MYSQL_SYSVAR(rds_flashback_allow_gap),
@@ -22638,8 +22661,11 @@ static SYS_VAR *innobase_system_variables[] = {
     MYSQL_SYSVAR(scn_history_interval),
     MYSQL_SYSVAR(scn_history_task_enabled),
     MYSQL_SYSVAR(scn_history_keep_days),
-    */
+    MYSQL_SYSVAR(undo_retention),
+    MYSQL_SYSVAR(undo_space_supremum_size),
+    MYSQL_SYSVAR(undo_space_reserved_size),
     MYSQL_SYSVAR(txn_undo_page_reuse_max_percent),
+    */
     nullptr};
 
 mysql_declare_plugin(innobase){
