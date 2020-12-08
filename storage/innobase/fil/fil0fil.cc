@@ -2203,7 +2203,7 @@ size_t Tablespace_files::add(space_id_t space_id, const std::string &name) {
     names = &m_undo_paths[space_id];
   } else if (Fil_path::is_lizard_tablespace_name(name)) {
     if (space_id != lizard::dict_lizard::s_lizard_space_id) {
-      ib::warn(ER_LIZARD)
+      lizard_warn(ER_LIZARD)
           << "Tablespace " << name
           << " has the same name with lizard tablespace"
           << " But the space id is not equal with reserved id";

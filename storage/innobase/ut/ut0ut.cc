@@ -542,11 +542,12 @@ namespace ib {
 
 void logger::log_event(std::string msg) {
 #if !(defined XTRABACKUP)
+  ut_ad(m_subsys_name != nullptr);
   LogEvent()
       .type(LOG_TYPE_ERROR)
       .prio(m_level)
       .errcode(m_err)
-      .subsys("InnoDB")
+      .subsys(m_subsys_name)
       .verbatim(msg.c_str());
 #else
   fprintf(stderr, "%s\n", msg.c_str());

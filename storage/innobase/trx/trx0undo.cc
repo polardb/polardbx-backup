@@ -1580,6 +1580,10 @@ dberr_t trx_undo_create(trx_t *trx, trx_rseg_t *rseg, ulint type,
 
   offset = trx_undo_header_create(undo_page, trx_id, mtr);
 
+  /** Lizard: add UBA into undo log header */
+  undo_addr_t undo_addr = {rseg->space_id, page_no, offset, lizard::SCN_NULL,
+                           true};
+
   bool add_space_gtid = (is_gtid && type == TRX_UNDO_UPDATE);
   trx_undo_header_add_space_for_xid(undo_page, undo_page + offset, mtr,
                                     add_space_gtid);
@@ -1588,6 +1592,12 @@ dberr_t trx_undo_create(trx_t *trx, trx_rseg_t *rseg, ulint type,
   if (type == TRX_UNDO_TXN) {
     /** Follow the XA will be txn extension information  */
     lizard::trx_undo_hdr_add_space_for_txn(undo_page, undo_page + offset, mtr);
+
+    /** Current undo log hdr is UBA */
+    lizard::trx_undo_hdr_write_uba(undo_page + offset, undo_addr, mtr);
+  } else {
+    /** UBA is come from trx->txn_desc */
+    lizard::trx_undo_hdr_write_uba(undo_page + offset, trx, mtr);
   }
 
   *undo = trx_undo_mem_create(rseg, id, type, trx_id, xid, page_no, offset);
@@ -1678,6 +1688,9 @@ trx_undo_t *trx_undo_reuse_cached(trx_t *trx, trx_rseg_t *rseg, ulint type,
 
     trx_undo_header_add_space_for_xid(undo_page, undo_page + offset, mtr,
                                       false);
+    /** UBA is come from trx->txn_desc */
+    lizard::trx_undo_hdr_write_uba(undo_page + offset, trx, mtr);
+
   } else if (type == TRX_UNDO_UPDATE) {
     ut_a(mach_read_from_2(undo_page + TRX_UNDO_PAGE_HDR + TRX_UNDO_PAGE_TYPE) ==
          TRX_UNDO_UPDATE);
@@ -1687,6 +1700,9 @@ trx_undo_t *trx_undo_reuse_cached(trx_t *trx, trx_rseg_t *rseg, ulint type,
     trx_undo_header_add_space_for_xid(undo_page, undo_page + offset, mtr,
                                       is_gtid);
     add_space_gtid = is_gtid;
+
+    /** UBA is come from trx->txn_desc */
+    lizard::trx_undo_hdr_write_uba(undo_page + offset, trx, mtr);
   } else {
     ut_a(mach_read_from_2(undo_page + TRX_UNDO_PAGE_HDR + TRX_UNDO_PAGE_TYPE) ==
          TRX_UNDO_TXN);
@@ -1695,6 +1711,14 @@ trx_undo_t *trx_undo_reuse_cached(trx_t *trx, trx_rseg_t *rseg, ulint type,
     trx_undo_header_add_space_for_xid(undo_page, undo_page + offset, mtr,
                                       false);
     /* Lizard: special for txn undo log header */
+
+    /** Lizard: add UBA into undo log header */
+    undo_addr_t undo_addr = {undo->space, undo->hdr_page_no, offset,
+                             lizard::SCN_NULL, true};
+
+    /** Current undo log hdr is UBA */
+    lizard::trx_undo_hdr_write_uba(undo_page + offset, undo_addr, mtr);
+
     /** Follow the XA will be txn extension information  */
     lizard::trx_undo_hdr_add_space_for_txn(undo_page, undo_page + offset, mtr);
 
@@ -1860,6 +1884,7 @@ page_t *trx_undo_set_state_at_finish(
   trx_upagef_t *page_hdr;
   page_t *undo_page;
   ulint state;
+  ulint free_offset;
 
   ut_a(undo->id < TRX_RSEG_N_SLOTS);
 
@@ -1872,10 +1897,19 @@ page_t *trx_undo_set_state_at_finish(
   seg_hdr = undo_page + TRX_UNDO_SEG_HDR;
   page_hdr = undo_page + TRX_UNDO_PAGE_HDR;
 
-  if (undo->size == 1 && mach_read_from_2(page_hdr + TRX_UNDO_PAGE_FREE) <
-                             TRX_UNDO_PAGE_REUSE_LIMIT) {
+  lizard_trx_undo_hdr_uba_validation(undo_page + undo->hdr_offset, mtr);
+
+  if (undo->size == 1 &&
+      (free_offset = mach_read_from_2(page_hdr + TRX_UNDO_PAGE_FREE)) <
+          TRX_UNDO_PAGE_REUSE_LIMIT) {
     state = TRX_UNDO_CACHED;
 
+    /** If txn undo, check another limit again. */
+    if ((undo->type == TRX_UNDO_TXN) &&
+        (free_offset >
+         lizard::txn_undo_page_reuse_max_percent * UNIV_PAGE_SIZE / 100)) {
+      state = TRX_UNDO_TO_PURGE;
+    }
   } else if (undo->type == TRX_UNDO_INSERT) {
     state = TRX_UNDO_TO_FREE;
   } else {
@@ -1913,6 +1947,8 @@ page_t *trx_undo_set_state_at_prepare(trx_t *trx, trx_undo_t *undo,
 
   offset = mach_read_from_2(seg_hdr + TRX_UNDO_LAST_LOG);
   undo_header = undo_page + offset;
+
+  lizard_trx_undo_hdr_uba_validation(undo_header, mtr);
 
   /* Write GTID information if there. */
   trx_undo_gtid_write(trx, undo_header, undo, mtr);

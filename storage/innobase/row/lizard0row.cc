@@ -183,7 +183,7 @@ void row_upd_rec_write_scn_and_undo_ptr(byte *ptr,
                                         const scn_t scn,
                                         const undo_ptr_t undo_ptr) {
   mach_write_to_8(ptr, scn);
-  mach_write_to_7(ptr + DATA_SCN_ID_LEN, undo_ptr);
+  mach_write_to_8(ptr + DATA_SCN_ID_LEN, undo_ptr);
 }
 
 
@@ -295,7 +295,7 @@ void row_upd_rec_lizard_fields_in_recovery(rec_t *rec,
 
   /** Lizard: This assertion is left, because we wonder if
   there will be a false case */
-  lizard_ut_ad(!(*rec_offs_base(offsets) & REC_OFFS_COMPACT) ||
+  lizard_ut_ad(!rec_offs_comp(offsets) ||
                index->get_sys_col_pos(DATA_SCN_ID) == pos);
 
   if (page_zip) {
@@ -484,7 +484,7 @@ byte* row_upd_write_lizard_vals_to_log(const dict_index_t *index,
                                        mtr_t *mtr MY_ATTRIBUTE((unused))) {
   ut_ad(index->is_clustered());
   ut_ad(mtr);
-  assert_undo_ptr_allocated(txn_rec->undo_ptr);
+  ut_ad(txn_rec);
 
   log_ptr +=
       mach_write_compressed(log_ptr, index->get_sys_col_pos(DATA_SCN_ID));
@@ -659,9 +659,17 @@ struct Cleanout {
     savepoint = mtr_set_savepoint(&mtr);
     mtr_s_lock(dict_index_get_lock(index), &mtr);
 
+    /**
+       Revision 1:
+
+       Fetch mode changed from PEEK_IF_IN_POOL to POSSIBLY_FREED,
+       Maybe the page was freed by purge system or other logic,
+       so if we got block through page_id directly other than searching tree,
+       the block maybe is under freed state.
+    */
     block =
         buf_page_get_gen(page_id, page_size, RW_X_LATCH, NULL,
-                         Page_fetch::PEEK_IF_IN_POOL, __FILE__, __LINE__, &mtr);
+                         Page_fetch::POSSIBLY_FREED, __FILE__, __LINE__, &mtr);
 
     mtr_release_s_latch_at_savepoint(&mtr, savepoint,
                                      dict_index_get_lock(index));
@@ -673,7 +681,8 @@ struct Cleanout {
     ut_ad(page);
 
     /** Maybe it has been freed */
-    if (!page_is_leaf(page) || fil_page_get_type(page) != FIL_PAGE_INDEX)
+    if (!page_is_leaf(page) || fil_page_get_type(page) != FIL_PAGE_INDEX ||
+        btr_page_get_index_id(page) != index->id)
       goto mtr_end;
 
     heap = mem_heap_create(UNIV_PAGE_SIZE + 200);

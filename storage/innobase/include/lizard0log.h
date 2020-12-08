@@ -7,14 +7,14 @@ the terms of the GNU General Public License, version 2.0, as published by the
 Free Software Foundation.
 
 This program is also distributed with certain software (including but not
-limited to OpenSSL) that is licensed under separate terms, as designated in a
+lzeusited to OpenSSL) that is licensed under separate terms, as designated in a
 particular file or component or in included license documentation. The authors
 of MySQL hereby grant you an additional permission to link the program and
 your derivative works with the separately licensed software that they have
 included with MySQL.
 
 This program is distributed in the hope that it will be useful, but WITHOUT
-ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+ANY WARRANTY; without even the zeusplied warranty of MERCHANTABILITY or FITNESS
 FOR A PARTICULAR PURPOSE. See the GNU General Public License, version 2.0,
 for more details.
 
@@ -24,39 +24,34 @@ this program; if not, write to the Free Software Foundation, Inc.,
 
 *****************************************************************************/
 
-/** @file include/lizard0data0types.h
- lizard record data.
+/** @file include/lizard0log.h
+ Lizard system log
 
- Created 2020-04-06 by Jianwei.zhao
+ Created 2020-07-29 by Jianwei.zhao
  *******************************************************/
 
-#ifndef lizard0datatypes_h
-#define lizard0datatypes_h
-
-#include "univ.i"
-
-/** lizard scn id, the third system column */
-constexpr size_t DATA_SCN_ID = 3;
-/** lizard scn occupy 8 bytes */
-constexpr size_t DATA_SCN_ID_LEN = 8;
-
-/** lizard UBA, the fourth system column */
-constexpr size_t DATA_UNDO_PTR = 4;
-/** lizard UBA occupy 7 bytes */
-constexpr size_t DATA_UNDO_PTR_LEN = 8;
-
-/* The sum of SCN and UBA length */
-constexpr size_t DATA_LIZARD_TOTAL_LEN = DATA_SCN_ID_LEN + DATA_UNDO_PTR_LEN;
-
-#define DATA_N_LIZARD_COLS 2 /** number of lizard system column */
-
-/** number of lizard system column for
-intrinsic tempooary table. Intrinsic table didn't support
-rollback, so didn't have UBA and no meaningful of SCN */
-#define DATA_ITT_N_LIZARD_COLS 0
+#ifndef lizard0log_h
+#define lizard0log_h
 
 namespace lizard {
 
-} /* namespace lizard */
+struct log_system {
+  /** Log subsys module name for lizard */
+  static const char *s_lizard_module_name;
+
+  /** Log subsys module name for innodb */
+  static const char *s_innodb_module_name;
+};
+
+}  // namespace lizard
+
+#define LIZARD_LOG_SYS lizard::log_system::s_lizard_module_name
+
+#define INNODB_LOG_SYS lizard::log_system::s_innodb_module_name
+
+/** Lizard module system log interface */
+#define lizard_info(ERR) ib::info(LIZARD_LOG_SYS, ERR)
+#define lizard_warn(ERR) ib::warn(LIZARD_LOG_SYS, ERR)
+#define lizard_error(ERR) ib::error(LIZARD_LOG_SYS, ERR)
 
 #endif

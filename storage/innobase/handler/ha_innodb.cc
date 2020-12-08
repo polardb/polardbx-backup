@@ -4975,13 +4975,14 @@ static int innodb_init(void *p) {
   }
 
   if (!lizard::srv_lizard_space.interpret_file()) {
-    ib::error(ER_LIZARD) << "Unable to interpret lizard tablespace configure";
+    lizard_error(ER_LIZARD)
+        << "Unable to interpret lizard tablespace configure";
     return innodb_init_abort();
   }
   if (lizard::srv_lizard_space.intersection(&srv_sys_space) ||
       lizard::srv_lizard_space.intersection(&srv_tmp_space)) {
-    ib::error(ER_LIZARD) << "Lizard tablespace has the same name with "
-                               << "sys_space or tmp_space";
+    lizard_error(ER_LIZARD) << "Lizard tablespace has the same name with "
+                            << "sys_space or tmp_space";
     return innodb_init_abort();
   }
 
@@ -5159,7 +5160,7 @@ static int innobase_init_files(dict_init_mode_t dict_init_mode,
 
   /** Lizard didn't support upgrade from 5.7 */
   if (dict_init_mode == DICT_INIT_UPGRADE_57_FILES) {
-    ib::error(ER_LIZARD) << "Didn't support upgrade from 5.7.";
+    lizard_error(ER_LIZARD) << "Didn't support upgrade from 5.7.";
     return innodb_init_abort();
   }
 
@@ -18142,11 +18143,12 @@ int ha_innobase::external_lock(THD *thd, /*!< in: handle to the user thread */
         ut_d(trx->is_dd_trx = false);
       }
 
-    } else if (trx->isolation_level <= TRX_ISO_READ_COMMITTED && trx->vision) {
+    } else if (trx->isolation_level <= TRX_ISO_READ_COMMITTED &&
+               trx->vision.is_active()) {
       //   mutex_enter(&trx_sys->mutex);
       //   trx_sys->mvcc->view_close(trx->read_view, true);
       //   mutex_exit(&trx_sys->mutex);
-      lizard::trx_vision_release(trx->vision);
+      lizard::trx_vision_release(&trx->vision);
     }
   }
 
@@ -18742,7 +18744,8 @@ THR_LOCK_DATA **ha_innobase::store_lock(
     trx->isolation_level =
         innobase_map_isolation_level((enum_tx_isolation)thd_tx_isolation(thd));
 
-    if (trx->isolation_level <= TRX_ISO_READ_COMMITTED && trx->vision) {
+    if (trx->isolation_level <= TRX_ISO_READ_COMMITTED &&
+        trx->vision.is_active()) {
       /* At low transaction isolation levels we let
       each consistent read set its own snapshot */
 
@@ -18750,7 +18753,7 @@ THR_LOCK_DATA **ha_innobase::store_lock(
       //      trx_sys->mvcc->view_close(trx->read_view, true);
       //      mutex_exit(&trx_sys->mutex);
 
-      lizard::trx_vision_release(trx->vision);
+      lizard::trx_vision_release(&trx->vision);
     }
   }
 
@@ -22334,6 +22337,14 @@ static MYSQL_SYSVAR_ULONG(cleanout_max_cleans_on_page,
 
 */
 
+static MYSQL_SYSVAR_ULONG(txn_undo_page_reuse_max_percent,
+                          lizard::txn_undo_page_reuse_max_percent,
+                          PLUGIN_VAR_OPCMDARG,
+                          "The max percent of txn undo page that can be reused",
+                          NULL, NULL, TXN_UNDO_PAGE_REUSE_MAX_PERCENT, 0,
+                          TXN_UNDO_PAGE_REUSE_MAX_PERCENT, 0);
+
+
 static SYS_VAR *innobase_system_variables[] = {
     MYSQL_SYSVAR(api_trx_level),
     MYSQL_SYSVAR(api_bk_commit_interval),
@@ -22555,6 +22566,7 @@ static SYS_VAR *innobase_system_variables[] = {
     MYSQL_SYSVAR(cleanout_max_scans_on_page),
     MYSQL_SYSVAR(cleanout_max_cleans_on_page),
     */
+    MYSQL_SYSVAR(txn_undo_page_reuse_max_percent),
     nullptr};
 
 mysql_declare_plugin(innobase){

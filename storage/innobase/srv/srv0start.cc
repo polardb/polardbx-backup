@@ -2892,6 +2892,18 @@ files_checked:
   /* wake main loop of page cleaner up */
   os_event_set(buf_flush_event);
 
+  /** Lizard: check the tbs size */
+  {
+    page_no_t lzd_hdr_size = lizard::fsp_header_get_lizard_tablespace_size();
+    page_no_t lzd_file_size = lizard::srv_lizard_space.get_sum_of_sizes();
+    if (lzd_hdr_size != lzd_file_size) {
+      lizard_error(ER_LIZARD)
+          << "Size of lizard tablespace from header " << lzd_hdr_size
+          << " is not equal with size of files " << lzd_file_size;
+      return srv_init_abort(DB_ERROR);
+    }
+  }
+
   /* Finish clone files recovery. This call is idempotent and is no op
   if it is already done before creating new log files. */
   clone_files_recovery(true);

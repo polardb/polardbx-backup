@@ -11076,7 +11076,7 @@ ER_IB_MSG_UNDO_INJECT_FAILURE
 ################################################################################
 
 ER_LIZARD
-   eng "Lizard : %s"
+   eng "%s"
 
 #
 # End of RDS error messages intended to be logged to the server error log.
