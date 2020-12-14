@@ -413,8 +413,12 @@ struct trx_undo_t {
   segment are chained into lists */
 
   /*-----------------------------*/
-  commit_scn_t scn;
+  commit_scn_t cmmt;
   /*!< SCN after commit */
+
+  /** prev_image is only valid for txn undo */
+  commit_scn_t prev_image;
+  /*!< SCN last commit */
 };
 
 /** Write any previous GTIDs to disk. Used for external XA
@@ -522,7 +526,9 @@ page of an update undo log segment. */
 /* @{ */
 /*-------------------------------------------------------------*/
 #define TRX_UNDO_TRX_ID 0 /*!< Transaction id */
-#define TRX_UNDO_TRX_NO                  \
+
+/** ATTENTION: original trx_no has been reused by GCN */
+#define TRX_UNDO_TRX_NO_DUP              \
   8 /*!< Transaction number of the       \
     transaction; defined only if the log \
     is in a history list */
@@ -584,6 +590,9 @@ page of an update undo log segment. */
 
 /** Lizard: Offset of the UBA */
 #define TRX_UNDO_UBA (TRX_UNDO_UTC + TRX_UNDO_UTC_LEN)
+
+/** Lizard: offset of the GCN, reuse TRX_NO position */
+#define TRX_UNDO_GCN TRX_UNDO_TRX_NO_DUP
 
 /*-------------------------------------------------------------*/
 /** Size of the undo log header without XID information */

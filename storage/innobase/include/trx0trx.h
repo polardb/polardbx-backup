@@ -1296,6 +1296,8 @@ struct trx_t {
     and commit scn that descripe  transaction.
   */
   txn_desc_t txn_desc;
+
+  commit_scn_t prev_image;
 };
 #ifndef UNIV_HOTBACKUP
 
