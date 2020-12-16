@@ -45,6 +45,7 @@
 #include "sql/xa.h"                   // xa_option_words
 #include "sql_string.h"               // String
 #include "thr_lock.h"                 // thr_lock_type
+#include "sql/sql_lex_ext.h"          // Table_snapshot, Table_snapshot_and_alias
 
 class PT_ddl_table_option;
 class PT_json_table_column;
@@ -599,6 +600,8 @@ union YYSTYPE {
     LEX_CSTRING table_alias;
     Create_col_name_list *column_list;
   } insert_update_values_reference;
+  struct im::Table_snapshot table_snapshot;
+  struct im::Table_snapshot_and_alias table_snapshot_and_alias;
 };
 
 static_assert(sizeof(YYSTYPE) <= 32, "YYSTYPE is too big");

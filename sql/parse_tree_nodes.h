@@ -423,6 +423,7 @@ class PT_table_factor_table_ident : public PT_table_reference {
   List<String> *opt_use_partition;
   const char *const opt_table_alias;
   List<Index_hint> *opt_key_definition;
+  im::Table_snapshot opt_snapshot{0, 0};
 
  public:
   PT_table_factor_table_ident(Table_ident *table_ident_arg,
@@ -433,6 +434,8 @@ class PT_table_factor_table_ident : public PT_table_reference {
         opt_use_partition(opt_use_partition_arg),
         opt_table_alias(opt_table_alias_arg.str),
         opt_key_definition(opt_key_definition_arg) {}
+
+  void set_snapshot(const im::Table_snapshot &s) { opt_snapshot = s; }
 
   bool contextualize(Parse_context *pc) override;
 };

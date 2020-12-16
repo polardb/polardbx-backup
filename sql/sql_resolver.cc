@@ -1050,6 +1050,9 @@ bool SELECT_LEX::setup_tables(THD *thd, TABLE_LIST *tables,
       tr->opt_hints_table = opt_hints_qb->adjust_table_hints(tr);
     }
 
+    /* Fix snapshot expression */
+    if (tr->snapshot_expr.fix_fields(thd)) return true;
+
     if (table == nullptr) continue;
     table->pos_in_table_list = tr;
 

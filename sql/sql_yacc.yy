@@ -1285,6 +1285,11 @@ void warn_about_deprecated_binary(THD *thd)
 %nonassoc TEXT_STRING
 %left KEYWORD_USED_AS_KEYWORD
 
+/* Toekns for RDS begin from 1300 */
+/* Tokens for snapshot */
+%token<lexer.keyword>  SCN_SYM              1308         /* MYSQL */
+/* Toekns for end */
+
 /*
   Resolve column attribute ambiguity -- force precedence of "UNIQUE KEY" against
   simple "UNIQUE" and "KEY" attributes:
@@ -1340,6 +1345,12 @@ void warn_about_deprecated_binary(THD *thd)
         opt_replace_password
         sp_opt_label
         json_attribute
+
+%type <table_snapshot>
+        scn_or_timestamp
+
+%type <table_snapshot_and_alias>
+        opt_table_snapshot_alias
 
 %type <lex_str_list> TEXT_STRING_sys_list
 
@@ -11335,9 +11346,10 @@ single_table_parens:
         ;
 
 single_table:
-          table_ident opt_use_partition opt_table_alias opt_key_definition
+          table_ident opt_use_partition opt_table_snapshot_alias opt_key_definition
           {
-            $$= NEW_PTN PT_table_factor_table_ident($1, $2, $3, $4);
+            $$= NEW_PTN PT_table_factor_table_ident($1, $2, $3.alias, $4);
+            ((PT_table_factor_table_ident*)$$)->set_snapshot($3.snapshot);
           }
         ;
 
@@ -11654,6 +11666,19 @@ opt_as:
 opt_table_alias:
           /* empty */  { $$ = NULL_CSTR; }
         | opt_as ident { $$ = to_lex_cstring($2); }
+        ;
+
+opt_table_snapshot_alias:
+          /* empty */ { $$ = {NULL_CSTR, {0, 0}}; }
+        | ident       { $$ = {to_lex_cstring($1), {0, 0}}; }
+        | AS ident    { $$ = {to_lex_cstring($2), {0, 0}}; }
+        | AS OF_SYM scn_or_timestamp { $$ = {NULL_CSTR, $3}; }
+        | AS OF_SYM scn_or_timestamp ident { $$ = {to_lex_cstring($4), $3}; }
+        | AS OF_SYM scn_or_timestamp AS ident { $$ = {to_lex_cstring($5), $3}; }
+
+scn_or_timestamp:
+          TIMESTAMP_SYM expr { $$ = {$2, 0}; }
+        | SCN_SYM expr { $$ = {0, $2}; }
         ;
 
 opt_all:
@@ -12705,6 +12730,7 @@ update_stmt:
           opt_order_clause      /* #8 */
           opt_simple_limit      /* #9 */
           {
+            YYTHD->lex->is_update_stmt = true;
             $$= NEW_PTN PT_update($1, $2, $3, $4, $5, $7.column_list, $7.value_list,
                                   $8, $9, $10);
           }
@@ -14833,6 +14859,7 @@ ident_keywords_unambiguous:
         | RTREE_SYM
         | SCHEDULE_SYM
         | SCHEMA_NAME_SYM
+        | SCN_SYM
         | SECONDARY_ENGINE_SYM
         | SECONDARY_ENGINE_ATTRIBUTE_SYM
         | SECONDARY_LOAD_SYM

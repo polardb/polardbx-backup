@@ -94,6 +94,8 @@
 #include "thr_lock.h"  // thr_lock_type
 #include "violite.h"   // SSL_type
 
+#include "sql/sql_lex_ext.h"
+
 class Item_cond;
 class Item_exists_subselect;
 class Item_subselect;
@@ -3982,6 +3984,12 @@ struct LEX : public Query_tables_list {
   */
   void set_secondary_engine_execution_context(
       Secondary_engine_execution_context *context);
+
+  /**
+    Members used by Snapshot.
+  */
+  bool is_update_stmt{false};
+  int table_snap_expr_count_to_evaluate{0};
 };
 
 /**
