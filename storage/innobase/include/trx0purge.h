@@ -1068,6 +1068,10 @@ struct trx_purge_t {
 
   /** Heap for reading the undo log records */
   mem_heap_t *heap;
+
+  /** All transactions whose scn <= purged_scn must have been purged.
+  Only the purge sys coordinator thread and recover thread can modify it. */
+  std::atomic<scn_t> purged_scn;
 };
 
 #include "trx0purge.ic"
