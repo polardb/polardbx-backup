@@ -990,7 +990,24 @@ Information in the data-dictionary needs to be updated. */
 /** Histogram sampling initialization failed */
 #define HA_ERR_SAMPLING_INIT_FAILED 208
 /** Copy of last error number */
-#define HA_ERR_LAST 208
+
+/* These errors are for lizard */
+
+/* The snapshot to find is out of scope */
+#define HA_ERR_SNAPSHOT_OUT_OF_RANGE 209
+
+/* Flashback-like query encountered an internal error */
+#define HA_ERR_AS_OF_INTERNAL 210
+
+/* The definition of the table required by the query has changed */
+#define HA_ERR_AS_OF_TABLE_DEF_CHANGED 211
+
+/* The snapshot is so old that the required historical data has been deleted */
+#define HA_ERR_SNAPSHOT_TOO_OLD 212
+
+/* lizard errors end */
+
+#define HA_ERR_LAST 212
 
 /* Number of different errors */
 #define HA_ERR_ERRORS (HA_ERR_LAST - HA_ERR_FIRST + 1)

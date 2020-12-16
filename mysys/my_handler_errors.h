@@ -123,6 +123,10 @@ static const char *handler_error_messages[] = {
     "Invalid table name",
     "Path is too long for the OS",
     "Histogram sampling initialization failed",
+    "The snapshot to find is out of range, please adjust scn history configuration",
+    "Flashback-like query encountered an internal error",
+    "The definition of the table required by the query has changed",
+    "Snapshot too old"
 };
 
 extern void my_handler_error_register(void);

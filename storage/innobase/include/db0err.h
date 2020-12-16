@@ -197,6 +197,16 @@ enum dberr_t {
   DB_SCHEMA_MISMATCH,
   /** System has run out of resources. */
   DB_OUT_OF_RESOURCES,
+  /** Lizard: The snapshot to find is out of scope, usually because
+  looking for a future snapshot */
+  DB_SNAPSHOT_OUT_OF_RANGE,
+  /** Lizard: as of search encountered an internal error */
+  DB_AS_OF_INTERNAL,
+  /** Lizard: The definition of the table required by the query has changed */
+  DB_AS_OF_TABLE_DEF_CHANGED,
+  /** Lizard: The snapshot is so old that the required historical data has
+  been deleted */
+  DB_SNAPSHOT_TOO_OLD,
 
   /* The following are partial failure codes */
 
