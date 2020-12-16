@@ -211,6 +211,7 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include "lizard0txn.h"
 #include "lizard0undo.h"
 #include "lizard0row.h"
+#include "lizard0scn0hist.h"
 
 #ifndef UNIV_HOTBACKUP
 /** Stop printing warnings, if the count exceeds this threshold. */
@@ -779,7 +780,8 @@ static PSI_thread_info all_innodb_threads[] = {
     PSI_KEY(srv_ts_alter_encrypt_thread, 0, 0, PSI_DOCUMENT_ME),
     PSI_KEY(parallel_read_thread, 0, 0, PSI_DOCUMENT_ME),
     PSI_KEY(parallel_read_ahead_thread, 0, 0, PSI_DOCUMENT_ME),
-    PSI_KEY(meb::redo_log_archive_consumer_thread, 0, 0, PSI_DOCUMENT_ME)};
+    PSI_KEY(meb::redo_log_archive_consumer_thread, 0, 0, PSI_DOCUMENT_ME),
+    PSI_KEY(scn_history_thread, 0, 0, PSI_DOCUMENT_ME)};
 #endif /* UNIV_PFS_THREAD */
 
 #ifdef UNIV_PFS_IO
@@ -3700,6 +3702,10 @@ static bool innobase_dict_recover(dict_recovery_mode_t dict_recovery_mode,
       dict_sys->ddl_log = dd_table_open_on_name(
           thd, nullptr, "mysql/innodb_ddl_log", false, DICT_ERR_IGNORE_NONE);
       log_ddl = UT_NEW_NOKEY(Log_DDL());
+
+      /** Open innodb_flashback_snapshot table */
+      dict_sys->scn_hist = dd_table_open_on_name(
+          thd, NULL, SCN_HISTORY_TABLE_FULL_NAME, false, DICT_ERR_IGNORE_NONE);
   }
 
   switch (dict_recovery_mode) {
@@ -12491,10 +12497,15 @@ static bool innobase_ddse_dict_init(
   def->add_index(1, "index_k_thread_id", "KEY(thread_id)");
   /* Options and tablespace are set at the SQL layer. */
 
+  /** innodb_flashback_snapshot system table */
+  dd::Object_table *innodb_flashback_snapshot =
+      lizard::create_innodb_scn_hist_table();
+
   tables->push_back(innodb_dynamic_metadata);
   tables->push_back(innodb_table_stats);
   tables->push_back(innodb_index_stats);
   tables->push_back(innodb_ddl_log);
+  tables->push_back(innodb_flashback_snapshot);
 
   LogErr(SYSTEM_LEVEL, ER_IB_MSG_INNODB_END_INITIALIZE);
 
@@ -22310,7 +22321,7 @@ static MYSQL_SYSVAR_STR(directories, srv_innodb_directories,
                         "'innodb-data-home-dir;innodb-undo-directory;datadir'",
                         nullptr, nullptr, nullptr);
 
-/* Lizard: It's no need to use cleanout-safe-mode, delayed cleanout */
+/* Lizard: It's no need to use cleanout-safe-mode, delayed cleanout, scn history */
 /*
 static MYSQL_SYSVAR_BOOL(
     cleanout_safe_mode, lizard::opt_cleanout_safe_mode,
@@ -22346,6 +22357,22 @@ static MYSQL_SYSVAR_ULONG(cleanout_max_cleans_on_page,
                           "max clean record count once cleanout one page", NULL,
                           NULL, 1, 1, 1024 * 1024, 0);
 
+static MYSQL_SYSVAR_BOOL(scn_history_task_enabled,
+                         lizard::srv_scn_history_task_enabled,
+                         PLUGIN_VAR_OPCMDARG,
+                         "Whether to roll forward new scn (true by default)",
+                         NULL, NULL, true);
+
+static MYSQL_SYSVAR_ULONG(scn_history_interval,
+                          lizard::srv_scn_history_interval, PLUGIN_VAR_OPCMDARG,
+                          "Generate new scn record every scn_history_interval",
+                          NULL, NULL, 3, 1, 10, 0);
+
+static MYSQL_SYSVAR_ULONG(
+    scn_history_keep_days, lizard::srv_scn_history_keep_days,
+    PLUGIN_VAR_OPCMDARG,
+    "how many days will records keep in scn_history_interval", NULL, NULL, 7, 1,
+    30, 0);
 */
 
 static MYSQL_SYSVAR_ULONG(txn_undo_page_reuse_max_percent,
@@ -22577,6 +22604,9 @@ static SYS_VAR *innobase_system_variables[] = {
     MYSQL_SYSVAR(cleanout_max_scans_on_page),
     MYSQL_SYSVAR(cleanout_max_cleans_on_page),
     MYSQL_SYSVAR(cleanout_mode),
+    MYSQL_SYSVAR(scn_history_interval),
+    MYSQL_SYSVAR(scn_history_task_enabled),
+    MYSQL_SYSVAR(scn_history_keep_days),
     */
     MYSQL_SYSVAR(txn_undo_page_reuse_max_percent),
     nullptr};

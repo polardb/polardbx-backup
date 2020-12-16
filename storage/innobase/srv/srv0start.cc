@@ -129,6 +129,7 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include "lizard0sys.h"
 #include "lizard0txn.h"
 #include "lizard0undo0types.h"
+#include "lizard0scn0hist.h"
 
 
 /** fil_space_t::flags for hard-coded tablespaces */
@@ -157,15 +158,16 @@ static bool srv_start_has_been_called = false;
 determine which threads need to be stopped if we need to abort during
 the initialisation step. */
 enum srv_start_state_t {
-  SRV_START_STATE_NONE = 0,     /*!< No thread started */
-  SRV_START_STATE_LOCK_SYS = 1, /*!< Started lock-timeout
-                                thread. */
-  SRV_START_STATE_IO = 2,       /*!< Started IO threads */
-  SRV_START_STATE_MONITOR = 4,  /*!< Started montior thread */
-  SRV_START_STATE_MASTER = 8,   /*!< Started master threadd. */
-  SRV_START_STATE_PURGE = 16,   /*!< Started purge thread(s) */
-  SRV_START_STATE_STAT = 32     /*!< Started bufdump + dict stat
-                                and FTS optimize thread. */
+  SRV_START_STATE_NONE = 0,      /*!< No thread started */
+  SRV_START_STATE_LOCK_SYS = 1,  /*!< Started lock-timeout
+                                 thread. */
+  SRV_START_STATE_IO = 2,        /*!< Started IO threads */
+  SRV_START_STATE_MONITOR = 4,   /*!< Started montior thread */
+  SRV_START_STATE_MASTER = 8,    /*!< Started master threadd. */
+  SRV_START_STATE_PURGE = 16,    /*!< Started purge thread(s) */
+  SRV_START_STATE_STAT = 32,     /*!< Started bufdump + dict stat
+                                 and FTS optimize thread. */
+  SRV_START_STATE_SCN_HIST = 128 /*!< Started scn history generator thread.*/
 };
 
 /** Track server thrd starting phases */
@@ -1734,6 +1736,10 @@ void srv_shutdown_exit_threads() {
       }
     }
 
+    if (srv_start_state_is_set(SRV_START_STATE_SCN_HIST)) {
+      lizard::srv_scn_history_shutdown();
+    }
+
     if (srv_start_state_is_set(SRV_START_STATE_IO)) {
       /* e. Exit the i/o threads */
       if (!srv_read_only_mode) {
@@ -3112,6 +3118,16 @@ void srv_start_threads_after_ddl_recovery() {
   /* Now the InnoDB Metadata and file system should be consistent.
   Start the Purge thread */
   srv_start_purge_threads();
+
+  /** Create scn history background thread */
+  srv_threads.m_scn_hist =
+      os_thread_create(scn_history_thread_key, lizard::srv_scn_history_thread);
+
+  lizard::srv_scn_history_thread_init();
+
+  srv_threads.m_scn_hist.start();
+
+  srv_start_state_set(SRV_START_STATE_SCN_HIST);
 }
 
 #if 0
@@ -3251,6 +3267,12 @@ void srv_pre_dd_shutdown() {
   }
 
   srv_shutdown_set_state(SRV_SHUTDOWN_PRE_DD_AND_SYSTEM_TRANSACTIONS);
+
+  if (srv_start_state_is_set(SRV_START_STATE_SCN_HIST)) {
+    lizard::srv_scn_history_shutdown();
+    lizard::srv_scn_history_thread_deinit();
+  }
+  ut_a(!srv_thread_is_active(srv_threads.m_scn_hist));
 
   if (srv_start_state_is_set(SRV_START_STATE_STAT)) {
     fts_optimize_shutdown();
@@ -3590,7 +3612,8 @@ void srv_shutdown() {
       std::cref(srv_threads.m_ts_alter_encrypt),
       std::cref(srv_threads.m_fts_optimize),
       std::cref(srv_threads.m_recv_writer),
-      std::cref(srv_threads.m_dict_stats)};
+      std::cref(srv_threads.m_dict_stats),
+      std::cref(srv_threads.m_scn_hist)};
 
   for (const auto &thread : threads_stopped_before_shutdown) {
     ut_a(!srv_thread_is_active(thread));
