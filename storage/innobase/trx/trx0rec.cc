@@ -2467,7 +2467,7 @@ static MY_ATTRIBUTE((warn_unused_result)) bool trx_undo_get_undo_rec(
 
   rw_lock_s_lock(&purge_sys->latch);
 
-  lizard::txn_undo_hdr_lookup(txn_rec);
+  lizard::txn_undo_hdr_lookup(txn_rec, nullptr, nullptr);
 
   missing_history = purge_sys->vision.modifications_visible(txn_rec, name);
 
@@ -2509,8 +2509,6 @@ bool trx_undo_prev_version_build(
   bool dummy_extern;
   byte *buf;
 
-  txn_info_t txn_rec_info;
-
   txn_info_t txn_info;
 
   txn_rec_t txn_rec;
@@ -2520,14 +2518,6 @@ bool trx_undo_prev_version_build(
         mtr_memo_contains_page(index_mtr, index_rec, MTR_MEMO_PAGE_X_FIX));
   ut_ad(rec_offs_validate(rec, index, offsets));
   ut_a(index->is_clustered());
-
-  /** Lizard: use txn_info_t or txn_rec_t? */
-  /** Lizard: field operations */
-  assert_row_lizard_valid(rec, index, offsets);
-  txn_rec_info.scn = lizard::row_get_rec_scn_id(rec, index, offsets);
-  txn_rec_info.undo_ptr = lizard::row_get_rec_undo_ptr(rec, index, offsets);
-  assert_undo_ptr_allocated(txn_rec_info.undo_ptr);
-  (void)txn_rec_info;
 
   roll_ptr = row_get_rec_roll_ptr(rec, index, offsets);
 
@@ -2543,6 +2533,7 @@ bool trx_undo_prev_version_build(
   /** Lizard begin */
   txn_rec.scn = lizard::row_get_rec_scn_id(rec, index, offsets);
   txn_rec.undo_ptr = lizard::row_get_rec_undo_ptr(rec, index, offsets);
+  assert_undo_ptr_allocated(txn_rec.undo_ptr);
   txn_rec.trx_id = rec_trx_id;
   /** Lizard end */
 
@@ -2634,7 +2625,7 @@ bool trx_undo_prev_version_build(
       rw_lock_s_lock(&purge_sys->latch);
 
       txn_rec_t undo_txn_rec{trx_id, txn_info.scn, txn_info.undo_ptr};
-      lizard::txn_undo_hdr_lookup(&undo_txn_rec);
+      lizard::txn_undo_hdr_lookup(&undo_txn_rec, nullptr, nullptr);
 
       missing_extern = purge_sys->vision.modifications_visible(
           &undo_txn_rec, index->table->name);

@@ -122,93 +122,109 @@ bool Table_snapshot::itemize(Parse_context *pc, TABLE_LIST *owner) {
   return false;
 }
 
-static bool is_string_item(Item *item) {
-  switch (item->data_type()) {
-    case MYSQL_TYPE_VARCHAR:
-    case MYSQL_TYPE_TINY_BLOB:
-    case MYSQL_TYPE_MEDIUM_BLOB:
-    case MYSQL_TYPE_LONG_BLOB:
-    case MYSQL_TYPE_BLOB:
-    case MYSQL_TYPE_VAR_STRING:
-    case MYSQL_TYPE_STRING:
-      return true;
-    default:
-      return false;
-  }
-}
-
-static bool is_decimal_zero(Item *item) {
-  switch (item->data_type()) {
-    case MYSQL_TYPE_DECIMAL:
-    case MYSQL_TYPE_NEWDECIMAL:
-      return (item->decimals == 0);
-    default:
-      return false;
-  }
-}
-
-static bool try_cast_to_datetime(THD *thd, Item **item) {
-  /* We only try to cast string item to datetime.
-  If it cannot cast, errors will be raised when evaluating */
-  if (!is_string_item(*item)) return true;
-
-  Item *cast = new Item_typecast_datetime(*item, true);
-  if (!cast) return true;
-
-  cast->fix_fields(thd, item);
-  thd->change_item_tree(item, cast);
-  return false;
-}
-
-static bool try_cast_to_scn(THD *thd, Item **item) {
-  /* We only try to cast string or decimal item to scn.
-  If it cannot cast, errors will be raised when evaluating */
-  if (!is_string_item(*item) && !is_decimal_zero(*item)) return true;
-
-  Item *cast = new Item_typecast_scn(*item);
-  if (!cast) return true;
-
-  cast->fix_fields(thd, item);
-  thd->change_item_tree(item, cast);
-  return false;
-}
-
-static bool fix_and_check_const(THD *thd, Item **item) {
-  if (!(*item)->fixed && (*item)->fix_fields(thd, item)) return true;
-
-  if (!(*item)->const_for_execution()) {
-    my_error(ER_AS_OF_EXPR_NOT_CONSTANT, MYF(0));
-    return true;
-  }
-
-  return false;
-}
+// static bool is_string_item(Item *item) {
+//   switch (item->data_type()) {
+//     case MYSQL_TYPE_VARCHAR:
+//     case MYSQL_TYPE_TINY_BLOB:
+//     case MYSQL_TYPE_MEDIUM_BLOB:
+//     case MYSQL_TYPE_LONG_BLOB:
+//     case MYSQL_TYPE_BLOB:
+//     case MYSQL_TYPE_VAR_STRING:
+//     case MYSQL_TYPE_STRING:
+//       return true;
+//     default:
+//       return false;
+//   }
+// }
+//
+// static bool is_decimal_zero(Item *item) {
+//   switch (item->data_type()) {
+//     case MYSQL_TYPE_DECIMAL:
+//     case MYSQL_TYPE_NEWDECIMAL:
+//       return (item->decimals == 0);
+//     default:
+//       return false;
+//   }
+// }
+//
+// static bool try_cast_to_datetime(THD *thd, Item **item) {
+//   /* We only try to cast string item to datetime.
+//   If it cannot cast, errors will be raised when evaluating */
+//   if (!is_string_item(*item)) return true;
+//
+//   Item *cast = new (thd->mem_root) Item_typecast_datetime(*item, true);
+//   if (!cast) return true;
+//
+//   cast->fix_fields(thd, item);
+//   *item = cast; // persistent, allocated on thd->mem_root
+//   return false;
+// }
+//
+// static bool try_cast_to_scn(THD *thd, Item **item) {
+//   /* We only try to cast string or decimal item to scn.
+//   If it cannot cast, errors will be raised when evaluating */
+//   if (!is_string_item(*item) && !is_decimal_zero(*item)) return true;
+//
+//   Item *cast = new (thd->mem_root) Item_typecast_scn(*item);
+//   if (!cast) return true;
+//
+//   cast->fix_fields(thd, item);
+//   *item = cast; // persistent, allocated on thd->mem_root
+//   return false;
+// }
+//
+// static bool fix_and_check_const(THD *thd, Item **item) {
+//   if (!(*item)->fixed && (*item)->fix_fields(thd, item)) return true;
+//
+//   if (!(*item)->const_for_execution()) {
+//     my_error(ER_AS_OF_EXPR_NOT_CONSTANT, MYF(0));
+//     return true;
+//   }
+//
+//   return false;
+// }
 
 /* Fix fields, and make sure expr is constant */
 bool Table_snapshot::fix_fields(THD *thd) {
   DBUG_ASSERT(valid());
 
-  if (ts) {
-    if (fix_and_check_const(thd, &ts)) return true;
+  /* Xtrabackup should never run into here */
+  DBUG_ASSERT(0);
+  (void)(thd);
+  return true;
 
-    if (!ts->is_temporal_with_date_and_time()) {
-      if (try_cast_to_datetime(thd, &ts)) {
-        my_error(ER_AS_OF_BAD_TIMESTAMP_TYPE, MYF(0));
-        return true;
-      }
-    }
-  } else if (scn) {
-    if (fix_and_check_const(thd, &scn)) return true;
+  // if (ts) {
+  //   if (fix_and_check_const(thd, &ts)) return true;
 
-    if (!is_integer_type(scn->data_type())) {
-      if (try_cast_to_scn(thd, &scn)) {
-        my_error(ER_AS_OF_BAD_SCN_TYPE, MYF(0));
-        return true;
-      }
-    }
-  }
+  //   if (ts->data_type() == MYSQL_TYPE_INVALID) {
+  //     /* MySQL only support INT parameter propagation,
+  //     So 'as of timestamp ?' not supported temporarily */
+  //     goto ts_error;
+  //   } else if (!ts->is_temporal_with_date_and_time()) {
+  //     if (try_cast_to_datetime(thd, &ts)) goto ts_error;
+  //   }
+  // } else if (scn) {
+  //   if (fix_and_check_const(thd, &scn)) return true;
 
-  return false;
+  //   if (scn->data_type() == MYSQL_TYPE_INVALID) {
+  //     /* INT parameter propagation: 'as of scn ?' */
+  //     if (scn->propagate_type(thd, Type_properties(MYSQL_TYPE_LONGLONG, true)))
+  //       goto scn_error;
+  //     scn->pin_data_type();
+  //   } else if (!is_integer_type(scn->data_type())) {
+  //     if (try_cast_to_scn(thd, &scn)) goto scn_error;
+  //   }
+  // }
+
+  // return false;
+
+// ts_error:
+//   if (!thd->is_error()) my_error(ER_AS_OF_BAD_TIMESTAMP_TYPE, MYF(0));
+//   return true;
+
+// scn_error:
+//   if (!thd->is_error()) my_error(ER_AS_OF_BAD_SCN_TYPE, MYF(0));
+//   return true;
 }
 
 /**
@@ -232,6 +248,11 @@ bool Table_snapshot::evaluate_timestamp(Item *ts, uint64_t *out) {
 
   if (current_thd->is_error()) return true;
 
+  if (ts->null_value) {
+    my_error(ER_AS_OF_BAD_TIMESTAMP_TYPE, MYF(0));
+    return true;
+  }
+
   *out = tm.tv_sec;
   return false;
 }
@@ -250,6 +271,11 @@ bool Table_snapshot::evaluate_scn(Item *scn, uint64_t *out) {
   uint64_t val = scn->val_uint();
 
   if (current_thd->is_error()) return true;
+
+  if (scn->null_value) {
+    my_error(ER_AS_OF_BAD_SCN_TYPE, MYF(0));
+    return true;
+  }
 
   *out = val;
   return false;
