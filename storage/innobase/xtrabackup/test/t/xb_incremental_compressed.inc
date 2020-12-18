@@ -34,7 +34,7 @@ ib_inc_extra_args=${ib_inc_extra_args:-""}
 innodb_strict_mode
 innodb_file_per_table
 innodb_max_dirty_pages_pct=0
-innodb_log_file_size=4M"
+innodb_log_file_size=16M"
   
   start_server
   if [[ $ib_full_backup_extra_args =~ 'page-tracking' ]]; then
