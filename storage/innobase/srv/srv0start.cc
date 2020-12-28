@@ -132,6 +132,7 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include "lizard0txn.h"
 #include "lizard0undo0types.h"
 #include "lizard0scn0hist.h"
+#include "lizard0undo.h"
 
 /** fil_space_t::flags for hard-coded tablespaces */
 extern uint32_t predefined_flags;
@@ -2025,6 +2026,8 @@ dberr_t srv_start(bool create_new_db IF_XB(, lsn_t to_lsn)) {
 
     trx_purge_sys_initialize(srv_threads.m_purge_workers_n, purge_heap);
 
+    lizard::undo_retention_init();
+
     err = dict_create();
 
     if (err != DB_SUCCESS) {
@@ -2465,6 +2468,8 @@ dberr_t srv_start(bool create_new_db IF_XB(, lsn_t to_lsn)) {
     therefore requires that the trx_sys and trx lists were
     initialized in trx_sys_init_at_db_start(). */
     trx_purge_sys_initialize(srv_threads.m_purge_workers_n, purge_heap);
+
+    lizard::undo_retention_init();
   }
 
   /* Open temp-tablespace and keep it open until shutdown. */
