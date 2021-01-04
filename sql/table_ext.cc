@@ -29,11 +29,10 @@
 namespace im {
 
 /* Cast text or decimal to integer */
-class Item_typecast_scn : public Item_int_func {
+class Item_typecast_cnum : public Item_int_func {
  public:
-  Item_typecast_scn(Item *a) : Item_int_func(a) {}
+  Item_typecast_cnum(Item *a) : Item_int_func(a) {}
 
-  const char *func_name() const { return "cast_as_scn"; }
   enum Functype functype() const { return TYPECAST_FUNC; }
   uint decimal_precision() const { return args[0]->decimal_precision(); }
 
@@ -41,12 +40,6 @@ class Item_typecast_scn : public Item_int_func {
     fix_char_length(std::min<uint32>(args[0]->max_char_length(),
                                      MY_INT64_NUM_DECIMAL_DIGITS));
     return reject_geometry_args(arg_count, args, this);
-  }
-
-  void print(const THD *thd, String *str, enum_query_type query_type) const {
-    str->append(STRING_WITH_LEN("cast("));
-    args[0]->print(thd, str, query_type);
-    str->append(STRING_WITH_LEN(" as scn)"));
   }
 
   longlong val_int() {
@@ -91,6 +84,32 @@ class Item_typecast_scn : public Item_int_func {
   }
 };
 
+class Item_typecast_scn : public Item_typecast_cnum {
+ public:
+  Item_typecast_scn(Item *a) : Item_typecast_cnum(a) {}
+
+  const char *func_name() const { return "cast_as_scn"; }
+
+  void print(const THD *thd, String *str, enum_query_type query_type) const {
+    str->append(STRING_WITH_LEN("cast("));
+    args[0]->print(thd, str, query_type);
+    str->append(STRING_WITH_LEN(" as scn)"));
+  }
+};
+
+class Item_typecast_gcn : public Item_typecast_cnum {
+ public:
+  Item_typecast_gcn(Item *a) : Item_typecast_cnum(a) {}
+
+  const char *func_name() const { return "cast_as_gcn"; }
+
+  void print(const THD *thd, String *str, enum_query_type query_type) const {
+    str->append(STRING_WITH_LEN("cast("));
+    args[0]->print(thd, str, query_type);
+    str->append(STRING_WITH_LEN(" as gcn)"));
+  }
+};
+
 /* Itemize the snapshot items */
 bool Table_snapshot::itemize(Parse_context *pc, TABLE_LIST *owner) {
   DBUG_ASSERT(valid());
@@ -110,9 +129,13 @@ bool Table_snapshot::itemize(Parse_context *pc, TABLE_LIST *owner) {
     if (ts) {
       if (ts->itemize(pc, &ts)) return true;
       owner->snapshot_expr.ts = ts;
-    } else {
+    } else if (scn) {
       if (scn->itemize(pc, &scn)) return true;
       owner->snapshot_expr.scn = scn;
+    } else {
+      DBUG_ASSERT(0);
+      //if (gcn->itemize(pc, &gcn)) return true;
+      //owner->snapshot_expr.gcn = gcn;
     }
 
     /* Disable query cache if snapshot expression is set. */
@@ -281,6 +304,18 @@ bool Table_snapshot::evaluate_scn(Item *scn, uint64_t *out) {
   return false;
 }
 
+bool Table_snapshot::evaluate_gcn(Item *gcn, uint64_t *out) {
+  DBUG_ASSERT(gcn && out);
+  DBUG_ASSERT(current_thd);
+
+  uint64_t val = gcn->val_uint();
+
+  if (current_thd->is_error()) return true;
+
+  *out = val;
+  return false;
+}
+
 /**
   Evaluate snapshot value.
 
@@ -299,7 +334,10 @@ bool Table_snapshot::evaluate(Snapshot_info_t *snapshot) {
   } else if (scn) {
     if (evaluate_scn(scn, &val)) return true;
     snapshot->set_scn(val);
-  }
+  } /*else if (gcn) {
+    if (evaluate_gcn(gcn, &val)) return true;
+    snapshot->set_gcn(val);
+  }*/
 
   return false;
 }

@@ -213,6 +213,7 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include "lizard0row.h"
 #include "lizard0scn0hist.h"
 #include "lizard0mysql.h"
+#include "lizard0gp.h"
 
 #ifndef UNIV_HOTBACKUP
 /** Stop printing warnings, if the count exceeds this threshold. */
@@ -710,7 +711,9 @@ static PSI_mutex_info all_innodb_mutexes[] = {
     PSI_MUTEX_KEY(lizard_scn_mutex, 0, 0, PSI_DOCUMENT_ME),
     PSI_MUTEX_KEY(lizard_undo_hdr_hash_mutex, 0, 0, PSI_DOCUMENT_ME),
     PSI_MUTEX_KEY(lizard_vision_list_mutex, 0, 0, PSI_DOCUMENT_ME),
-    PSI_MUTEX_KEY(lizard_sys_mtx_id_mutex, 0, 0, PSI_DOCUMENT_ME)};
+    PSI_MUTEX_KEY(lizard_sys_mtx_id_mutex, 0, 0, PSI_DOCUMENT_ME),
+    PSI_MUTEX_KEY(gp_sys_mutex, 0, 0, PSI_DOCUMENT_ME),
+    PSI_MUTEX_KEY(gp_sys_wait_mutex, 0, 0, PSI_DOCUMENT_ME)};
 #endif /* UNIV_PFS_MUTEX */
 
 #ifdef UNIV_PFS_RWLOCK
@@ -782,7 +785,8 @@ static PSI_thread_info all_innodb_threads[] = {
     PSI_KEY(parallel_read_thread, 0, 0, PSI_DOCUMENT_ME),
     PSI_KEY(parallel_read_ahead_thread, 0, 0, PSI_DOCUMENT_ME),
     PSI_KEY(meb::redo_log_archive_consumer_thread, 0, 0, PSI_DOCUMENT_ME),
-    PSI_KEY(scn_history_thread, 0, 0, PSI_DOCUMENT_ME)};
+    PSI_KEY(scn_history_thread, 0, 0, PSI_DOCUMENT_ME),
+    PSI_KEY(srv_gp_wait_timeout_thread, 0, 0, PSI_DOCUMENT_ME)};
 #endif /* UNIV_PFS_THREAD */
 
 #ifdef UNIV_PFS_IO
@@ -931,6 +935,12 @@ static MYSQL_THDVAR_ULONG(lock_wait_timeout, PLUGIN_VAR_RQCMDARG,
                           "for a lock before being rolled back. Values above "
                           "100000000 disable the timeout.",
                           nullptr, nullptr, 50, 1, 1024 * 1024 * 1024, 0);
+
+static MYSQL_THDVAR_ULONG(global_query_wait_timeout, PLUGIN_VAR_RQCMDARG,
+                          "Timeout in seconds an InnoDB global query may wait "
+                          "for xa commit. Values above "
+                          "100000000 disable the timeout.",
+                          NULL, NULL, 50, 1, 1024 * 1024 * 1024, 0);
 
 static MYSQL_THDVAR_STR(
     ft_user_stopword_table, PLUGIN_VAR_OPCMDARG | PLUGIN_VAR_MEMALLOC,
@@ -1752,6 +1762,10 @@ ulong thd_lock_wait_timeout(THD *thd) /*!< in: thread handle, or NULL to query
   /* According to <mysql/plugin.h>, passing thd == NULL
   returns the global value of the session variable. */
   return (THDVAR(thd, lock_wait_timeout));
+}
+
+ulong thd_global_query_wait_timeout(THD *thd) {
+  return (THDVAR(thd, global_query_wait_timeout));
 }
 
 /** Set the time waited for the lock for the current query. */
@@ -22648,6 +22662,7 @@ static SYS_VAR *innobase_system_variables[] = {
 #endif /* UNIV_DEBUG */
     MYSQL_SYSVAR(parallel_read_threads),
     MYSQL_SYSVAR(encrypt_algorithm),
+    MYSQL_SYSVAR(global_query_wait_timeout),
     /* Lizard: It's no need to use cleanout-safe-mode, delayed cleanout,
        scn history, flashback query or others */
     /*

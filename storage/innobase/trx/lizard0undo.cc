@@ -1799,6 +1799,7 @@ still_active:
 already_commit:
   assert_commit_scn_allocated(txn_undo_hdr.image);
   txn_rec->scn = txn_undo_hdr.image.scn;
+  txn_rec->gcn = txn_undo_hdr.image.gcn;
   lizard_undo_ptr_set_commit(&txn_rec->undo_ptr);
   txn_lookup_t_set(txn_lookup, txn_undo_hdr, txn_undo_hdr.image,
                    txn_state_t::TXN_STATE_COMMITTED);
@@ -1808,6 +1809,7 @@ already_commit:
 undo_purged:
   assert_commit_scn_allocated(txn_undo_hdr.image);
   txn_rec->scn = txn_undo_hdr.image.scn;
+  txn_rec->gcn = txn_undo_hdr.image.gcn;
   lizard_undo_ptr_set_commit(&txn_rec->undo_ptr);
   txn_lookup_t_set(txn_lookup, txn_undo_hdr, txn_undo_hdr.image,
                    txn_state_t::TXN_STATE_PURGED);
@@ -1817,6 +1819,7 @@ undo_purged:
 undo_reuse:
   assert_commit_scn_allocated(txn_undo_hdr.prev_image);
   txn_rec->scn = txn_undo_hdr.prev_image.scn;
+  txn_rec->gcn = txn_undo_hdr.prev_image.gcn;
   lizard_undo_ptr_set_commit(&txn_rec->undo_ptr);
   txn_lookup_t_set(txn_lookup, txn_undo_hdr, txn_undo_hdr.prev_image,
                    txn_state_t::TXN_STATE_REUSE);
@@ -1828,6 +1831,7 @@ undo_corrupted:
   consideration */
   ut_a(opt_cleanout_safe_mode);
   txn_rec->scn = SCN_UNDO_CORRUPTED;
+  txn_rec->gcn = GCN_UNDO_CORRUPTED;
   lizard_undo_ptr_set_commit(&txn_rec->undo_ptr);
   txn_lookup_t_set(txn_lookup, txn_undo_hdr,
                    {SCN_UNDO_CORRUPTED, UTC_UNDO_CORRUPTED, GCN_UNDO_CORRUPTED},
@@ -1879,6 +1883,7 @@ bool txn_undo_hdr_lookup_low(txn_rec_t *txn_rec,
           0,
       };
       txn_rec->scn = SCN_UNDO_CORRUPTED;
+      txn_rec->gcn = GCN_UNDO_CORRUPTED;
       lizard_undo_ptr_set_commit(&txn_rec->undo_ptr);
       lizard_stats.txn_undo_lost_page_miss_when_safe.inc();
       txn_lookup_t_set(txn_lookup, txn_undo_hdr,

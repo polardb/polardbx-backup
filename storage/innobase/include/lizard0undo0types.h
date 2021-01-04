@@ -209,16 +209,16 @@ typedef struct txn_rec_t txn_commit_t;
   Lizard transaction attributes in index (used by Vision)
    1) scn
    2) undo_ptr
+   3) gcn
 */
 struct txn_index_t {
-  /** scn number */
-  undo_ptr_t uba;
   /** undo log header address */
+  undo_ptr_t uba;
+  /** scn number */
   std::atomic<scn_id_t> scn;
   /** gcn number */
   std::atomic<gcn_t> gcn;
 };
-
 
 /** The struct of transaction undo for UBA */
 struct txn_undo_ptr_t {

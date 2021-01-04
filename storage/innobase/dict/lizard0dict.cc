@@ -119,6 +119,7 @@ dberr_t dd_index_init_txn_desc(dict_index_t *index, trx_t *trx) {
 
       index->txn.uba = trx->txn_desc.undo_ptr;
       index->txn.scn = trx->txn_desc.cmmt.scn;
+      index->txn.gcn = trx->txn_desc.cmmt.gcn;
     }
   }
 
@@ -133,10 +134,11 @@ dberr_t dd_index_init_txn_desc(dict_index_t *index, trx_t *trx) {
   @return         true if visible
 */
 bool dd_index_modificatsion_visible(dict_index_t *index, const trx_t *trx,
-                                    bool is_as_of, scn_t as_of_scn) {
+                                    bool is_as_of, scn_t as_of_scn,
+                                    gcn_t as_of_gcn) {
   txn_rec_t rec_txn;
   scn_t scn = index->txn.scn.load();
-  scn_t gcn = index->txn.gcn.load();
+  gcn_t gcn = index->txn.gcn.load();
   ut_ad(trx);
 
   rec_txn = {
@@ -150,11 +152,21 @@ bool dd_index_modificatsion_visible(dict_index_t *index, const trx_t *trx,
     lizard::txn_rec_real_state_by_misc(&rec_txn);
     /** It might be stored many times but they should be the same value */
     index->txn.scn.store(rec_txn.scn);
+    index->txn.gcn.store(rec_txn.gcn);
   }
 
   if (is_as_of) {
-    return (rec_txn.scn != SCN_NULL && as_of_scn != SCN_NULL &&
-            rec_txn.scn <= as_of_scn);
+    ut_ad(as_of_scn != SCN_NULL || as_of_gcn != GCN_NULL);
+
+    if (as_of_scn != SCN_NULL) {
+      ut_ad(as_of_gcn == GCN_NULL);
+      return (rec_txn.scn != SCN_NULL && as_of_scn != SCN_NULL &&
+              rec_txn.scn <= as_of_scn);
+    } else {
+      ut_ad(as_of_scn == SCN_NULL);
+      return (rec_txn.gcn != GCN_NULL && as_of_gcn != GCN_NULL &&
+              rec_txn.gcn <= as_of_gcn);
+    }
   } else {
     ut_ad(trx->vision.is_active());
     /**
@@ -177,13 +189,20 @@ bool dd_index_modificatsion_visible(dict_index_t *index, const trx_t *trx,
 bool dd_index_fill_txn_desc(dict_index_t *index, const dd::Properties &p) {
   undo_ptr_t uba = 0;
   scn_t scn = SCN_NULL;
+  gcn_t gcn = GCN_NULL;
 
   if (p.get(dd_index_key_strings[DD_INDEX_UBA], &uba) ||
       p.get(dd_index_key_strings[DD_INDEX_SCN], &scn))
     return true;
 
+  /** GCN didn't add into properties first time, so judge it firstly. */
+  if (p.exists(dd_index_key_strings[DD_INDEX_GCN])) {
+    p.get(dd_index_key_strings[DD_INDEX_GCN], &gcn);
+  }
+
   index->txn.uba = uba;
   index->txn.scn = scn;
+  index->txn.gcn = gcn;
   return false;
 }
 

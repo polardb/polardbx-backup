@@ -1314,13 +1314,11 @@ dberr_t row_vers_build_for_consistent_read(
     /* If purge can't see the record then we can't rely on
     the UNDO log record. */
 
-    bool purge_sees =
-        trx_undo_prev_version_build(rec, mtr, version, index, *offsets, heap,
-                                    &prev_version, nullptr, vrow, 0,
-                                    lob_undo,
-                                    vision->is_as_of());
+    bool purge_sees = trx_undo_prev_version_build(
+        rec, mtr, version, index, *offsets, heap, &prev_version, NULL, vrow, 0,
+        lob_undo, vision->is_asof());
 
-    if (vision->is_as_of()) {
+    if (vision->is_asof()) {
       err = (purge_sees) ? DB_SUCCESS : DB_SNAPSHOT_TOO_OLD;
     } else {
       err = (purge_sees) ? DB_SUCCESS : DB_MISSING_HISTORY;

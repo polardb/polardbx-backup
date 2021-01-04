@@ -406,6 +406,8 @@ struct System_variables {
     @sa Sys_var_require_row_format
   */
   bool require_row_format;
+
+  ulonglong global_query_wait_timeout;
 };
 
 /**

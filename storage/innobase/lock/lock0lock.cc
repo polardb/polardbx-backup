@@ -266,6 +266,10 @@ bool lock_clust_rec_cons_read_sees(
     return (true);
   }
 
+  /* All gcn query visible or not,
+     pls use lizard::gp_clust_rec_cons_read_sees */
+  ut_a(!vision->is_asof_gcn());
+
   /* NOTE that we call this function while holding the search
   system latch. */
 

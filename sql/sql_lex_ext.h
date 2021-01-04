@@ -40,7 +40,9 @@ struct Table_snapshot {
   Item *scn;
 
   bool is_set() const { return (ts || scn); }
-  bool valid() const { return !(ts && scn); }
+  bool valid() const {
+    return ((ts == nullptr ? 0 : 1) + (scn == nullptr ? 0 : 1)  <= 1);
+  }
 
   bool itemize(Parse_context *pc, TABLE_LIST *owner);
   bool fix_fields(THD *thd);
@@ -48,6 +50,8 @@ struct Table_snapshot {
 
   static bool evaluate_timestamp(Item *ts, uint64_t *ts_out);
   static bool evaluate_scn(Item *scn, uint64_t *scn_out);
+
+  static bool evaluate_gcn(Item *gcn, uint64_t *gcn_out);
 };
 
 struct Table_snapshot_and_alias {
