@@ -499,6 +499,8 @@ struct System_variables {
     @sa Sys_explain_format
    */
   Explain_format_type explain_format;
+
+  ulonglong global_query_wait_timeout;
 };
 
 /**

@@ -7687,3 +7687,11 @@ static Sys_var_enum Sys_explain_format(
     SESSION_VAR(explain_format), CMD_LINE(OPT_ARG), explain_format_names,
     DEFAULT(static_cast<ulong>(Explain_format_type::TRADITIONAL)),
     NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(nullptr), ON_UPDATE(nullptr));
+
+static Sys_var_ulong Sys_global_query_wait_timeout(
+    "global_query_wait_timeout",
+    "Timeout in seconds to wait for XA prepared  before returning an error.",
+    HINT_UPDATEABLE SESSION_VAR(global_query_wait_timeout),
+    CMD_LINE(REQUIRED_ARG), VALID_RANGE(1, LONG_TIMEOUT), DEFAULT(LONG_TIMEOUT),
+    BLOCK_SIZE(1));
+
