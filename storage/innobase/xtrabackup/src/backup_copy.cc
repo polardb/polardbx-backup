@@ -82,6 +82,9 @@ Place, Suite 330, Boston, MA 02111-1307 USA
 #include <version_check_pl.h>
 #endif
 
+#include "lizard0fsp.h"
+#include "lizard0fspspace.h"
+#include "lizard0dict.h"
 
 /** Possible values for system variable "innodb_checksum_algorithm". */
 extern const char *innodb_checksum_algorithm_names[];
@@ -1982,6 +1985,15 @@ bool should_skip_file_on_copy_back(const char *filepath) {
     }
   }
 
+  /* skip lizard.ibd */
+  for (auto iter(lizard::srv_lizard_space.files_begin()),
+            end(lizard::srv_lizard_space.files_end());
+       iter != end; ++iter) {
+    if (strcmp(iter->name(), filename) == 0) {
+      return true;
+    }
+  }
+
   /* skip rocksdb files (we'll copy them to later to the rocksdb_datadir) */
   if (strstr(filepath, FN_DIRSEP ROCKSDB_SUBDIR FN_DIRSEP) != nullptr) {
     return true;
@@ -2190,6 +2202,15 @@ bool copy_back(int argc, char **argv) {
     return (false);
   }
 
+  /* parse lizard data file path */
+  lizard::srv_lizard_space.set_space_id(lizard::dict_lizard::s_lizard_space_id);
+  lizard::srv_lizard_space.set_name(lizard::dict_lizard::s_lizard_space_name);
+  lizard::srv_lizard_space.set_path(".");
+  if (!lizard::srv_lizard_space.interpret_file()) {
+    xb::error() << "Lizard: Unable to interpret lizard tablespace configure\n";
+    return (false);
+  }
+
   /* temporally dummy value to avoid crash */
   srv_page_size_shift = 14;
   srv_page_size = (1 << srv_page_size_shift);
@@ -2262,6 +2283,27 @@ bool copy_back(int argc, char **argv) {
     }
   }
 
+  ds_destroy(ds_data);
+  ds_data = NULL;
+
+  /* copy lizard tablespace(s) */
+  dst_dir = (innobase_data_home_dir && *innobase_data_home_dir)
+                ? innobase_data_home_dir
+                : mysql_data_home;
+
+  ds_data = ds_create(dst_dir, DS_TYPE_LOCAL);
+
+  for (auto iter(lizard::srv_lizard_space.files_begin()),
+            end(lizard::srv_lizard_space.files_end());
+       iter != end; ++iter) {
+    const char *filename = base_name(iter->name());
+
+    if (!(ret = copy_or_move_file(filename, iter->name(), dst_dir, 1,
+                                  FILE_PURPOSE_DATAFILE))) {
+      goto cleanup;
+    }
+  }
+  
   ds_destroy(ds_data);
   ds_data = NULL;
 

@@ -32,7 +32,8 @@ function setup_test {
 }
 
 function ls_dir {
-	( cd $1 ; find . -name '*.ibd' -type f | sort -d )
+# Lizard: exclude lizard.ibd
+	( cd $1 ; find . -name '*.ibd' -type f | grep -v 'lizard.ibd' | sort -d )
 }
 
 function expect_dir_contents {

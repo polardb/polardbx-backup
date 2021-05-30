@@ -2,6 +2,7 @@
 # 1. restore backup of 8.0.22
 # 2. check data
 # 3. do increment and see if restore works fine
+skip_test "lizard does not support this case"
 
 MYSQLD_EXTRA_MY_CNF_OPTS="
 lower_case_table_names

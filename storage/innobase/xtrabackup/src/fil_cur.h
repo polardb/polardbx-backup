@@ -45,6 +45,8 @@ struct xb_fil_cur_t {
                                page_size */
   bool is_system;              /*!< true for system tablespace, false
                                otherwise */
+  bool is_lizard;              /*!< TRUE for lizard tablespace, FALSE
+                               otherwise */
   bool is_ibd;                 /*!< true for IBD tablespace tablespace,
                                false otherwise */
   bool is_encrypted; /*!< true for encrypted tables. Used to determine with we
@@ -119,6 +121,9 @@ specified possibly absolute path.
 
 For user tablespaces both "./database/table.ibd" and
 "/remote/dir/database/table.ibd" result in "database/table.ibd".
+
+For lizard tablepsaces (i.e. When is_lizard is TRUE) both "/remote/dir/lizard.ibd"
+and "./lizard.ibd" yield "lizard.ibd" in the output.
 
 For system tablepsaces (i.e. When is_system is true) both "/remote/dir/ibdata1"
 and "./ibdata1" yield "ibdata1" in the output. */

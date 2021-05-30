@@ -12085,6 +12085,22 @@ ER_IB_INDEX_BUILDER_DONE
 # End of 8.0 error messages intended to be written to the server error log.
 #
 
+
+################################################################################
+#
+# Start of RDS error messages intended to be logged to the server error log.
+# 25000 - 29999
+################################################################################
+
+start-error-number 25000
+
+ER_LIZARD
+  eng "%s"
+
+#
+# End of RDS error messages intended to be logged to the server error log.
+#
+
 #
 # Start of Percona Server 8.0 server error log messages
 #
@@ -12098,10 +12114,10 @@ ER_KEYRING_COMPONENT_CONFIG_PARSE_FAILED
 
 ER_KEYRING_COMPONENT_KMS_ERROR
   eng "KMS communication error: %s"
-
 #
 # End of Percona Server 8.0 server error log messages
 #
+
 ################################################################################
 # Error numbers 50000 to 51999 are reserved. Please do not use them for
 # other error messages.

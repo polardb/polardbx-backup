@@ -50,6 +50,8 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #endif /* UNIV_HOTBACKUP */
 #include "xb0xb.h"
 
+#include "lizard0dict.h"
+
 /** Initialize the name and flags of this datafile.
 @param[in]      name    tablespace name, will be copied
 @param[in]      flags   tablespace flags */
@@ -550,7 +552,10 @@ dberr_t Datafile::validate_first_page(space_id_t space_id, lsn_t *flush_lsn,
     }
   }
 
-  if (error_txt == nullptr && m_space_id == TRX_SYS_SPACE && !m_flags) {
+  if (error_txt == nullptr &&
+      (m_space_id == TRX_SYS_SPACE ||
+       m_space_id == lizard::dict_lizard::s_lizard_space_id) &&
+      !m_flags) {
     /* Check if the whole page is blank. */
 
     const byte *b = m_first_page;

@@ -69,7 +69,11 @@ then
 fi
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 build_type="release"
+=======
+build_type="debug"
+>>>>>>> fc3d426ee289... [Feature] polarx_lizard_1_tablespace
 dest_dir=$HOME/tmp_run
 server_suffix="galaxy-dev"
 san_type=""

@@ -3,6 +3,7 @@
 # PXB-2101 --prepare crash if exchange partition happened
 ############################################################################
 require_server_version_higher_than 8.0.22
+skip_test "lizard does not support this case"
 
 MYSQLD_EXTRA_MY_CNF_OPTS="
 lower_case_table_names

@@ -3,7 +3,7 @@
 # ie schema of DD tables will be dd_upgrade_8030
 # prepare should succeed
 require_server_version_higher_than 8.0.29
-
+skip_test "lizard does not support this case"
 start_server
 stop_server
 

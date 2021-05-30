@@ -124,6 +124,9 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include "usr0sess.h"
 #include "ut0crc32.h"
 #include "ut0new.h"
+
+#include "lizard0sys.h"
+#include "lizard0fsp.h"
 #include "xb0xb.h"
 
 /** fil_space_t::flags for hard-coded tablespaces */
@@ -1834,6 +1837,8 @@ dberr_t srv_start(bool create_new_db IF_XB(, lsn_t to_lsn)) {
   trx_sys_create();
   lock_sys_create(srv_lock_table_size);
 
+  lizard::lizard_sys_create();
+
   /* Create i/o-handler threads: */
 
   /* For read only mode, we don't need ibuf and log I/O thread.
@@ -1922,6 +1927,15 @@ dberr_t srv_start(bool create_new_db IF_XB(, lsn_t to_lsn)) {
 
   mtr_t::s_logging.init();
 
+  /** Liard: open or create lizard.ibd file */
+  page_no_t sum_of_lizard_sizes;
+  err = lizard::srv_lizard_space.open_or_create(create_new_db,
+                                                &sum_of_lizard_sizes);
+
+  if (err != DB_SUCCESS) {
+    srv_init_abort(err);
+  }
+
   if (dblwr::is_enabled() && ((err = dblwr::open()) != DB_SUCCESS)) {
     return srv_init_abort(err);
   }
@@ -1971,6 +1985,13 @@ dberr_t srv_start(bool create_new_db IF_XB(, lsn_t to_lsn)) {
     if (!ret) {
       return (srv_init_abort(DB_ERROR));
     }
+
+    /** Lizard: create lizard segment and init scn */
+    if (!lizard::fsp_header_init_for_lizard(sum_of_lizard_sizes))
+      return (srv_init_abort(DB_ERROR));
+
+    lizard::lizard_create_sys_pages();
+    lizard::lizard_sys_init();
 
     /* To maintain backward compatibility we create only
     the first rollback segment before the double write buffer.
@@ -2398,6 +2419,8 @@ dberr_t srv_start(bool create_new_db IF_XB(, lsn_t to_lsn)) {
       return (srv_init_abort(err));
     }
 
+    lizard::lizard_sys_init();
+
     trx_purge_sys_mem_create();
 
     /* The purge system needs to create the purge view and
@@ -2527,6 +2550,18 @@ dberr_t srv_start(bool create_new_db IF_XB(, lsn_t to_lsn)) {
 
   /* wake main loop of page cleaner up */
   os_event_set(buf_flush_event);
+
+  /** Lizard: check the tbs size */
+  {
+    page_no_t lzd_hdr_size = lizard::fsp_header_get_lizard_tablespace_size();
+    page_no_t lzd_file_size = lizard::srv_lizard_space.get_sum_of_sizes();
+    if (lzd_hdr_size != lzd_file_size) {
+      ib::error(ER_LIZARD)
+          << "Size of lizard tablespace from header " << lzd_hdr_size
+          << " is not equal with size of files " << lzd_file_size;
+      return srv_init_abort(DB_ERROR);
+    }
+  }
 
   /* Finish clone files recovery. This call is idempotent and is no op
   if it is already done before creating new log files. */
@@ -3275,6 +3310,7 @@ void srv_shutdown() {
   lock_sys_close();
   trx_pool_close();
 
+  lizard::lizard_sys_close();
   dict_close();
   dict_persist_close();
   btr_search_sys_free();

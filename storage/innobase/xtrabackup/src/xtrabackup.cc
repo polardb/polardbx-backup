@@ -123,6 +123,11 @@ Place, Suite 330, Boston, MA 02111-1307 USA
 #include "xtrabackup.h"
 #include "xtrabackup_config.h"
 
+#include "lizard0sys.h"
+#include "lizard0fsp.h"
+#include "lizard0dict.h"
+#include "lizard0scn.h"
+
 /* TODO: replace with appropriate macros used in InnoDB 5.6 */
 #define PAGE_ZIP_MIN_SIZE_SHIFT 10
 #define DICT_TF_ZSSIZE_SHIFT 1
@@ -2089,6 +2094,20 @@ static bool innodb_init_param(void) {
     goto error;
   }
 
+  /**
+    Lizard:
+    Init the hardcode lizard tablespace configure(name, patch, flags, space id
+  */
+  lizard::srv_lizard_space.set_space_id(lizard::dict_lizard::s_lizard_space_id);
+  lizard::srv_lizard_space.set_flags(fsp_flags);
+  lizard::srv_lizard_space.set_name(lizard::dict_lizard::s_lizard_space_name);
+  lizard::srv_lizard_space.set_path(srv_data_home);
+
+  if (!lizard::srv_lizard_space.interpret_file()) {
+    xb::error() << "Lizard: Unable to interpret lizard tablespace configure";
+    goto error;
+  }
+
   /* Set default InnoDB temp data file size to 12 MB and let it be
   auto-extending. */
 
@@ -2115,6 +2134,12 @@ static bool innodb_init_param(void) {
   if (srv_sys_space.intersection(&srv_tmp_space)) {
     xb::error() << srv_tmp_space.name() << " and " << srv_sys_space.name()
                 << " file names seem to be the same";
+    goto error;
+  }
+
+  if (lizard::srv_lizard_space.intersection(&srv_sys_space) ||
+      lizard::srv_lizard_space.intersection(&srv_tmp_space)) {
+    xb::error() << "Lizard tablespace has the same name with sys_space or tmp_space";
     goto error;
   }
 
@@ -2649,6 +2674,9 @@ static bool innodb_init(bool init_dd, bool for_apply_log) {
 
   /* Check if the data files exist or not. */
   dberr_t err = srv_sys_space.check_file_spec(false, 5 * 1024 * 1024 /* 5M */);
+
+  err = lizard::srv_lizard_space.check_file_spec(false,
+                                                 5 * 1024 * 1024 /* 5M */);
 
   if (err != DB_SUCCESS) {
     return (false);
@@ -3294,6 +3322,8 @@ static bool xtrabackup_copy_datafile(fil_node_t *node, uint thread_n) {
 
   bool is_system = !fsp_is_ibd_tablespace(node->space->id);
 
+  ut_ad(!lizard::fsp_is_lizard_tablespace(node->space->id) || is_system);
+
   if (!is_system && check_if_skip_table(node_name)) {
     xb::info() << " Skipping " << node_name;
     return (false);
@@ -3686,6 +3716,8 @@ static dberr_t xb_load_tablespaces(void)
 
   err = srv_sys_space.check_file_spec(false, 0);
 
+  err = lizard::srv_lizard_space.check_file_spec(false, 0);
+
   if (err != DB_SUCCESS) {
     xb::error() << "could not find data files at the specified datadir";
     return (DB_ERROR);
@@ -3709,6 +3741,27 @@ static dberr_t xb_load_tablespaces(void)
     xb::error() << "remove old data files which contain your "
                    "precious data!";
     return (err);
+  }
+
+  err =
+      lizard::srv_lizard_space.open_or_create(false, &sum_of_new_sizes);
+
+  if (err != DB_SUCCESS) {
+    xb::error() << "===Lizard begin===\n"
+        "xtrabackup: Could not open or create data files.\n"
+        "xtrabackup: If you tried to add new data files, and it "
+        "failed here,\n"
+        "xtrabackup: you should now edit innodb_data_file_path in "
+        "my.cnf back\n"
+        "xtrabackup: to what it was, and remove the new ibdata "
+        "files InnoDB created\n"
+        "xtrabackup: in this failed attempt. InnoDB only wrote "
+        "those files full of\n"
+        "xtrabackup: zeros, but did not yet use them in any way. "
+        "But be careful: do not\n"
+        "xtrabackup: remove old data files which contain your "
+        "precious data!\n"
+        "===Lizard end===\n";
   }
 
   xb::info() << "Generating a list of tablespaces";
@@ -5393,6 +5446,7 @@ static bool xb_space_create_file(
   IORequest write_request(IORequest::WRITE);
 
   ut_ad(!fsp_is_system_or_temp_tablespace(space_id));
+  ut_ad(!lizard::fsp_is_lizard_tablespace(space_id));
   ut_ad(!srv_read_only_mode);
   ut_a(space_id < dict_sys_t::s_log_space_id);
   ut_a(fsp_flags_is_valid(flags));
@@ -7029,6 +7083,7 @@ static bool xb_export_cfg_write(
 
 static void innodb_free_param() {
   srv_sys_space.shutdown();
+  lizard::srv_lizard_space.shutdown();
   srv_tmp_space.shutdown();
   free(internal_innobase_data_file_path);
   internal_innobase_data_file_path = NULL;

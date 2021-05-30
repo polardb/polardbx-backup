@@ -88,6 +88,8 @@ const char *xb_get_relative_path(
       space != nullptr ? FSP_FLAGS_GET_SHARED(space->flags) : false;
   bool is_system =
       space != nullptr ? fsp_is_system_or_temp_tablespace(space->id) : false;
+  bool is_lizard =
+      space != nullptr ? lizard::fsp_is_lizard_tablespace(space->id) : false;
   bool is_undo = space != nullptr ? fsp_is_undo_tablespace(space->id) : false;
 
   prev = NULL;
@@ -98,7 +100,7 @@ const char *xb_get_relative_path(
     cur = next + 1;
   }
 
-  if (is_system) {
+  if (is_system || is_lizard) {
     return (cur);
   } else {
     return ((prev == NULL || is_shared || is_undo) ? cur : prev);
@@ -128,6 +130,7 @@ xb_fil_cur_result_t xb_fil_cur_open(
   cursor->space_id = node->space->id;
   cursor->space_flags = node->space->flags;
   cursor->is_system = fsp_is_system_or_temp_tablespace(node->space->id);
+  cursor->is_lizard = lizard::fsp_is_lizard_tablespace(node->space->id);
   cursor->is_ibd = fsp_is_ibd_tablespace(node->space->id);
 
   strncpy(cursor->abs_path, node->name, sizeof(cursor->abs_path));
@@ -143,7 +146,7 @@ xb_fil_cur_result_t xb_fil_cur_open(
   by fil_load_single_table_tablespace() unless it is a system
   tablespace or srv_close_files is true. Otherwise we open the file here.
   srv_close_files has an effect only on IBD tablespaces. */
-  if (cursor->is_system || !srv_backup_mode ||
+  if ((cursor->is_system || cursor->is_lizard) || !srv_backup_mode ||
       (srv_close_files && cursor->is_ibd)) {
     if (!fil_node_open_file(node)) {
       /* The following call prints an error message */
@@ -360,7 +363,7 @@ read_retry:
 
       ulint page_no = cursor->buf_page_no + i;
 
-      if (cursor->is_system && page_no >= FSP_EXTENT_SIZE &&
+      if ((cursor->is_system || cursor->is_lizard) && page_no >= FSP_EXTENT_SIZE &&
           page_no < FSP_EXTENT_SIZE * 3) {
         /* skip doublewrite buffer pages */
         xb_a(cursor->page_size == UNIV_PAGE_SIZE);
