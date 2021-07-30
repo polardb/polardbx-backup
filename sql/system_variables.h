@@ -500,6 +500,10 @@ struct System_variables {
    */
   Explain_format_type explain_format;
 
+  char *client_endpoint_ip;
+
+  bool sequence_read_skip_cache;
+
   ulonglong global_query_wait_timeout;
 
   /** Gcn to read a snapshot by asof select. */

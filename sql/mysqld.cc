@@ -884,6 +884,7 @@ MySQL clients support the protocol:
 #include "my_openssl_fips.h"  // OPENSSL_ERROR_LENGTH, set_fips_mode
 
 #include "sql/package/package_interface.h"
+#include "sql/sequence_common.h"
 
 #ifdef WITH_PERFSCHEMA_STORAGE_ENGINE
 #include "storage/perfschema/pfs_server.h"
@@ -2694,6 +2695,13 @@ static void clean_up(bool print_message) {
   persisted_variables_cache.cleanup();
 
   udf_deinit_globals();
+
+  /*
+    Cleanup for user defined functions with the same names as sequence
+    engine
+  */
+  user_seq_sp_exit();
+
   /*
     The following lines may never be executed as the main thread may have
     killed us
@@ -8138,6 +8146,9 @@ int mysqld_main(int argc, char **argv)
     flush_error_log_messages();
     return 1;
   }
+
+  /* Init user defined sequence function status. */
+  if (user_seq_sp_init()) unireg_abort(MYSQLD_ABORT_EXIT);
 
   /*
     Invoke the bootstrap thread, if required.

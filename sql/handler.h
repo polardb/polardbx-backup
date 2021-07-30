@@ -89,6 +89,8 @@ class handler;
 class partition_info;
 struct System_status_var;
 
+class Sequence_info;
+
 namespace dd {
 class Properties;
 }  // namespace dd
@@ -672,6 +674,7 @@ enum legacy_db_type {
   DB_TYPE_PERFORMANCE_SCHEMA,
   DB_TYPE_TEMPTABLE,
   DB_TYPE_FIRST_DYNAMIC = 42,
+  DB_TYPE_SEQUENCE_DB,
   DB_TYPE_DEFAULT = 127  // Must be last
 };
 
@@ -3090,6 +3093,9 @@ struct HA_CREATE_INFO {
 
   void init_create_options_from_share(const TABLE_SHARE *share,
                                       uint64_t used_fields);
+
+  /* Sequence lex info when CREATE SQUENCE */
+  Sequence_info *sequence_info{nullptr};
 };
 
 /**
@@ -6936,6 +6942,8 @@ class handler {
   void unlock_shared_ha_data();
 
   friend class DsMrr_impl;
+  
+  virtual int ha_flush_cache(TABLE *) { return HA_ERR_WRONG_COMMAND; }
 };
 
 /* Temporary Table handle for opening uncached table */
