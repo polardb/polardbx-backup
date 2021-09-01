@@ -307,8 +307,9 @@ replicate-ignore-db=performance_schema
 replicate-ignore-db=sys
 innodb_log_file_size=48M
 ${MYSQLD_EXTRA_MY_CNF_OPTS:-}
-${OPEN_XENGINE:-xengine=0}
+${OPEN_XENGINE:-loose_xengine=0}
 ${OPEN_XENGINE_EXTRA:-}
+loose_cluster_info=127.0.0.1:`expr $MYSQLD_PORT + 10000`@1
 #core-file
 
 [client]
@@ -932,7 +933,7 @@ function require_xengine()
   if ! test -a $(dirname ${MYSQLD})/sst_dump ; then
     skip_test "Requires Xengine"
   else
-    OPEN_XENGINE="xengine=1"
+    OPEN_XENGINE="loose_xengine=1"
     OPEN_XENGINE_EXTRA="recovery_inconsistency_check=off"
   fi
 }
