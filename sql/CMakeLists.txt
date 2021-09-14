@@ -636,7 +636,8 @@ SET(SQL_SHARED_SOURCES
   xa/transaction_cache.cc
   xa/xid_extract.cc
   daemon_proxy_keyring/daemon_proxy_keyring.cc
-  )
+  xa_handler.cc
+)
 
 IF(BUILD_IS_SINGLE_CONFIG)
   GET_PROPERTY(CWD_DEFINITIONS DIRECTORY PROPERTY COMPILE_DEFINITIONS)
