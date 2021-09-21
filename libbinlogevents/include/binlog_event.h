@@ -351,6 +351,18 @@ enum Log_event_type {
     Add new events here - right above this comment!
     Existing events (except ENUM_END_EVENT) should never change their numbers
   */
+  CONSENSUS_LOG_EVENT = 101,
+
+  PREVIOUS_CONSENSUS_INDEX_LOG_EVENT = 102,
+
+  CONSENSUS_CLUSTER_INFO_EVENT = 103,
+
+  CONSENSUS_EMPTY_EVENT = 104,
+
+  /**
+    Add new events here - right above this comment!
+    Existing events (except ENUM_END_EVENT) should never change their numbers
+  */
   ENUM_END_EVENT /* end marker */
 };
 

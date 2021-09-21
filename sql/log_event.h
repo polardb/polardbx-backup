@@ -4442,4 +4442,6 @@ std::pair<bool, binary_log::Log_event_basic_info> extract_log_event_basic_info(
   @} (end of group Replication)
 */
 
+#include "sql/consensus_log_event.h"
+
 #endif /* _log_event_h */

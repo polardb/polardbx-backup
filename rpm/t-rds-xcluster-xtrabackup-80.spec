@@ -13,6 +13,7 @@ BuildRequires: zlib-devel, libev-devel, libcurl-devel
 BuildRequires: devtoolset-7-gcc
 BuildRequires: devtoolset-7-gcc-c++
 BuildRequires: devtoolset-7-binutils
+BuildRequires: bison
 
 %if "%{?dist}" == ".alios7" || "%{?dist}" == ".el7"
 %define os_version 7
@@ -46,7 +47,7 @@ export CC CXX CFLAGS CXXFLAGS
 
 cmake -DBUILD_CONFIG=xtrabackup_release -DCMAKE_BUILD_TYPE="RelWithDebInfo" \
       -DCMAKE_INSTALL_PREFIX=%{prefix} -DBUILD_MAN_OS=%{os_version}  \
-      -DINSTALL_MANDIR=%{_mandir} -DWITH_BOOST="extra/boost/boost_1_70_0.tar.gz" \
+      -DINSTALL_MANDIR=%{_mandir} -DWITH_BOOST="extra/boost/boost_1_72_0.tar.gz" \
       -DINSTALL_PLUGINDIR="lib/plugin" \
       -DFORCE_INSOURCE_BUILD=1 .
 
@@ -70,7 +71,7 @@ rm -rf $RPM_BUILD_ROOT
 %{prefix}/bin/xbcloud_osenv
 %{prefix}/lib/plugin/keyring_file.so
 %{prefix}/lib/plugin/keyring_rds.so
-# %{prefix}/bin/mysqlbinlogtailor
+%{prefix}/bin/mysqlbinlogtailor
 # %if "%{os_version}" == "5" || "%{os_version}" == "6"
 # %doc COPYING
 # %endif

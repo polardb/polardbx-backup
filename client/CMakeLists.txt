@@ -20,6 +20,9 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA
 
+REMOVE_DEFINITIONS(-DMYSQL_SERVER)
+REMOVE_DEFINITIONS(-DXTRABACKUP)
+
 ADD_WSHADOW_WARNING()
 
 # We are not interesting in profiling clients.
@@ -27,67 +30,67 @@ DISABLE_MISSING_PROFILE_WARNING()
 
 ## Subdirectory with common client code.
 ADD_SUBDIRECTORY(base)
-## Subdirectory for mysqlpump code.
-ADD_SUBDIRECTORY(dump)
+### Subdirectory for mysqlpump code.
+#ADD_SUBDIRECTORY(dump)
+#
+#MYSQL_ADD_EXECUTABLE(mysql
+#  ${CMAKE_SOURCE_DIR}/sql-common/net_ns.cc
+#  completion_hash.cc
+#  mysql.cc
+#  pattern_matcher.cc
+#  readline.cc
+#  LINK_LIBRARIES mysqlclient client_base ${EDITLINE_LIBRARY}
+#  )
+#
+#IF(NOT WITHOUT_SERVER)
+#  MYSQL_ADD_EXECUTABLE(mysql_upgrade
+#    upgrade/program.cc
+#    LINK_LIBRARIES mysqlclient client_base
+#    )
+#ENDIF()
+#
+## Enable inlining, to avoid stack overflow for some long regular expressions.
+#IF(SOLARIS_SPARC AND CMAKE_BUILD_TYPE_UPPER STREQUAL "DEBUG")
+#  ADD_COMPILE_FLAGS(mysqltest/regular_expressions.cc
+#    COMPILE_FLAGS "-xO3"
+#    )
+#ENDIF()
+#
+#MYSQL_ADD_EXECUTABLE(mysqltest
+#  mysqltest.cc
+#  mysqltest/error_names.cc
+#  mysqltest/expected_errors.cc
+#  mysqltest/expected_warnings.cc
+#  mysqltest/logfile.cc
+#  mysqltest/regular_expressions.cc
+#  mysqltest/secondary_engine.cc
+#  mysqltest/utils.cc
+#
+#  COMPONENT Test
+#  DEPENDENCIES GenError GenClientError
+#  ENABLE_EXPORTS
+#  LINK_LIBRARIES mysqlclient
+#  )
+#MYSQL_ADD_EXECUTABLE(mysqlcheck
+#  check/mysqlcheck.cc
+#  check/mysqlcheck_core.cc
+#  LINK_LIBRARIES mysqlclient
+#  )
+#MYSQL_ADD_EXECUTABLE(mysqldump
+#  mysqldump.cc
+#  LINK_LIBRARIES mysqlclient
+#  )
+#MYSQL_ADD_EXECUTABLE(mysqlimport
+#  mysqlimport.cc
+#  LINK_LIBRARIES mysqlclient
+#  )
+#MYSQL_ADD_EXECUTABLE(mysqlshow
+#  mysqlshow.cc
+#  LINK_LIBRARIES mysqlclient
+#  )
 
-MYSQL_ADD_EXECUTABLE(mysql
-  ${CMAKE_SOURCE_DIR}/sql-common/net_ns.cc
-  completion_hash.cc
-  mysql.cc
-  pattern_matcher.cc
-  readline.cc
-  LINK_LIBRARIES mysqlclient client_base ${EDITLINE_LIBRARY}
-  )
-
-IF(NOT WITHOUT_SERVER)
-  MYSQL_ADD_EXECUTABLE(mysql_upgrade
-    upgrade/program.cc
-    LINK_LIBRARIES mysqlclient client_base
-    )
-ENDIF()
-
-# Enable inlining, to avoid stack overflow for some long regular expressions.
-IF(SOLARIS_SPARC AND MY_COMPILER_IS_SUNPRO AND
-    CMAKE_BUILD_TYPE_UPPER STREQUAL "DEBUG")
-  ADD_COMPILE_FLAGS(mysqltest/regular_expressions.cc
-    COMPILE_FLAGS "-xO3"
-    )
-ENDIF()
-
-MYSQL_ADD_EXECUTABLE(mysqltest
-  mysqltest.cc
-  mysqltest/error_names.cc
-  mysqltest/expected_errors.cc
-  mysqltest/expected_warnings.cc
-  mysqltest/logfile.cc
-  mysqltest/regular_expressions.cc
-  mysqltest/secondary_engine.cc
-  mysqltest/utils.cc
-
-  COMPONENT Test
-  DEPENDENCIES GenError GenClientError
-  ENABLE_EXPORTS
-  LINK_LIBRARIES mysqlclient
-  )
-MYSQL_ADD_EXECUTABLE(mysqlcheck
-  check/mysqlcheck.cc
-  check/mysqlcheck_core.cc
-  LINK_LIBRARIES mysqlclient
-  )
-MYSQL_ADD_EXECUTABLE(mysqldump
-  mysqldump.cc
-  LINK_LIBRARIES mysqlclient
-  )
-MYSQL_ADD_EXECUTABLE(mysqlimport
-  mysqlimport.cc
-  LINK_LIBRARIES mysqlclient
-  )
-MYSQL_ADD_EXECUTABLE(mysqlshow
-  mysqlshow.cc
-  LINK_LIBRARIES mysqlclient
-  )
-MYSQL_ADD_EXECUTABLE(mysqlbinlog
-  mysqlbinlog.cc
+MYSQL_ADD_EXECUTABLE(mysqlbinlogtailor
+  mysqlbinlogtailor.cc
   ${CMAKE_SOURCE_DIR}/sql/json_binary.cc
   ${CMAKE_SOURCE_DIR}/sql/json_dom.cc
   ${CMAKE_SOURCE_DIR}/sql/json_syntax_check.cc
@@ -109,33 +112,34 @@ MYSQL_ADD_EXECUTABLE(mysqlbinlog
   LINK_LIBRARIES mysqlclient client_base binlogevents_static
   )
 
-TARGET_COMPILE_DEFINITIONS(mysqlbinlog PRIVATE DISABLE_PSI_MUTEX)
-TARGET_INCLUDE_DIRECTORIES(mysqlbinlog PRIVATE ${CMAKE_SOURCE_DIR}/sql)
+TARGET_COMPILE_DEFINITIONS(mysqlbinlogtailor PRIVATE DISABLE_PSI_MUTEX)
+TARGET_INCLUDE_DIRECTORIES(mysqlbinlogtailor PRIVATE ${CMAKE_SOURCE_DIR}/sql)
 
-MYSQL_ADD_EXECUTABLE(mysqladmin
-  mysqladmin.cc
-  LINK_LIBRARIES mysqlclient
-  )
-MYSQL_ADD_EXECUTABLE(mysqlslap
-  mysqlslap.cc
-  LINK_LIBRARIES mysqlclient
-  )
-MYSQL_ADD_EXECUTABLE(mysql_config_editor
-  mysql_config_editor.cc
-  LINK_LIBRARIES mysqlclient
-  )
-MYSQL_ADD_EXECUTABLE(mysql_secure_installation
-  mysql_secure_installation.cc
-  LINK_LIBRARIES mysqlclient
-  )
-MYSQL_ADD_EXECUTABLE(mysql_ssl_rsa_setup
-  logger.cc
-  mysql_ssl_rsa_setup.cc
-  path.cc
-  LINK_LIBRARIES mysys
-  )
-
-# "WIN32" also covers 64 bit. "echo" is used in some files below "mysql-test/".
-IF(WIN32)
-  MYSQL_ADD_EXECUTABLE(echo echo.cc)
-ENDIF(WIN32)
+#
+#MYSQL_ADD_EXECUTABLE(mysqladmin
+#  mysqladmin.cc
+#  LINK_LIBRARIES mysqlclient
+#  )
+#MYSQL_ADD_EXECUTABLE(mysqlslap
+#  mysqlslap.cc
+#  LINK_LIBRARIES mysqlclient
+#  )
+#MYSQL_ADD_EXECUTABLE(mysql_config_editor
+#  mysql_config_editor.cc
+#  LINK_LIBRARIES mysqlclient
+#  )
+#MYSQL_ADD_EXECUTABLE(mysql_secure_installation
+#  mysql_secure_installation.cc
+#  LINK_LIBRARIES mysqlclient
+#  )
+#MYSQL_ADD_EXECUTABLE(mysql_ssl_rsa_setup
+#  logger.cc
+#  mysql_ssl_rsa_setup.cc
+#  path.cc
+#  LINK_LIBRARIES mysys
+#  )
+#
+## "WIN32" also covers 64 bit. "echo" is used in some files below "mysql-test/".
+#IF(WIN32)
+#  MYSQL_ADD_EXECUTABLE(echo echo.cc)
+#ENDIF(WIN32)

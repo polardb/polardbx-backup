@@ -38,6 +38,7 @@ SET(REPLICATION_SOURCES
   statement_events.cpp
   trx_boundary_parser.cpp
   uuid.cpp
+  control_consensus_events.cpp
   )
 
 # Configure for building static library

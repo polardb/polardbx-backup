@@ -77,6 +77,7 @@ class Basic_seekable_istream : public Basic_istream {
      The total length of the stream.
    */
   virtual my_off_t length() = 0;
+  virtual IO_CACHE *get_io_cache() = 0;
   virtual ~Basic_seekable_istream() {}
 };
 
@@ -119,6 +120,9 @@ class IO_CACHE_istream : public Basic_seekable_istream {
      Get the length of the file.
   */
   my_off_t length() override;
+
+  // for compatible
+  IO_CACHE *get_io_cache() { return &m_io_cache; }
 
  private:
   IO_CACHE m_io_cache;

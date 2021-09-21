@@ -68,7 +68,6 @@ void SCN::init() {
                              LIZARD_SCN_NUMBER_MAGIN);
 
   m_gcn = mach_read_from_8(lzd_hdr + LIZARD_SYS_GCN);
-  ut_a(m_gcn == GCN_INITIAL);
 
   lizard_sys->min_safe_scn = m_scn.load();
 
@@ -185,7 +184,6 @@ enum scn_state_t commit_scn_state(const commit_scn_t &cmmt) {
   if (cmmt.scn > 0 && cmmt.scn < SCN_MAX && cmmt.utc > 0 &&
       cmmt.utc < UTC_MAX && cmmt.gcn > 0 && cmmt.gcn < GCN_MAX) {
     /** TODO: Replace by real GCN in future */
-    ut_ad(cmmt.gcn <= GCN_INITIAL);
     return SCN_STATE_ALLOCATED;
   }
   return SCN_STATE_INVALID;

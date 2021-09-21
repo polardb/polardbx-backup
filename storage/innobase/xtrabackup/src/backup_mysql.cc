@@ -395,7 +395,7 @@ static bool check_server_version(unsigned long version_number,
   } else if ((pos = strstr(version_string, "X-Cluster")) != NULL) {
     msg("!!!detect X-Cluster!!!\n");
     server_flavor = FLAVOR_X_CLUSTER;
-    strncpy(xcluster_version, pos + 10, strchr(pos + 10, '-') - pos - 10);
+    strcpy(xcluster_version, pos + 10);
     msg("X-Cluster version is %s.\n", xcluster_version);
   }
 

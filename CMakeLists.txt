@@ -1486,6 +1486,7 @@ ADD_SUBDIRECTORY(mysys_ssl)
 ADD_SUBDIRECTORY(libmysql)
 ADD_SUBDIRECTORY(libbinlogevents)
 ADD_SUBDIRECTORY(libbinlogstandalone)
+ADD_SUBDIRECTORY(client)
 
 IF(NOT WITHOUT_SERVER)
   # Build failure on Solaris 11.3 for debug builds with NDBCLUSTER.
