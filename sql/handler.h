@@ -6943,7 +6943,7 @@ class handler {
 
   friend class DsMrr_impl;
   
-  virtual int ha_flush_cache(TABLE *) { return HA_ERR_WRONG_COMMAND; }
+  virtual int ha_flush_cache(TABLE *, void *) { return HA_ERR_WRONG_COMMAND; }
 };
 
 /* Temporary Table handle for opening uncached table */
