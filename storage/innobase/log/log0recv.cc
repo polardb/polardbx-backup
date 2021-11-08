@@ -3290,6 +3290,11 @@ bool meb_scan_log_recs(
   ut_ad(len >= OS_FILE_LOG_BLOCK_SIZE);
 
   do {
+    if (scanned_lsn >= to_lsn) {
+      finished = true;
+      break;
+    }
+
     ut_ad(!finished);
 
     ulint no = log_block_get_hdr_no(log_block);
@@ -3406,6 +3411,10 @@ bool meb_scan_log_recs(
       recv_track_changes_of_recovered_lsn();
     }
 
+    // adjust data_len if we are in last block, so it stops at exact to_lsn
+    if (scanned_lsn + data_len > to_lsn) {
+      data_len = to_lsn - scanned_lsn;
+    }
     scanned_lsn += data_len;
 
     if (scanned_lsn > recv_sys->scanned_lsn) {
@@ -3693,6 +3702,7 @@ static void recv_recovery_begin(log_t &log, lsn_t *contiguous_lsn,
   }
 
   DBUG_PRINT("ib_log", ("scan " LSN_PF " completed", log.scanned_lsn));
+  ut_ad(to_lsn == LSN_MAX || to_lsn == log.scanned_lsn);
 }
 
 /** Initialize crash recovery environment. Can be called iff
