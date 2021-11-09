@@ -222,6 +222,7 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include "lizard0mysql.h"
 #include "lizard0gp.h"
 #include "lizard0xa.h"
+#include "lizard0tcn.h"
 
 #ifndef UNIV_HOTBACKUP
 
@@ -23429,6 +23430,33 @@ static MYSQL_SYSVAR_ULONG(undo_space_reserved_size,
                           lizard::Undo_retention::on_update,
                           0, 0, UINT_MAX32, 0);
 
+static const char *innodb_tcn_cache_level_names[] = {"block",   /* BLOCK_LEVEL */
+                                               "session", /* SESSION LEVEL */
+                                               "global",  /* GLOBAL LEVEL */
+                                               NullS};
+
+static TYPELIB innodb_tcn_cache_level_typelib = {
+    array_elements(innodb_tcn_cache_level_names) - 1, "innodb_tcn_cache_level_typelib",
+    innodb_tcn_cache_level_names, NULL};
+
+static MYSQL_SYSVAR_ENUM(tcn_cache_level, lizard::innodb_tcn_cache_level,
+                         PLUGIN_VAR_OPCMDARG,
+                         "transaction commit number cache level.", NULL, NULL,
+                         BLOCK_LEVEL, &innodb_tcn_cache_level_typelib);
+
+static const char *innodb_tcn_block_cache_type_names[] = {"lru",    /* lru */
+                                                          "random", /* random */
+                                                          NullS};
+static TYPELIB innodb_tcn_block_cache_type_typelib = {
+    array_elements(innodb_tcn_block_cache_type_names) - 1,
+    "innodb_tcn_block_cache_type_typelib", innodb_tcn_block_cache_type_names,
+    NULL};
+
+static MYSQL_SYSVAR_ENUM(tcn_block_cache_type,
+                         lizard::innodb_tcn_block_cache_type,
+                         PLUGIN_VAR_OPCMDARG, "block cache type.", NULL, NULL,
+                         BLOCK_LRU, &innodb_tcn_block_cache_type_typelib);
+
 static SYS_VAR *innobase_system_variables[] = {
     MYSQL_SYSVAR(api_trx_level),
     MYSQL_SYSVAR(api_bk_commit_interval),
@@ -23665,6 +23693,8 @@ static SYS_VAR *innobase_system_variables[] = {
     MYSQL_SYSVAR(undo_space_reserved_size),
     MYSQL_SYSVAR(global_query_wait_timeout),
     MYSQL_SYSVAR(transaction_group),
+    MYSQL_SYSVAR(tcn_cache_level),
+    MYSQL_SYSVAR(tcn_block_cache_type),
     nullptr};
 
 mysql_declare_plugin(innobase){
