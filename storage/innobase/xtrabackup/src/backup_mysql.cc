@@ -1162,22 +1162,7 @@ bool lock_tables_ftwrl(MYSQL *connection) {
     xb_mysql_query(connection, "SET SESSION wsrep_causal_reads=0", false);
   }
 
-  if (server_flavor == FLAVOR_X_CLUSTER) {
-    // if slave_sql_running, stop mts
-    char *slave_sql_running = NULL;
-    mysql_variable status[] = { {"Slave_SQL_Running", &slave_sql_running}, {NULL, NULL} };
-    read_mysql_variables(connection, "SHOW SLAVE STATUS", status, false);
-    if (strcmp(slave_sql_running, "Yes") == 0) {
-      msg_ts("Disable MTS...\n");
-      xcluster_sql_thread_started = true;
-      xb_mysql_query(connection, "STOP SLAVE SQL_THREAD" , false, false);
-      xb_mysql_query(connection, "STOP XPAXOS_REPLICATION" , false, false);
-      xb_mysql_query(connection, "SET GLOBAL slave_parallel_workers = 0" , false, false);
-      xb_mysql_query(connection, "START SLAVE SQL_THREAD" , false, false);
-      xb_mysql_query(connection, "START XPAXOS_REPLICATION" , false, false);
-    }
-    free_mysql_variables(status);
-  }
+  disable_mts_for_polarx(connection);
 
   xb_mysql_query(connection, "FLUSH LOCAL TABLES WITH READ LOCK", false);
 
@@ -2656,5 +2641,28 @@ void check_dump_innodb_buffer_pool(MYSQL *connection) {
              "SET GLOBAL innodb_buffer_pool_dump_pct = %u",
              original_innodb_buffer_pool_dump_pct);
     xb_mysql_query(mysql_connection, change_bp_dump_pct_query, false);
+  }
+}
+
+void disable_mts_for_polarx(MYSQL *connection) {
+  if (xcluster_sql_thread_started) return;
+
+  if (server_flavor == FLAVOR_X_CLUSTER) {
+    // if slave_sql_running, stop mts
+    char *slave_sql_running = NULL;
+    mysql_variable status[] = {{"Slave_SQL_Running", &slave_sql_running},
+                               {NULL, NULL}};
+    read_mysql_variables(connection, "SHOW SLAVE STATUS", status, false);
+    if (strcmp(slave_sql_running, "Yes") == 0) {
+      msg_ts("Disable MTS...\n");
+      xcluster_sql_thread_started = true;
+      xb_mysql_query(connection, "STOP SLAVE SQL_THREAD", false, false);
+      xb_mysql_query(connection, "STOP XPAXOS_REPLICATION", false, false);
+      xb_mysql_query(connection, "SET GLOBAL slave_parallel_workers = 0", false,
+                     false);
+      xb_mysql_query(connection, "START SLAVE SQL_THREAD", false, false);
+      xb_mysql_query(connection, "START XPAXOS_REPLICATION", false, false);
+    }
+    free_mysql_variables(status);
   }
 }
