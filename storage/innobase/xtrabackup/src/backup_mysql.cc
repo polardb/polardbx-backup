@@ -1757,6 +1757,16 @@ static void log_status_replication_parse(const char *s,
     }
     log_status.channels.push_back(cs);
   }
+  
+  if (server_flavor == FLAVOR_X_CLUSTER) {
+      replication_channel_status_t cs;
+      cs.channel_name = "";
+      cs.relay_log_file = "";
+      cs.relay_log_position = 0;
+      cs.relay_master_log_file = "";
+      cs.exec_master_log_position = 0;
+      log_status.channels.push_back(cs);
+  }
 }
 
 /** Parse LSN information from JSON.
