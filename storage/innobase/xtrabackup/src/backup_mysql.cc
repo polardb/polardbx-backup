@@ -1436,7 +1436,8 @@ bool write_slave_info(MYSQL *connection) {
     channels[channel_name ? channel_name : ""] = info;
 
     ut_ad(!have_multi_threaded_slave || have_gtid_slave ||
-          strcasecmp(slave_sql_running, "No") == 0);
+          strcasecmp(slave_sql_running, "No") == 0 ||
+          server_flavor == FLAVOR_X_CLUSTER);
 
     free_mysql_variables(status);
   }

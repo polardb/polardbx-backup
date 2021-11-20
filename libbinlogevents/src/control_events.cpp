@@ -758,3 +758,5 @@ void Xid_event::print_long_info(std::ostream &info) {
 #endif  // end HAVE_MYSYS
 
 }  // end namespace binary_log
+
+#include "control_events_ext.cpp"

@@ -6400,6 +6400,13 @@ void XA_prepare_log_event::print(FILE *,
       head, one_phase ? "XA COMMIT %s ONE PHASE\n%s\n" : "XA PREPARE %s\n%s\n",
       buf, print_event_info->delimiter);
 }
+void XA_prepare_log_event::get_serialize_xid(char* buf)
+{
+  if (buf == NULL) return;
+
+  serialize_xid(buf, my_xid.formatID, my_xid.gtrid_length,
+      my_xid.bqual_length, my_xid.data);
+}
 #endif /* !MYSQL_SERVER */
 
 #if defined(MYSQL_SERVER)
@@ -14018,3 +14025,4 @@ std::pair<bool, binary_log::Log_event_basic_info> extract_log_event_basic_info(
 }
 
 #include "consensus_log_event.cc"
+#include "log_event_ext.cc"

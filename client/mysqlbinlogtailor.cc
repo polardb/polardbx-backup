@@ -69,6 +69,20 @@ static bool force_append_rotate_event= 0;
 static bool show_index_info=0;
 static ulonglong truncate_index_from=UINT64_MAX;
 
+/* for polardb_x pitr begin */
+#define BITS_FOR_PHYSICAL_TIME 42
+#define BITS_FOR_LOGICAL_TIME 16
+#define BITS_RESERVED 6
+#define MYSQL_XIDDATASIZE 128
+#define XIDDATASIZE MYSQL_XIDDATASIZE
+
+static const uint ser_buf_size= 8 + 2 * XIDDATASIZE + 4 * sizeof(long) + 1;
+static uint64_t truncate_from_seq_num= UINT64_MAX;
+static uint64_t truncate_point_peek_backward= UINT64_MAX;
+static uint64_t truncate_point_peek_forward= UINT64_MAX;
+uint64_t skipped_index= 0;
+/* for polardb_x pitr end */
+
 /* define the variables use in server's cc files, see the at the end of this file */
 ulong bytes_sent= 0L, bytes_received= 0L;
 ulong mysqld_net_retry_count= 10L;
@@ -137,6 +151,26 @@ static struct my_option my_long_options[] =
   {"truncate-index-from", OPT_TRUNCATE_INDEX_FROM,
     "Truncate index from start index in a binlog, [start, ...)",
     &truncate_index_from, &truncate_index_from,
+    0, GET_ULL, REQUIRED_ARG, -1, 0, UINT64_MAX, 0, 0, 0},
+  {"truncate-from-sequence-number", OPT_TRUNCATE_FROM_SEQUENCE_NUMBER,
+    "drop all the trx whose sequence number > truncate-from-sequence-number",
+    &truncate_from_seq_num, &truncate_from_seq_num,
+    0, GET_ULL, REQUIRED_ARG, -1, 0, UINT64_MAX, 0, 0, 0},
+  {"truncate-point-peek-backward", OPT_TRUNCATE_POINT_PEEK_BACKWARD,
+    "MUST used together with truncate-point-peek-forward to accelerate the job."
+    "log events with timestamp (in ms) < truncate-seq-from - truncate-point-peek-backward "
+    "can be reserved directly."
+    "log events with timestamp > truncate-seq-from + truncate-point-peek-forward "
+    "can be dropped directly.",
+    &truncate_point_peek_backward, &truncate_point_peek_backward,
+    0, GET_ULL, REQUIRED_ARG, -1, 0, UINT64_MAX, 0, 0, 0},
+  {"truncate-point-peek-forward", OPT_TRUNCATE_POINT_PEEK_FORWARD,
+    "MUST used together with truncate-point-peek-backward to accelerate the job."
+    "log events with timestamp (in ms) < truncate-seq-from - truncate-point-peek-backward "
+    "can be reserved directly."
+    "log events with timestamp > truncate-seq-from + truncate-point-peek-forward "
+    "can be dropped directly.",
+    &truncate_point_peek_forward, &truncate_point_peek_forward,
     0, GET_ULL, REQUIRED_ARG, -1, 0, UINT64_MAX, 0, 0, 0},
   {"version", 'V', "Print version and exit.", 0, 0, 0, GET_NO_ARG, NO_ARG, 0,
    0, 0, 0, 0, 0},
@@ -595,6 +629,538 @@ typedef Basic_binlog_file_reader<
     Binlog_event_object_istream, Default_binlog_event_allocator>
     Mysqlbinlog_file_reader;
 
+
+/**
+  @brief save_event save the log_event pointed by ev. consensus_index in
+                    consensus_log_event's header and log_pos in log_event's
+                    common_header will be adjusted if any previous log_event is
+                    skipped.
+                    Also the checksum is re-calculated in that scenario.
+
+  @param skip [in] skip current ev or not
+  @param ev   [in] pointer to the event
+  @param skipped_bytes [in] skipped_bytes before this event.
+                            to adjust common_header->log_pos
+  @param skipped_index [in] skipped consensus group before this event.
+                            to adjust consensus_index
+  @param result_file [in] file to save the modified events
+
+  @return 0 for OK, others for FAIL
+*/
+int save_event(Log_event *ev,
+               uint64_t skipped_bytes,
+               uint64_t skipped_index,
+               FILE *result_file)
+{
+  if (!skipped_bytes && !skipped_index)
+  {
+    // nothing skipped, save the original version to reduce memcpy
+    return my_fwrite(result_file, (uchar*)ev->temp_buf, ev->get_event_len(), MYF(MY_NABP));
+  }
+
+  Log_event_type type= ev->get_type_code();
+
+  uchar * buf= (uchar*)ev->temp_buf;
+
+  // reserver and modify index/log_pos by skipped counters
+  uchar *header= buf;
+  ulonglong org_log_pos= ev->common_header->log_pos;
+  ulonglong new_log_pos= org_log_pos - skipped_bytes;
+  int4store(header + LOG_POS_OFFSET, new_log_pos);
+
+  if (type == binary_log::CONSENSUS_LOG_EVENT)
+  {
+    uint64_t *index_pos= (uint64_t*)(header + binary_log::Consensus_event::CONSENSUS_INDEX_OFFSET);
+    uint64_t org_index= *index_pos;
+    uint64_t new_index= org_index - skipped_index;
+    *index_pos= new_index;
+  }
+  else if (type == binary_log::PREVIOUS_CONSENSUS_INDEX_LOG_EVENT)
+  {
+    uint64_t *index_pos= (uint64_t*)(header + LOG_EVENT_HEADER_LEN);
+    uint64_t org_index= *index_pos;
+    uint64_t new_index= org_index - skipped_index;
+    *index_pos= new_index;
+  }
+
+  enum_binlog_checksum_alg  alg;
+  alg= (type != binary_log::FORMAT_DESCRIPTION_EVENT) ?
+    glob_description_event->common_footer->checksum_alg :
+    Log_event_footer::get_checksum_alg((const char*)buf, ev->get_event_len());
+
+  if (alg == binary_log::BINLOG_CHECKSUM_ALG_CRC32)
+  {
+    uint32_t computed= checksum_crc32(0L, NULL, 0);
+    /* checksum the event content but not the checksum part itself */
+    computed= checksum_crc32(computed, (const unsigned char*) buf,
+        ev->get_event_len() - BINLOG_CHECKSUM_LEN);
+
+    int4store(buf + ev->get_event_len() - BINLOG_CHECKSUM_LEN, computed);
+  }
+
+  if(my_fwrite(result_file, buf, ev->get_event_len(), MYF(MY_NABP)))
+  {
+    return -1;
+  }
+
+  return 0;
+}
+
+/**
+  @brief need_skip. Check a consensus group should be skipped or not.
+
+        timeline(physical_ts):
+        ------------------------------------------------------------------->>
+        peek_window_start ^                  peek_window_end ^
+        |<--- reserve --->|<--- judge by local_ts or seq --->|<--- drop --->|
+
+  @param local_ts [in] Unix timestamp in the last log_event of the consensus
+                       group. There's always a valid local_ts.
+  @param seq      [in] Sequence number set by Sequence_Event in the consensus
+                       group. This is invalid for transactions without
+                       PolarDB-X's TSO. In this case we use local_ts.
+  @param peek_window_start [in] Log events with local_ts <= peek_window_start
+                                is reserved.
+  @param peek_window_end [in] Log events with local_ts > peek_window_end is
+                              dropped.
+  @param physical_ts [in] Unix timestamp in truncate-from-sequence-number
+
+  @return true for skip; false for not skip;
+*/
+bool need_skip(uint64_t local_ts, uint64_t seq, uint64_t peek_window_start,
+               uint64_t peek_window_end, uint64_t physical_ts)
+{
+  if (local_ts > peek_window_start && local_ts <= peek_window_end)
+  {
+    return ((seq > 0 && seq > truncate_from_seq_num) ||
+           (local_ts > physical_ts));
+  }
+  return local_ts > peek_window_end;
+}
+
+/**
+  @brief collect_index_to_skip collect all the consensus indexes to be skipped
+                               and save them in consensus_indexes
+
+  @param consensus_indexes [out] where the indexes to be skipped are saved
+  @param file [in] binlog file handler
+
+  @return OK_STOP for success; ERROR_STOP for failure;
+*/
+static Exit_status collect_index_to_skip(
+        Mysqlbinlog_file_reader *reader,
+        std::set<uint64_t> &consensus_indexes,
+        std::map<std::string, uint64_t>& prepared_xids)
+{
+  uint64_t physical_ts= truncate_from_seq_num >>
+                       (BITS_FOR_LOGICAL_TIME + BITS_RESERVED);
+  uint64_t peek_window_start= physical_ts - truncate_point_peek_backward;
+  uint64_t peek_window_end= physical_ts + truncate_point_peek_forward;
+
+  uint64_t index= 0;
+  uint64_t seq= 0, local_ts= 0;
+  bool in_transaction= false;
+
+  for (;;)
+  {
+    Log_event *ev= NULL;
+    my_off_t old_off= my_b_tell(reader->get_io_cache());
+    reader->set_format_description_event(*glob_description_event);
+    ev = reader->read_event_object();
+    if (!ev)
+    {
+      if (reader->get_io_cache()->error)
+      {
+        error("%s Could not read entry at offset %llu: "
+            "Error in log format or read error.", __func__, old_off);
+        return ERROR_STOP;
+      }
+      return OK_CONTINUE;
+    }
+
+    local_ts= 1000*ev->common_header->when.tv_sec +
+              ev->common_header->when.tv_usec/1000;
+
+    Log_event_type type= ev->get_type_code();
+
+    switch(type) {
+      case binary_log::CONSENSUS_LOG_EVENT:
+        {
+          index= ((Consensus_log_event *)ev)->get_index();
+          seq= 0;
+          in_transaction= false;
+          break;
+        }
+      case binary_log::GCN_LOG_EVENT:
+        {
+          Gcn_log_event *gcn_ev= dynamic_cast<Gcn_log_event*>(ev);
+          if (gcn_ev->have_commit_gcn()) {
+            error("Gcn log event has no commit_gcn");
+            return ERROR_STOP;
+          }
+
+          seq= gcn_ev->get_commit_gcn();
+          break;
+        }
+      case binary_log::XA_PREPARE_LOG_EVENT:
+        {
+          if (need_skip(local_ts, seq, peek_window_start,
+                peek_window_end, physical_ts))
+          {
+            consensus_indexes.insert(index);
+          }
+          else
+          {
+            char buf[ser_buf_size + 1]= {0};
+            XA_prepare_log_event *xev= dynamic_cast<XA_prepare_log_event*>(ev);
+            if (!xev->is_one_phase())
+            {
+              xev->get_serialize_xid(buf);
+              std::string s(buf);
+              prepared_xids.insert(std::pair<std::string, uint64_t>(s, index));
+            }
+          }
+          break;
+        }
+      case binary_log::QUERY_EVENT:
+        {
+          Query_log_event *qev= dynamic_cast<Query_log_event*>(ev);
+          if (qev->is_query_prefix_match(STRING_WITH_LEN("XA COMMIT")) ||
+              qev->is_query_prefix_match(STRING_WITH_LEN("XA ROLLBACK")))
+          {
+            if (need_skip(local_ts, seq, peek_window_start,
+                  peek_window_end, physical_ts))
+            {
+              consensus_indexes.insert(index);
+            }
+            else
+            {
+              char *q= const_cast<char*>(qev->query);
+              char *last_str= NULL;
+              while(strlen(q) != 0)
+              {
+                last_str= strsep(&q, " ");
+              }
+              std::string s(last_str);
+              prepared_xids.erase(s);
+            }
+          }
+          /**
+            Normal transaction starts either by BEGIN or XA START, but this is
+            not true for DDL statement (no BEGIN and COMMIT), remember if such
+            event is seen.
+          */
+          else if (qev->is_query_prefix_match(STRING_WITH_LEN("BEGIN")) ||
+                   qev->is_query_prefix_match(STRING_WITH_LEN("XA START")))
+          {
+            in_transaction= true;
+          }
+          /**
+            COMMIT doesn't always generate Xid_log_event event (type XID_EVENT),
+            sometime it generates Query_log_event with string "COMMIT", handle
+            this case here.
+           
+            Meanwhile, DDL only uses Query event (other than Query_log_event, no
+            BEGIN and COMMIT event), this also needs to be handled.
+          */
+          else if (qev->is_query_prefix_match(STRING_WITH_LEN("COMMIT")) ||
+                   !in_transaction)
+          {
+            if (need_skip(local_ts, seq, peek_window_start,
+                  peek_window_end, physical_ts))
+            {
+              consensus_indexes.insert(index);
+            }
+          }
+          break;
+        }
+      case binary_log::XID_EVENT:
+        {
+          if (need_skip(local_ts, seq, peek_window_start,
+                peek_window_end, physical_ts))
+          {
+            consensus_indexes.insert(index);
+          }
+          break;
+        }
+      default:
+        ; // ordinary log_event;
+    }
+
+    delete ev;
+    ev= NULL;
+  }
+}
+
+/**
+  @brief filter_binlog_by_index_low If a consensus group's consensus index is
+                                    in consensus_indexes, drop all the log
+                                    events under the group. Reserve the rest to
+                                    a new binlog file.
+
+  @param consensus_indexes [in] indexes to be skipped
+  @param file [in]  source binlog file handler
+  @param result_file dest binlog file handler
+
+  @return OK_STOP for success; ERROR_STOP for failure
+*/
+static Exit_status filter_binlog_by_index_low(
+        std::set<uint64_t> &consensus_indexes,
+        Mysqlbinlog_file_reader *reader,
+        FILE * result_file)
+{
+  uint64_t index= 0, last_index_not_skipped= 0;
+  uint64_t skipped_bytes= 0;
+  bool skip= false;
+  uint64_t skipped_index_count= 0, skipped_log_event_count= 0;
+  for (;;)
+  {
+    my_off_t old_off= my_b_tell(reader->get_io_cache());
+    Log_event *ev = reader->read_event_object();
+    if (!ev)
+    {
+      printf("skipped index count:%lu, skipped log_events count:%lu, "
+            "last_index_not_skipped:%lu\n",
+          skipped_index_count, skipped_log_event_count,
+          last_index_not_skipped);
+      if (reader->get_io_cache()->error)
+      {
+        error("%s Could not read entry at offset %llu: "
+            "Error in log format or read error.", __func__, old_off);
+        return ERROR_STOP;
+      }
+      return OK_CONTINUE;
+    }
+
+    Log_event_type type= ev->get_type_code();
+
+    if (type == binary_log::CONSENSUS_LOG_EVENT)
+    {
+      index= ((Consensus_log_event *)ev)->get_index();
+      std::set<uint64_t>::iterator it= consensus_indexes.find(index);
+      if (it != consensus_indexes.end())
+      {
+        consensus_indexes.erase(it);
+        skip= true;
+        skipped_index++;
+        skipped_index_count++;
+      } else {
+        last_index_not_skipped= index;
+      }
+    }
+
+    if (skip)
+    {
+      skipped_bytes += ev->get_event_len();
+      skipped_log_event_count++;
+    }
+    else
+    {
+      if(save_event(ev, skipped_bytes, skipped_index, result_file))
+        return (ERROR_STOP);
+    }
+
+    switch(type)
+    {
+      case binary_log::XA_PREPARE_LOG_EVENT:
+      case binary_log::XID_EVENT:
+        {
+          // end of consensus group, clear index and skip flag
+          index= 0;
+          skip= false;
+          break;
+        }
+      case binary_log::QUERY_EVENT:
+        {
+          Query_log_event *qev= dynamic_cast<Query_log_event*>(ev);
+          if (qev->is_query_prefix_match(STRING_WITH_LEN("XA COMMIT")) ||
+              qev->is_query_prefix_match(STRING_WITH_LEN("XA ROLLBACK")) ||
+              qev->is_query_prefix_match(STRING_WITH_LEN("COMMIT")))
+          {
+            // end of consensus group, clear index and skip flag
+            index= 0;
+            skip= false;
+          }
+          break;
+        }
+      default:
+        ; // ordinary log_event;
+    }
+
+    delete ev;
+    ev= NULL;
+  }
+}
+
+static Exit_status open_file_and_io_cache(const char *logname,
+                                          Mysqlbinlog_file_reader *reader) {
+  Exit_status retval= OK_CONTINUE;
+  my_off_t file_size= 0;
+  if (!logname || !reader) return OK_STOP;
+
+  Format_description_log_event *fdle = nullptr;
+  if (reader->open(logname, 0, &fdle)) {
+    error("%s", reader->get_error_str());
+    goto err;
+  }
+
+  /* determine the binlog version, i.e. the glob_description_event */
+  if ((retval= check_header(reader->get_io_cache(), &file_size)) != OK_CONTINUE)
+    goto err;
+
+  if (!glob_description_event || !glob_description_event->is_valid())
+  {
+    error("Invalid Format_description log event; could be out of memory.");
+    goto err;
+  }
+  return OK_CONTINUE;
+
+err:
+  return ERROR_STOP;
+}
+
+static Exit_status collecting(const char* logname,
+                              std::set<uint64_t>& consensus_indexes,
+                              std::map<std::string, uint64_t>& prepared_xids)
+{
+  ulong max_event_size = 0;
+  mysql_get_option(NULL, MYSQL_OPT_MAX_ALLOWED_PACKET, &max_event_size);
+  Mysqlbinlog_file_reader *reader = new Mysqlbinlog_file_reader(true,
+                                                  max_event_size);
+  Log_event *ev= NULL;
+  Exit_status retval= open_file_and_io_cache(logname, reader);
+  my_off_t old_off= my_b_tell(reader->get_io_cache());
+  if (retval != OK_CONTINUE) goto end;
+
+  old_off= my_b_tell(reader->get_io_cache());
+  reader->set_format_description_event(*glob_description_event);
+  ev = reader->read_event_object();
+  if (!ev)
+  {
+    if (reader->get_io_cache()->error)
+    {
+      error("could not read entry at offset %llu: "
+          "error in log format or read error.", old_off);
+      retval= ERROR_STOP;
+      goto end;
+    }
+  }
+  else if (ev->get_type_code() == binary_log::FORMAT_DESCRIPTION_EVENT)
+  {
+    // the first log_event must be format_description_event
+    delete glob_description_event;
+    glob_description_event= (Format_description_log_event*) ev;
+    reader->set_format_description_event(*glob_description_event);
+  }
+  else
+  {
+    // binlog file currupted
+    retval= ERROR_STOP;
+    goto end;
+  }
+
+  retval= collect_index_to_skip(reader, consensus_indexes, prepared_xids);
+
+end:
+  if (reader) delete reader;
+  return retval;
+}
+
+/**
+  Reads a local binlog and filter it by sequence number (for polardbx only)
+
+  @param[in] logname Name of input binlog.
+
+  @retval ERROR_STOP An error occurred - the program should terminate.
+  @retval OK_CONTINUE No error, the program should continue.
+  @retval OK_STOP No error, the binlog has been trucated to given time,
+  and the program should terminate.
+*/
+static Exit_status filter_binlog_by_index(
+                  const char* logname,
+                  std::set<uint64_t>& consensus_indexes)
+{
+
+  char output_file[256]= {0};
+  ulong max_event_size = 0;
+  FILE *result_file = nullptr;
+
+  mysql_get_option(NULL, MYSQL_OPT_MAX_ALLOWED_PACKET, &max_event_size);
+  Mysqlbinlog_file_reader *reader = new Mysqlbinlog_file_reader(true,
+                                                  max_event_size);
+  Log_event *ev= NULL;
+  my_off_t old_off = 0;
+
+  Exit_status retval= open_file_and_io_cache(logname, reader);
+  if (retval != OK_CONTINUE) goto end;
+
+  (void)sprintf(output_file, "%s.new", logname);
+  if (!(result_file = my_fopen(output_file, O_WRONLY, MYF(MY_WME))))
+  {
+    error("Could not create log file '%s'", output_file);
+    retval= ERROR_STOP;
+    goto end;
+  }
+
+  old_off= my_b_tell(reader->get_io_cache());
+  reader->set_format_description_event(*glob_description_event);
+  ev = reader->read_event_object();
+  if (!ev)
+  {
+    if (reader->get_io_cache()->error)
+    {
+      error("Could not read entry at offset %llu: "
+          "Error in log format or read error.", old_off);
+
+      goto end;
+    }
+  }
+  else if (ev->get_type_code() == binary_log::FORMAT_DESCRIPTION_EVENT)
+  {
+      // the first log_event must be FORMAT_DESCRIPTION_EVENT
+      if (my_fwrite(result_file, (const uchar*) BINLOG_MAGIC,
+            BIN_LOG_HEADER_SIZE, MYF(MY_NABP)))
+      {
+        retval= ERROR_STOP;
+        goto end;
+      }
+      if(my_fwrite(result_file, (uchar*)ev->temp_buf,
+            ev->get_event_len(), MYF(MY_NABP)))
+      {
+        retval= ERROR_STOP;
+        goto end;
+      }
+      delete glob_description_event;
+      glob_description_event= (Format_description_log_event*) ev;
+  }
+  else
+  {
+    // binlog file currupted
+    retval= ERROR_STOP;
+    goto end;
+  }
+
+  retval= filter_binlog_by_index_low(consensus_indexes, reader, result_file);
+
+end:
+  if (reader) delete reader;
+
+  if (result_file)
+  {
+    my_fclose(result_file, MYF(0));
+    if (retval != ERROR_STOP)
+    {
+      if(my_rename(output_file, logname, MYF(0)))
+        error("Could not rename file:%s to %s, errno:%d",
+            output_file, logname, errno);
+      else
+        printf("processing file:%s OK\n", logname);
+    }
+  }
+  return retval;
+}
+
+
 /**
   Reads a local binlog and truncate it to given time or a given index.
 
@@ -943,10 +1509,61 @@ int main(int argc, char **argv)
     exit(1);
   }
 
-  while (--argc >= 0)
+  if (truncate_from_seq_num != UINT64_MAX &&
+      truncate_point_peek_backward != UINT64_MAX &&
+      truncate_point_peek_forward != UINT64_MAX)
   {
-    if ((retval= truncate_binlog(*argv++)) != OK_CONTINUE)
-      break;
+    int argc_tmp= argc;
+    char **argv_tmp= argv;
+    std::set<uint64_t> consensus_indexes;
+    std::map<std::string, uint64_t> prepared_xids;
+
+    while (--argc >= 0)
+    {
+      printf("collecting %s, "
+          "get truncate_from_seq_num:%lu, "
+          "truncate_point_peek_backward:%lu, "
+          "truncate_point_peek_forward:%lu.\n",
+          *argv,
+          truncate_from_seq_num,
+          truncate_point_peek_backward,
+          truncate_point_peek_forward);
+
+      if ((retval= collecting(*argv++, consensus_indexes, prepared_xids)) != OK_CONTINUE)
+        break;
+    }
+    if (retval != ERROR_STOP)
+    {
+      std::map<std::string, uint64_t>::iterator it= prepared_xids.begin();
+      for(;it != prepared_xids.end(); ++it)
+        consensus_indexes.insert(it->second);
+
+      printf("totally skipped %lu consensus groups\n", consensus_indexes.size());
+      argc= argc_tmp;
+      argv= argv_tmp;
+      while (--argc >= 0)
+      {
+        printf("filtering %s, "
+            "get truncate_from_seq_num:%lu, "
+            "truncate_point_peek_backward:%lu, "
+            "truncate_point_peek_forward:%lu.\n",
+            *argv,
+            truncate_from_seq_num,
+            truncate_point_peek_backward,
+            truncate_point_peek_forward);
+
+        if ((retval= filter_binlog_by_index(*argv++, consensus_indexes)) != OK_CONTINUE)
+          break;
+      }
+    }
+  }
+  else
+  {
+    while (--argc >= 0)
+    {
+      if ((retval= truncate_binlog(*argv++)) != OK_CONTINUE)
+        break;
+    }
   }
   delete glob_description_event;
 

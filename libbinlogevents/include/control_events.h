@@ -625,6 +625,7 @@ class XA_prepare_event : public Binary_log_event {
   void print_event_info(std::ostream &) {}
   void print_long_info(std::ostream &) {}
 #endif
+  bool is_one_phase() { return one_phase; }
 };
 
 /**
@@ -1484,3 +1485,5 @@ class Heartbeat_event : public Binary_log_event {
   @} (end of group Replication)
 */
 #endif /* CONTROL_EVENTS_INCLUDED */
+
+#include "control_events_ext.h"
