@@ -353,6 +353,8 @@ void dump_innodb_buffer_pool(MYSQL *connection);
 
 void check_dump_innodb_buffer_pool(MYSQL *connection);
 
-void disable_mts_for_polarx(MYSQL *connection);
+void disable_replication_for_polarx(MYSQL *connection);
+
+void enable_replication_for_polarx(MYSQL *connection);
 
 #endif

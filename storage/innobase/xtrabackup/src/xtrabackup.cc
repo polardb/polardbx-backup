@@ -7152,7 +7152,7 @@ bool xb_init() {
     history_start_time = time(NULL);
 
     if (opt_lock_ddl) {
-      disable_mts_for_polarx(mysql_connection);
+      disable_replication_for_polarx(mysql_connection);
       if(!lock_tables_for_backup(mysql_connection, opt_lock_ddl_timeout, 0))
         return (false);
     }

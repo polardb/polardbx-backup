@@ -127,6 +127,8 @@ os_event_t kill_query_thread_stopped;
 os_event_t kill_query_thread_stop;
 
 bool sql_thread_started = false;
+
+/* Whether xtrabackup disabled polarx replication */
 bool xcluster_sql_thread_started = false;
 std::string mysql_slave_position;
 std::string mysql_binlog_position;
@@ -1162,8 +1164,6 @@ bool lock_tables_ftwrl(MYSQL *connection) {
     xb_mysql_query(connection, "SET SESSION wsrep_causal_reads=0", false);
   }
 
-  disable_mts_for_polarx(connection);
-
   xb_mysql_query(connection, "FLUSH LOCAL TABLES WITH READ LOCK", false);
 
   if (opt_kill_long_queries_timeout) {
@@ -1194,6 +1194,8 @@ bool lock_tables_maybe(MYSQL *connection, int timeout, int retry_count) {
     return (true);
   }
 
+  disable_replication_for_polarx(connection);
+
   if (have_backup_locks && !force_ftwrl) {
     return lock_tables_for_backup(connection, timeout, retry_count);
   }
@@ -1220,22 +1222,9 @@ void unlock_all(MYSQL *connection) {
     msg_ts("Executing UNLOCK TABLES\n");
     xb_mysql_query(connection, "UNLOCK TABLES", false);
   }
-
-  if (server_flavor == FLAVOR_X_CLUSTER && xcluster_sql_thread_started) {
-    msg_ts("Enable MTS...\n");
-    char *query;
-    if (workers_num < 2)
-      workers_num = 32;
-    xb_a(asprintf(&query, "SET GLOBAL slave_parallel_workers = %d", workers_num));
-    xb_mysql_query(connection, "STOP SLAVE SQL_THREAD" , false, false);
-    xb_mysql_query(connection, "STOP XPAXOS_REPLICATION" , false, false);
-    xb_mysql_query(connection, query, false, false);
-    xb_mysql_query(connection, "START SLAVE SQL_THREAD" , false, false);
-    xb_mysql_query(connection, "START XPAXOS_REPLICATION" , false, false);
-    free(query);
-  }
-
   msg_ts("All tables unlocked\n");
+
+  enable_replication_for_polarx(connection);
 }
 
 static int get_open_temp_tables(MYSQL *connection) {
@@ -2655,7 +2644,7 @@ void check_dump_innodb_buffer_pool(MYSQL *connection) {
   }
 }
 
-void disable_mts_for_polarx(MYSQL *connection) {
+void disable_replication_for_polarx(MYSQL *connection) {
   if (xcluster_sql_thread_started) return;
 
   if (server_flavor == FLAVOR_X_CLUSTER) {
@@ -2665,15 +2654,22 @@ void disable_mts_for_polarx(MYSQL *connection) {
                                {NULL, NULL}};
     read_mysql_variables(connection, "SHOW SLAVE STATUS", status, false);
     if (strcmp(slave_sql_running, "Yes") == 0) {
-      msg_ts("Disable MTS...\n");
+      msg_ts("Disable replication for polarx...\n");
       xcluster_sql_thread_started = true;
       xb_mysql_query(connection, "STOP SLAVE SQL_THREAD", false, false);
       xb_mysql_query(connection, "STOP XPAXOS_REPLICATION", false, false);
-      xb_mysql_query(connection, "SET GLOBAL slave_parallel_workers = 0", false,
-                     false);
-      xb_mysql_query(connection, "START SLAVE SQL_THREAD", false, false);
-      xb_mysql_query(connection, "START XPAXOS_REPLICATION", false, false);
     }
     free_mysql_variables(status);
+  }
+}
+
+void enable_replication_for_polarx(MYSQL *connection) {
+  if (!xcluster_sql_thread_started) return;
+
+  if (server_flavor == FLAVOR_X_CLUSTER) {
+    msg_ts("Enable replication for polarx...\n");
+    xb_mysql_query(connection, "START SLAVE SQL_THREAD", false, false);
+    xb_mysql_query(connection, "START XPAXOS_REPLICATION", false, false);
+    xcluster_sql_thread_started = false;
   }
 }
