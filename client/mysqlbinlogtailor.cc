@@ -63,7 +63,7 @@ using std::max;
 
 static char *truncate_datetime_str= NULL;
 my_time_t truncate_datetime= MY_TIME_T_MAX;
-bool binlog_need_checksum= false;
+static bool opt_verify_binlog_checksum = true;
 static bool trim_tail_incomplete_trx= 0;
 static bool force_append_rotate_event= 0;
 static bool show_index_info=0;
@@ -172,6 +172,10 @@ static struct my_option my_long_options[] =
     "can be dropped directly.",
     &truncate_point_peek_forward, &truncate_point_peek_forward,
     0, GET_ULL, REQUIRED_ARG, -1, 0, UINT64_MAX, 0, 0, 0},
+  {"verify-binlog-checksum", 'c', "Verify checksum binlog events.",
+     (uchar **)&opt_verify_binlog_checksum,
+     (uchar **)&opt_verify_binlog_checksum, nullptr, GET_BOOL, 
+     NO_ARG, 0, 0, 0, nullptr, 0, nullptr},
   {"version", 'V', "Print version and exit.", 0, 0, 0, GET_NO_ARG, NO_ARG, 0,
    0, 0, 0, 0, 0},
   {0, 0, 0, 0, 0, 0, GET_NO_ARG, NO_ARG, 0, 0, 0, 0, 0, 0}
@@ -1025,8 +1029,8 @@ static Exit_status collecting(const char* logname,
 {
   ulong max_event_size = 0;
   mysql_get_option(NULL, MYSQL_OPT_MAX_ALLOWED_PACKET, &max_event_size);
-  Mysqlbinlog_file_reader *reader = new Mysqlbinlog_file_reader(true,
-                                                  max_event_size);
+  Mysqlbinlog_file_reader *reader =
+      new Mysqlbinlog_file_reader(opt_verify_binlog_checksum, max_event_size);
   Log_event *ev= NULL;
   Exit_status retval= open_file_and_io_cache(logname, reader);
   my_off_t old_off= my_b_tell(reader->get_io_cache());
@@ -1086,8 +1090,8 @@ static Exit_status filter_binlog_by_index(
   FILE *result_file = nullptr;
 
   mysql_get_option(NULL, MYSQL_OPT_MAX_ALLOWED_PACKET, &max_event_size);
-  Mysqlbinlog_file_reader *reader = new Mysqlbinlog_file_reader(true,
-                                                  max_event_size);
+  Mysqlbinlog_file_reader *reader =
+      new Mysqlbinlog_file_reader(opt_verify_binlog_checksum, max_event_size);
   Log_event *ev= NULL;
   my_off_t old_off = 0;
 
@@ -1191,7 +1195,7 @@ static Exit_status truncate_binlog(const char* logname)
 
   ulong max_event_size = 0;
   mysql_get_option(NULL, MYSQL_OPT_MAX_ALLOWED_PACKET, &max_event_size);
-  Mysqlbinlog_file_reader mysqlbinlog_file_reader(true,
+  Mysqlbinlog_file_reader mysqlbinlog_file_reader(opt_verify_binlog_checksum,
                                                   max_event_size);
 
   Format_description_log_event *fdle = nullptr;
