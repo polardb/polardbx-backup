@@ -23380,6 +23380,11 @@ static MYSQL_SYSVAR_BOOL(
     "Whether to disable cleanout when read (off by default)", NULL, NULL,
     false);
 
+static MYSQL_SYSVAR_ULONG(commit_cleanout_max_rows,
+                          lizard::commit_cleanout_max_rows,
+                          PLUGIN_VAR_OPCMDARG, "max cleanout rows at commit",
+                          NULL, NULL, COMMIT_CLEANOUT_DEFAULT_ROWS, 0,
+                          COMMIT_CLEANOUT_MAX_NUM, 0);
 
 static MYSQL_SYSVAR_ENUM(cleanout_mode, lizard::cleanout_mode,
                          PLUGIN_VAR_RQCMDARG, " Cleanout mode, default(cursor)",
@@ -23725,6 +23730,7 @@ static SYS_VAR *innobase_system_variables[] = {
     MYSQL_SYSVAR(cleanout_disable),
     MYSQL_SYSVAR(cleanout_max_scans_on_page),
     MYSQL_SYSVAR(cleanout_max_cleans_on_page),
+    MYSQL_SYSVAR(commit_cleanout_max_rows),
     MYSQL_SYSVAR(txn_undo_page_reuse_max_percent),
     MYSQL_SYSVAR(cleanout_mode),
     MYSQL_SYSVAR(scn_history_interval),
