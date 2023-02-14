@@ -115,6 +115,7 @@ SET(INNOBASE_SOURCES
 	gis/gis0sea.cc
 	fts/fts0plugin.cc
 	handler/ha_innodb.cc
+	handler/ha_innodb_ext.cc
 	handler/ha_innopart.cc
 	handler/handler0alter.cc
 	handler/i_s.cc
@@ -393,6 +394,7 @@ SET(INNOBASE_SOURCES
   read/lizard0read.cc
   trx/lizard0purge.cc
   trx/lizard0trx.cc
+  trx/lizard0xa.cc
   dict/lizard0scn0hist.cc
   row/lizard0mysql.cc
   trx/lizard0gp.cc)

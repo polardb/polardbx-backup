@@ -188,6 +188,8 @@ static void trx_init(trx_t *trx) {
 
   trx->rsegs.m_txn.rseg = nullptr;
 
+  trx->rsegs.m_txn.xid.reset();
+
   trx->read_only = false;
 
   trx->auto_commit = false;

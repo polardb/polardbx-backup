@@ -214,6 +214,7 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include "lizard0scn0hist.h"
 #include "lizard0mysql.h"
 #include "lizard0gp.h"
+#include "ha_innodb_ext.h"
 
 #ifndef UNIV_HOTBACKUP
 /** Stop printing warnings, if the count exceeds this threshold. */
@@ -19331,6 +19332,9 @@ static int innobase_xa_prepare(handlerton *hton, /*!< in: InnoDB handlerton */
 
   if (prepare_trx ||
       (!thd_test_options(thd, OPTION_NOT_AUTOCOMMIT | OPTION_BEGIN))) {
+
+    ut_a(xa_compare_xid_between_thd_and_trx(thd, trx));
+
     /* We were instructed to prepare the whole transaction, or
     this is an SQL statement end and autocommit is on */
 

@@ -333,7 +333,7 @@ typedef struct xid_t {
 
   bool is_null() const { return formatID == -1; }
 
- private:
+ public:
   void set(const xid_t *xid) {
     memcpy(this, xid, sizeof(xid->formatID) + xid->key_length());
   }

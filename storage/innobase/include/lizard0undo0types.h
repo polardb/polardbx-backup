@@ -33,6 +33,9 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #ifndef lizard0undo0types_h
 #define lizard0undo0types_h
 
+#include "sql/handler.h"
+#include "sql/xa.h"
+
 #include "trx0types.h"
 
 #include "lizard0scn0types.h"
@@ -222,10 +225,13 @@ struct txn_index_t {
 
 /** The struct of transaction undo for UBA */
 struct txn_undo_ptr_t {
+  txn_undo_ptr_t() : rseg(nullptr), txn_undo(nullptr), xid() {}
   /** Rollback segment in txn space */
   trx_rseg_t *rseg;
   /* transaction undo log segment */
   trx_undo_t *txn_undo;
+  /* XID that used to mapping. */
+  XID xid;
 };
 
 /**
@@ -389,5 +395,10 @@ typedef std::priority_queue<
     purge_heap_t;
 
 } /* namespace lizard */
+
+struct txn_space_rseg_slot_t {
+  ulint space_slot;
+  ulint rseg_slot;
+};
 
 #endif  // lizard0undo0types_h
