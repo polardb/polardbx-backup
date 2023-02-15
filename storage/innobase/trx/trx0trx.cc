@@ -252,6 +252,8 @@ static void trx_init(trx_t *trx) {
 
   trx->vision.reset();
 
+  trx->is_rollback = false;
+
   ++trx->version;
 }
 
@@ -514,6 +516,8 @@ static trx_t *trx_create_low() {
   ut_a(trx->mod_tables.size() == 0);
 
   ut_ad(!trx->vision.is_active());
+
+  trx->is_rollback = false;
 
   return (trx);
 }
@@ -1586,6 +1590,11 @@ static bool trx_write_serialisation_history(
       /** Update state */
       lizard::txn_undo_set_state_at_finish(undo_hdr_page + txn_undo->hdr_offset,
                                            mtr);
+
+      if (trx->is_rollback) {
+        lizard::txn_undo_set_flags(undo_hdr_page + txn_undo->hdr_offset,
+                                   TXN_UNDO_LOG_FLAGS_ROLLBACK, mtr);
+      }
       /** Generate SCN */
       cmmt = lizard::trx_commit_scn(trx, nullptr, txn_undo, undo_hdr_page,
                                     txn_undo->hdr_offset, &serialised, mtr);

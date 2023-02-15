@@ -1304,6 +1304,9 @@ struct trx_t {
   gp_state_t gp_state;
   /** Prepared XA transaction blocking info */
   gp_wait_t gp_wait;
+
+  /** Lizard-3.0: true if the finished state is rollback */
+  bool is_rollback;
 };
 #ifndef UNIV_HOTBACKUP
 
