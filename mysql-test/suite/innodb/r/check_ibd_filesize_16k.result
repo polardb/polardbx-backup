@@ -7,13 +7,13 @@ CREATE TABLE t1 (a INT PRIMARY KEY) ENGINE=InnoDB;
 Empty table:
 The size of file 'test/t1.ibd' is 114688 bytes.
 Rows inserted: 5000
-The size of file 'test/t1.ibd' is 229376 bytes.
+The size of file 'test/t1.ibd' is 376832 bytes.
 Rows inserted: 10000
-The size of file 'test/t1.ibd' is 360448 bytes.
+The size of file 'test/t1.ibd' is 2097152 bytes.
 Rows inserted: 15000
-The size of file 'test/t1.ibd' is 475136 bytes.
+The size of file 'test/t1.ibd' is 9437184 bytes.
 Rows inserted: 20000
-The size of file 'test/t1.ibd' is 606208 bytes.
+The size of file 'test/t1.ibd' is 9437184 bytes.
 Rows inserted: 25000
 The size of file 'test/t1.ibd' is 9437184 bytes.
 DROP TABLE t1;
@@ -36,11 +36,11 @@ ENGINE=InnoDB ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=1;
 Empty table:
 The size of file 'test/t3.ibd' is 7168 bytes.
 Rows inserted: 8
-The size of file 'test/t3.ibd' is 14336 bytes.
+The size of file 'test/t3.ibd' is 15360 bytes.
 Rows inserted: 16
-The size of file 'test/t3.ibd' is 22528 bytes.
+The size of file 'test/t3.ibd' is 25600 bytes.
 Rows inserted: 24
-The size of file 'test/t3.ibd' is 30720 bytes.
+The size of file 'test/t3.ibd' is 34816 bytes.
 Rows inserted: 32
 The size of file 'test/t3.ibd' is 5242880 bytes.
 Rows inserted: 40

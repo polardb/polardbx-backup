@@ -66,6 +66,7 @@ s_32k	General	DEFAULT	0	Any	s_32k.ibd
 Space_Name	File_Type	Engine	Status	Tablespace_Name	Path
 mtr/global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/global_suppressions	MYSQLD_DATADIR/mtr/global_suppressions.ibd
 mtr/test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_suppressions	MYSQLD_DATADIR/mtr/test_suppressions.ibd
+mysql/consensus_info	TABLESPACE	InnoDB	NORMAL	mysql/consensus_info	MYSQLD_DATADIR/mysql/consensus_info.ibd
 s_32k	TABLESPACE	InnoDB	NORMAL	s_32k	MYSQLD_DATADIR/s_32k.ibd
 #
 # Add tables to the tablespaces.
@@ -139,15 +140,17 @@ s_32k	General	DEFAULT	0	Any	s_32k.ibd
 Space_Name	File_Type	Engine	Status	Tablespace_Name	Path
 mtr/global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/global_suppressions	MYSQLD_DATADIR/mtr/global_suppressions.ibd
 mtr/test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_suppressions	MYSQLD_DATADIR/mtr/test_suppressions.ibd
+mysql/consensus_info	TABLESPACE	InnoDB	NORMAL	mysql/consensus_info	MYSQLD_DATADIR/mysql/consensus_info.ibd
 s_32k	TABLESPACE	InnoDB	NORMAL	s_32k	MYSQLD_DATADIR/s_32k.ibd
 === information_schema.innodb_tables  and innodb_tablespaces ===
 Table Name	Tablespace	Table Flags	Columns	Row Format	Zip Size	Space Type
-mtr/global_suppressions	mtr/global_suppressions	33	4	Dynamic	0	Single
-mtr/test_suppressions	mtr/test_suppressions	33	4	Dynamic	0	Single
-test/t_com_in_32k	s_32k	129	5	Compact	0	General
-test/t_dyn_in_32k	s_32k	161	5	Dynamic	0	General
-test/t_red_in_32k	s_32k	128	5	Redundant	0	General
+mtr/global_suppressions	mtr/global_suppressions	33	7	Dynamic	0	Single
+mtr/test_suppressions	mtr/test_suppressions	33	7	Dynamic	0	Single
+test/t_com_in_32k	s_32k	129	8	Compact	0	General
+test/t_dyn_in_32k	s_32k	161	8	Dynamic	0	General
+test/t_red_in_32k	s_32k	128	8	Redundant	0	General
 # Directory of MYSQLD_DATADIR/
+lizard.ibd
 mysql.ibd
 s_32k.ibd
 # Directory of MYSQLD_DATADIR/test/

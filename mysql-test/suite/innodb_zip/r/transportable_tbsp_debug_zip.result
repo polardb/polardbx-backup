@@ -170,8 +170,8 @@ UPDATE test_wl5522.t1 SET c4 = REPEAT("c4", 1024);
 SHOW CREATE TABLE test_wl5522.t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` bigint NOT NULL AUTO_INCREMENT,
-  `c2` bigint DEFAULT NULL,
+  `c1` bigint(20) NOT NULL AUTO_INCREMENT,
+  `c2` bigint(20) DEFAULT NULL,
   `c3` varchar(2048) DEFAULT NULL,
   `c4` varchar(2048) DEFAULT NULL,
   PRIMARY KEY (`c1`),
@@ -426,8 +426,8 @@ SUM(c2)
 SHOW CREATE TABLE test_wl5522.t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` bigint NOT NULL AUTO_INCREMENT,
-  `c2` bigint DEFAULT NULL,
+  `c1` bigint(20) NOT NULL AUTO_INCREMENT,
+  `c2` bigint(20) DEFAULT NULL,
   `c3` varchar(2048) DEFAULT NULL,
   `c4` varchar(2048) DEFAULT NULL,
   PRIMARY KEY (`c1`),
@@ -490,7 +490,7 @@ ERROR HY000: Tablespace has been discarded for table 't1'
 restore: t1 .ibd and .cfg files
 SET SESSION debug="+d,ib_import_trigger_corruption_2";
 ALTER TABLE test_wl5522.t1 IMPORT TABLESPACE;
-ERROR HY000: Index corrupt: Externally stored column(5) has a reference length of 19 in the cluster index GEN_CLUST_INDEX
+ERROR HY000: Index corrupt: Externally stored column(8) has a reference length of 19 in the cluster index GEN_CLUST_INDEX
 SET SESSION debug="-d,ib_import_trigger_corruption_2";
 DROP TABLE test_wl5522.t1;
 unlink: t1.ibd
@@ -563,4 +563,8 @@ unlink: t1.cfg
 DROP DATABASE test_wl5522;
 set global innodb_monitor_disable = all;
 set global innodb_monitor_reset_all = all;
+set global innodb_monitor_enable = default;
+set global innodb_monitor_disable = default;
+set global innodb_monitor_reset = default;
+set global innodb_monitor_reset_all = default;
 SET GLOBAL INNODB_FILE_PER_TABLE=1;

@@ -92,6 +92,12 @@ void ins_alloc_lizard_fields(ins_node_t *node) {
   col = table->get_sys_col(DATA_UNDO_PTR);
   dfield = dtuple_get_nth_field(row, dict_col_get_no(col));
   dfield_set_data(dfield, ptr, DATA_UNDO_PTR_LEN);
+  ptr += DATA_UNDO_PTR_LEN;
+
+  /* 3. Populate GCN */
+  col = table->get_sys_col(DATA_GCN_ID);
+  dfield = dtuple_get_nth_field(row, dict_col_get_no(col));
+  dfield_set_data(dfield, ptr, DATA_GCN_ID_LEN);
 }
 
 /*=============================================================================*/
@@ -134,6 +140,12 @@ void row_upd_index_entry_lizard_field(que_thr_t *thr, dtuple_t *entry,
   dfield = dtuple_get_nth_field(entry, pos);
   ptr  = static_cast<byte*>(dfield_get_data(dfield));
   trx_write_undo_ptr(ptr, txn_desc);
+
+  /** 3. Populate GCN */
+  pos = index->get_sys_col_pos(DATA_GCN_ID);
+  dfield = dtuple_get_nth_field(entry, pos);
+  ptr  = static_cast<byte*>(dfield_get_data(dfield));
+  trx_write_gcn(ptr, txn_desc);
 }
 
 /**
@@ -158,6 +170,10 @@ byte *row_get_scn_ptr_in_rec(rec_t *rec, const dict_index_t *index,
         rec_get_nth_field(rec, offsets, scn_pos + 1, &len));
   ut_ad(len == DATA_UNDO_PTR_LEN);
 
+  ut_ad(field + DATA_SCN_ID_LEN + DATA_GCN_ID_LEN ==
+        rec_get_nth_field(rec, offsets, scn_pos + 2, &len));
+  ut_ad(len == DATA_GCN_ID_LEN);
+
   return field;
 }
 
@@ -166,11 +182,11 @@ byte *row_get_scn_ptr_in_rec(rec_t *rec, const dict_index_t *index,
   @param[in]      ptr       scn pointer
   @param[in]      txn_desc  txn description
 */
-void row_upd_rec_write_scn_and_uba(byte *ptr,
-                                   const scn_t scn,
-                                   const undo_ptr_t uba) {
+void row_upd_rec_write_scn_and_uba(byte *ptr, const scn_t scn,
+                                   const undo_ptr_t uba, const gcn_t gcn) {
   trx_write_scn(ptr, scn);
   trx_write_undo_ptr(ptr + DATA_SCN_ID_LEN, uba);
+  trx_write_gcn(ptr + DATA_SCN_ID_LEN + DATA_UNDO_PTR_LEN, gcn);
 }
 
 /**
@@ -181,9 +197,11 @@ void row_upd_rec_write_scn_and_uba(byte *ptr,
 */
 void row_upd_rec_write_scn_and_undo_ptr(byte *ptr,
                                         const scn_t scn,
-                                        const undo_ptr_t undo_ptr) {
+                                        const undo_ptr_t undo_ptr,
+					const gcn_t gcn) {
   mach_write_to_8(ptr, scn);
   mach_write_to_8(ptr + DATA_SCN_ID_LEN, undo_ptr);
+  mach_write_to_8(ptr + DATA_SCN_ID_LEN + DATA_UNDO_PTR_LEN, gcn);
 }
 
 
@@ -195,25 +213,23 @@ void row_upd_rec_write_scn_and_undo_ptr(byte *ptr,
   @param[in]      offsets   rec_get_offsets(rec, idnex)
   @param[in]      txn_desc  txn description
 */
-static void row_upd_rec_lizard_fields_low(rec_t *rec,
-                                          page_zip_des_t *page_zip,
+static void row_upd_rec_lizard_fields_low(rec_t *rec, page_zip_des_t *page_zip,
                                           const dict_index_t *index,
-                                          const ulint *offsets,
-                                          const scn_t scn,
-                                          const undo_ptr_t uba) {
+                                          const ulint *offsets, const scn_t scn,
+                                          const undo_ptr_t uba,
+                                          const gcn_t gcn) {
   byte *field;
   ut_ad(index->is_clustered());
   assert_undo_ptr_allocated(uba);
 
   if (page_zip) {
     ulint pos = index->get_sys_col_pos(DATA_SCN_ID);
-    page_zip_write_scn_and_undo_ptr(page_zip, rec, offsets, pos,
-                                    scn, uba);
+    page_zip_write_scn_and_undo_ptr(page_zip, rec, offsets, pos, scn, uba, gcn);
 
   } else {
     /** Get pointer of scn_id in record */
     field = row_get_scn_ptr_in_rec(rec, index, offsets);
-    row_upd_rec_write_scn_and_uba(field, scn, uba);
+    row_upd_rec_write_scn_and_uba(field, scn, uba, gcn);
   }
 }
 
@@ -240,9 +256,9 @@ void row_upd_rec_lizard_fields(rec_t *rec, page_zip_des_t *page_zip,
     txn_desc = txn;
     assert_undo_ptr_allocated(txn_desc->undo_ptr);
   }
-
   row_upd_rec_lizard_fields_low(rec, page_zip, index, offsets,
-                                txn_desc->cmmt.scn, txn_desc->undo_ptr);
+                                txn_desc->cmmt.scn, txn_desc->undo_ptr,
+                                txn_desc->cmmt.gcn);
 }
 
 /**
@@ -265,8 +281,8 @@ void row_upd_rec_lizard_fields_in_cleanout(rec_t *rec, page_zip_des_t *page_zip,
   ut_ad(!index->table->is_temporary());
 
   lizard_ut_ad(!lizard_undo_ptr_is_active(txn_rec->undo_ptr));
-  row_upd_rec_lizard_fields_low(rec, page_zip, index, offsets,
-                                txn_rec->scn, txn_rec->undo_ptr);
+  row_upd_rec_lizard_fields_low(rec, page_zip, index, offsets, txn_rec->scn,
+                                txn_rec->undo_ptr, txn_rec->gcn);
 }
 
 /**
@@ -280,13 +296,12 @@ void row_upd_rec_lizard_fields_in_cleanout(rec_t *rec, page_zip_des_t *page_zip,
   @param[in]      scn       SCN
   @param[in]      undo_ptr  UBA
 */
-void row_upd_rec_lizard_fields_in_recovery(rec_t *rec,
-                                           page_zip_des_t *page_zip,
-                                           const dict_index_t *index,
-                                           ulint pos,
+void row_upd_rec_lizard_fields_in_recovery(rec_t *rec, page_zip_des_t *page_zip,
+                                           const dict_index_t *index, ulint pos,
                                            const ulint *offsets,
                                            const scn_t scn,
-                                           const undo_ptr_t undo_ptr) {
+                                           const undo_ptr_t undo_ptr,
+                                           const gcn_t gcn) {
   /** index->type (Log_Dummy) will not be set rightly if it's non-compact
   format, see function **mlog_parse_index** */
   ut_ad(!rec_offs_comp(offsets) || index->is_clustered());
@@ -298,8 +313,8 @@ void row_upd_rec_lizard_fields_in_recovery(rec_t *rec,
                index->get_sys_col_pos(DATA_SCN_ID) == pos);
 
   if (page_zip) {
-    page_zip_write_scn_and_undo_ptr(page_zip, rec, offsets,
-                                    pos, scn, undo_ptr);
+    page_zip_write_scn_and_undo_ptr(page_zip, rec, offsets, pos, scn, undo_ptr,
+                                    gcn);
   } else {
     byte *field;
     ulint len;
@@ -307,7 +322,7 @@ void row_upd_rec_lizard_fields_in_recovery(rec_t *rec,
     field = const_cast<byte *>(rec_get_nth_field(rec, offsets, pos, &len));
     ut_ad(len == DATA_SCN_ID_LEN);
 
-    row_upd_rec_write_scn_and_undo_ptr(field, scn, undo_ptr);
+    row_upd_rec_write_scn_and_undo_ptr(field, scn, undo_ptr, gcn);
   }
 }
 
@@ -330,6 +345,10 @@ bool validate_lizard_fields_in_record(const byte *scn_ptr_in_rec, ulint scn_pos,
   ut_a(scn_ptr_in_rec + DATA_SCN_ID_LEN ==
        rec_get_nth_field(rec, offsets, scn_pos + 1, &len));
   ut_a(len == DATA_UNDO_PTR_LEN);
+
+  ut_a(scn_ptr_in_rec + DATA_SCN_ID_LEN + DATA_UNDO_PTR_LEN ==
+       rec_get_nth_field(rec, offsets, scn_pos + 2, &len));
+  ut_a(len == DATA_GCN_ID_LEN);
 
   return true;
 }
@@ -378,6 +397,26 @@ undo_ptr_t row_get_rec_undo_ptr(const rec_t *rec, const dict_index_t *index,
 }
 
 /**
+  Read the gcn id from record
+
+  @param[in]      rec         record
+  @param[in]      index       dict_index_t, must be cluster index
+  @param[in]      offsets     rec_get_offsets(rec, index)
+
+  @retval         gcn id
+*/
+gcn_t row_get_rec_gcn(const rec_t *rec, const dict_index_t *index,
+                      const ulint *offsets) {
+  ulint offset;
+  ut_ad(index->is_clustered());
+  assert_lizard_dict_index_check(index);
+
+  offset = row_get_lizard_offset(index, DATA_GCN_ID, offsets);
+
+  return trx_read_gcn(rec + offset);
+}
+
+/**
   Read the undo ptr state from record
 
   @param[in]      rec         record
@@ -415,6 +454,8 @@ ulint row_get_lizard_offset(const dict_index_t *index, ulint type,
     ut_ad(len == DATA_SCN_ID_LEN);
   } else if (type == DATA_UNDO_PTR) {
     ut_ad(len == DATA_UNDO_PTR_LEN);
+  } else if (type == DATA_GCN_ID) {
+    ut_ad(len == DATA_GCN_ID_LEN);
   } else {
     ut_ad(0);
   }
@@ -451,6 +492,14 @@ void trx_undo_update_rec_by_lizard_fields(trx_t *trx, const dict_index_t *index,
   upd_field_set_field_no(upd_field, index->get_sys_col_pos(DATA_UNDO_PTR),
                          index, trx);
   dfield_set_data(&(upd_field->new_val), buf, DATA_UNDO_PTR_LEN);
+
+
+  upd_field = upd_get_nth_field(update, field_nth + 2);
+  buf = static_cast<byte *>(mem_heap_alloc(heap, DATA_GCN_ID_LEN));
+  trx_write_gcn(buf, txn_info.gcn);
+  upd_field_set_field_no(upd_field, index->get_sys_col_pos(DATA_GCN_ID), index,
+                         trx);
+  dfield_set_data(&(upd_field->new_val), buf, DATA_GCN_ID_LEN);
 }
 
 /**
@@ -464,6 +513,7 @@ byte *trx_undo_update_rec_get_lizard_cols(const byte *ptr,
                                           txn_info_t *txn_info) {
   txn_info->scn = mach_u64_read_next_compressed(&ptr);
   txn_info->undo_ptr = mach_u64_read_next_compressed(&ptr);
+  txn_info->gcn = mach_u64_read_next_compressed(&ptr);
 
   return const_cast<byte *>(ptr);
 }
@@ -492,6 +542,9 @@ byte* row_upd_write_lizard_vals_to_log(const dict_index_t *index,
 
   trx_write_undo_ptr(log_ptr, txn_rec->undo_ptr);
   log_ptr += DATA_UNDO_PTR_LEN;
+
+  trx_write_gcn(log_ptr, txn_rec->gcn);
+  log_ptr += DATA_GCN_ID_LEN;
 
   return log_ptr;
 }
@@ -533,9 +586,10 @@ void row_lizard_cleanout_when_modify_rec(const trx_id_t trx_id, rec_t *rec,
   rec_txn.scn = row_get_rec_scn_id(rec, index, offsets);
   rec_txn.undo_ptr = row_get_rec_undo_ptr(rec, index, offsets);
   rec_txn.trx_id = rec_id;
+  rec_txn.gcn = row_get_rec_gcn(rec, index, offsets);
 
   /** lookup the scn by UBA address */
-  cleanout = txn_undo_hdr_lookup(&rec_txn, nullptr, nullptr);
+  lizard::txn_rec_real_state_by_misc(&rec_txn, &cleanout);
 
   if (cleanout) {
     ut_ad(mtr_memo_contains_flagged(mtr, block, MTR_MEMO_PAGE_X_FIX));
@@ -577,13 +631,10 @@ bool row_is_committed(trx_id_t trx_id, const rec_t *rec,
       trx_id,
       row_get_rec_scn_id(rec, index, offsets),
       row_get_rec_undo_ptr(rec, index, offsets),
+      row_get_rec_gcn(rec, index, offsets),
   };
 
-  if (!lizard_undo_ptr_is_active(txn_rec.undo_ptr) ||
-      lizard::txn_undo_hdr_lookup(&txn_rec, nullptr, nullptr)) {
-    return true;
-  }
-  return false;
+  return !lizard::txn_rec_real_state_by_misc(&txn_rec);
 }
 
 /**
@@ -597,8 +648,8 @@ bool row_is_committed(trx_id_t trx_id, const rec_t *rec,
   @return log data end or NULL
 */
 byte *row_upd_parse_lizard_vals(const byte *ptr, const byte *end_ptr,
-                                ulint *pos, scn_t *scn,
-                                undo_ptr_t *undo_ptr) {
+                                ulint *pos, scn_t *scn, undo_ptr_t *undo_ptr,
+                                gcn_t *gcn) {
   *pos = mach_parse_compressed(&ptr, end_ptr);
 
   if (ptr == nullptr) return nullptr;
@@ -613,6 +664,13 @@ byte *row_upd_parse_lizard_vals(const byte *ptr, const byte *end_ptr,
 
   *undo_ptr = trx_read_undo_ptr(ptr);
   ptr += DATA_UNDO_PTR_LEN;
+
+  if (end_ptr < ptr + DATA_GCN_ID_LEN) {
+    return nullptr;
+  }
+
+  *gcn = trx_read_gcn(ptr);
+  ptr += DATA_GCN_ID_LEN;
 
   return const_cast<byte *>(ptr);
 }
@@ -807,6 +865,7 @@ struct Cleanout {
         auto it = m_txns->find(trx_id);
         if (it != m_txns->end()) {
           txn_rec = it->second;
+	  ut_a(txn_rec.gcn != GCN_NULL);
           /** Modify the scn and undo ptr */
           row_upd_rec_lizard_fields_in_cleanout(
               rec, buf_block_get_page_zip(block), index, offsets, &txn_rec);
@@ -913,6 +972,9 @@ ulint row_cleanout_after_read(row_prebuilt_t *prebuilt) {
                        const ulint *offsets) {
     scn_id_t scn = row_get_rec_scn_id(rec, index, offsets);
     ut_a(scn == SCN_NULL);
+
+    gcn_t gcn = row_get_rec_gcn(rec, index, offsets);
+    ut_a(gcn == GCN_NULL);
     return true;
 }
 
@@ -944,6 +1006,7 @@ bool row_lizard_valid(const rec_t *rec, const dict_index_t *index,
                       const ulint *offsets) {
   scn_id_t scn;
   undo_ptr_t undo_ptr;
+  gcn_t gcn;
   bool is_active;
   undo_addr_t undo_addr;
   ulint comp;
@@ -963,6 +1026,7 @@ bool row_lizard_valid(const rec_t *rec, const dict_index_t *index,
   if (comp && rec_get_status(rec) == REC_STATUS_ORDINARY) {
     scn = row_get_rec_scn_id(rec, index, offsets);
     undo_ptr = row_get_rec_undo_ptr(rec, index, offsets);
+    gcn = row_get_rec_gcn(rec, index, offsets);
 
     is_active = row_get_rec_undo_ptr_is_active(rec, index, offsets);
 
@@ -973,6 +1037,7 @@ bool row_lizard_valid(const rec_t *rec, const dict_index_t *index,
 
     /** Scn and trx state are matched */
     ut_a(is_active == (scn == SCN_NULL));
+    ut_a(is_active == (gcn == GCN_NULL));
   }
   return true;
 }
@@ -989,6 +1054,7 @@ bool row_lizard_has_cleanout(const rec_t *rec, const dict_index_t *index,
                              const ulint *offsets) {
   scn_id_t scn;
   undo_ptr_t undo_ptr;
+  gcn_t gcn;
   bool is_active;
   undo_addr_t undo_addr;
 
@@ -1000,6 +1066,8 @@ bool row_lizard_has_cleanout(const rec_t *rec, const dict_index_t *index,
   if (rec_get_status(rec) == REC_STATUS_ORDINARY) {
     scn = row_get_rec_scn_id(rec, index, offsets);
     undo_ptr = row_get_rec_undo_ptr(rec, index, offsets);
+    gcn = row_get_rec_gcn(rec, index, offsets);
+
     is_active = row_get_rec_undo_ptr_is_active(rec, index, offsets);
 
     undo_decode_undo_ptr(undo_ptr, &undo_addr);
@@ -1010,6 +1078,7 @@ bool row_lizard_has_cleanout(const rec_t *rec, const dict_index_t *index,
     ut_a(!is_active);
     /** valid scn */
     ut_a(scn != SCN_NULL);
+    ut_a(gcn != GCN_NULL);
   }
   return true;
 }

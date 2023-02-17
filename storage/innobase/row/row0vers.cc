@@ -601,7 +601,7 @@ ibool row_vers_must_preserve_del_marked(txn_rec_t *txn_rec,
 
   mtr_s_lock(&purge_sys->latch, mtr);
 
-  lizard::txn_undo_hdr_lookup(txn_rec, nullptr, nullptr);
+  lizard::txn_rec_real_state_by_misc(txn_rec);
 
   return (!purge_sys->vision.modifications_visible(txn_rec, name));
 }
@@ -1346,11 +1346,14 @@ dberr_t row_vers_build_for_consistent_read(
 
     trx_id = row_get_rec_trx_id(prev_version, index, *offsets);
 
-    txn_rec_t txn_rec{
-        trx_id, lizard::row_get_rec_scn_id(prev_version, index, *offsets),
-        lizard::row_get_rec_undo_ptr(prev_version, index, *offsets)};
-    lizard::txn_undo_hdr_lookup(&txn_rec, nullptr, nullptr);
+    txn_rec_t txn_rec = {
+        trx_id,
+        lizard::row_get_rec_scn_id(prev_version, index, *offsets),
+        lizard::row_get_rec_undo_ptr(prev_version, index, *offsets),
+        lizard::row_get_rec_gcn(prev_version, index, *offsets),
+    };
 
+    lizard::txn_rec_real_state_by_misc(&txn_rec);
     if (vision->modifications_visible(&txn_rec, index->table->name)) {
       /* The view already sees this version: we can copy
       it to in_heap and return */

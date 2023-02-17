@@ -21,6 +21,7 @@ AND	t.name LIKE 'mysql%'
         AND     t.name NOT LIKE 'mysql/ndb_binlog_index'
 	ORDER BY t.name, i.index_id;
 table_name	n_cols	table_flags	index_name	root_page	type	n_fields	merge_threshold
+mysql/consensus_info	16	33	PRIMARY	4	3	15	50
 CREATE TABLE t1 (a INT KEY, b TEXT) ROW_FORMAT=REDUNDANT ENGINE=innodb;
 CREATE TABLE t2 (a INT KEY, b TEXT) ROW_FORMAT=COMPACT ENGINE=innodb;
 CREATE TABLE t3 (a INT KEY, b TEXT) ROW_FORMAT=COMPRESSED ENGINE=innodb;
@@ -34,10 +35,10 @@ WHERE	t.table_id = i.table_id
 AND	t.name LIKE 'test%'
 	ORDER BY t.name, i.name;
 table_name	n_cols	table_flags	index_name	root_page	type	n_fields	merge_threshold
-test/t1	5	0	PRIMARY	4	3	4	50
-test/t2	5	1	PRIMARY	4	3	4	50
-test/t3	5	37	PRIMARY	4	3	4	50
-test/t4	5	33	PRIMARY	4	3	4	50
+test/t1	8	0	PRIMARY	4	3	7	50
+test/t2	8	1	PRIMARY	4	3	7	50
+test/t3	8	37	PRIMARY	4	3	7	50
+test/t4	8	33	PRIMARY	4	3	7	50
 === information_schema.innodb_tablespaces and innodb_datafiles ===
 Space_Name	Space_Type	Page_Size	Zip_Size	Formats_Permitted	Path
 mtr/global_suppressions	Single	DEFAULT	0	Dynamic	MYSQLD_DATADIR/mtr/global_suppressions.ibd
@@ -50,6 +51,7 @@ test/t4	Single	DEFAULT	0	Dynamic	MYSQLD_DATADIR/test/t4.ibd
 Space_Name	File_Type	Engine	Status	Tablespace_Name	Path
 mtr/global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/global_suppressions	MYSQLD_DATADIR/mtr/global_suppressions.ibd
 mtr/test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_suppressions	MYSQLD_DATADIR/mtr/test_suppressions.ibd
+mysql/consensus_info	TABLESPACE	InnoDB	NORMAL	mysql/consensus_info	MYSQLD_DATADIR/mysql/consensus_info.ibd
 test/t1	TABLESPACE	InnoDB	NORMAL	test/t1	MYSQLD_DATADIR/test/t1.ibd
 test/t2	TABLESPACE	InnoDB	NORMAL	test/t2	MYSQLD_DATADIR/test/t2.ibd
 test/t3	TABLESPACE	InnoDB	NORMAL	test/t3	MYSQLD_DATADIR/test/t3.ibd
@@ -306,6 +308,8 @@ COMMIT;
 CREATE INDEX t1c ON t1 (c(767));
 UPDATE t1 SET c=@e;
 CREATE INDEX t1d ON t1 (d(767));
+UPDATE t1 SET d=@e;
+ERROR HY000: Undo log record is too big.
 CREATE INDEX t1e ON t1 (e(767));
 SHOW CREATE TABLE t1;
 Table	Create Table
@@ -426,7 +430,7 @@ ENGINE=InnoDB ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=1 CHARSET=ASCII;
 Warnings:
 Warning	139	Row size too large (> max_row_size). Changing some columns to TEXT or BLOB may help. In current row format, BLOB prefix of 0 bytes is stored inline.
 DROP TABLE t1;
-CREATE TABLE t1(c text, PRIMARY KEY (c(438)))
+CREATE TABLE t1(c text, PRIMARY KEY (c(421)))
 ENGINE=InnoDB ROW_FORMAT=COMPRESSED KEY_BLOCK_SIZE=1 CHARSET=ASCII;
 INSERT INTO t1 VALUES(REPEAT('A',512)),(REPEAT('B',512));
 DROP TABLE t1;
@@ -436,7 +440,7 @@ DROP TABLE t1;
 USE mysql;
 RENAME TABLE mysql.slave_master_info to mysql.slave_master_info_28490361;
 CREATE TABLE mysql.slave_master_info(Number_of_lines int(10)unsigned COMMENT 'Number of lines in the file.',Master_log_name text COLLATE utf8_bin COMMENT 'The name of the master binary log currently being read from the master.',Master_log_pos INT(20) unsigned COMMENT 'The master log position of the last read event.',Host char(64) CHARACTER SET utf8 COLLATE utf8_bin DEFAULT''COMMENT 'The host name of the master.',User_name text CHARACTER SET utf8 COLLATE utf8_bin COMMENT 'The user name used to connect to the master.',User_password text CHARACTER SET utf8 COLLATE utf8_bin COMMENT 'The password used to connect to the master.',Port int(10) unsigned COMMENT 'The network port used to connect to the master.',Connect_retry int(10) unsigned COMMENT 'The period (in seconds) that the slave will wait before trying to reconnect to the master.',Enabled_ssl INT(1) COMMENT 'Indicates whether the server supports SSL connections.',Ssl_ca text CHARACTER SET utf8 COLLATE utf8_bin COMMENT 'The file used for the Certificate Authority (CA) certificate.',Ssl_capath text CHARACTER SET utf8 COLLATE utf8_bin COMMENT 'The path to the Certificate Authority (CA) certificates.',Ssl_cert text CHARACTER SET utf8 COLLATE utf8_bin COMMENT 'The name of the SSL certificate file.',Ssl_cipher text CHARACTER SET utf8 COLLATE utf8_bin COMMENT 'The name of the cipher in use for the SSL connection.',Sslk text CHARACTER SET utf8 COLLATE utf8_bin COMMENT 'The name of the SSL key file.',Ssl_verify_server_cert INT(1) COMMENT 'Whether to verify the server certificate.',Heartbeat float,Bind text CHARACTER SET utf8 COLLATE utf8_bin COMMENT 'Displays which interface is employed when connecting to the MySQL server',Ignored_server_ids text CHARACTER SET utf8 COLLATE utf8_bin COMMENT 'The number of server IDs to be ignored,followed by the actual server IDs',Uuid text CHARACTER SET utf8 COLLATE utf8_bin COMMENT 'The master server uuid.',Retry_count INT(20) unsigned COMMENT 'Number of reconnect attempts,to the master,before giving up.',Ssl_crl text CHARACTER SET utf8 COLLATE utf8_bin COMMENT 'The file used for the Certificate Revocation List (CRL)',Ssl_crlpath text CHARACTER SET utf8 COLLATE utf8_bin COMMENT 'The path used for Certificate Revocation List (CRL) files',Enabled_auto_position INT(1) COMMENT 'Indicates whether GTIDs will be used to retrieve events from the master.',PRIMARY KEY (Host,Port)) DEFAULT CHARSET=utf8 STATS_PERSISTENT=0 COMMENT='Master Information' ENGINE=ARCHIVE;
-ERROR HY000: Storage engine 'ARCHIVE' does not support system tables. [mysql.slave_master_info]
+ERROR 42000: Specified key was too long; max key length is 8 bytes
 create temporary table mysql.slave_master_info (a varchar(334) character set utf32 primary key) ROW_FORMAT=COMPACT ENGINE=INNODB;
 ERROR 42000: Specified key was too long; max key length is 767 bytes
 create table mysql.slave_master_info (a varchar(334) character set utf32 primary key) ROW_FORMAT=COMPACT ENGINE=INNODB;

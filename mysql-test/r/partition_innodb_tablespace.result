@@ -26,7 +26,7 @@ Level	Code	Message
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `a` int NOT NULL,
+  `a` int(11) NOT NULL,
   `b` text,
   PRIMARY KEY (`a`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
@@ -35,10 +35,10 @@ t1	CREATE TABLE `t1` (
  PARTITION p1 DATA DIRECTORY = 'MYSQL_TMP_DIR/alternate_dir/data2/' ENGINE = InnoDB) */
 === information_schema.innodb_tables  and innodb_tablespaces ===
 Table Name	Tablespace	Table Flags	Columns	Row Format	Zip Size	Space Type
-mtr/global_suppressions	mtr/global_suppressions	33	4	Dynamic	0	Single
-mtr/test_suppressions	mtr/test_suppressions	33	4	Dynamic	0	Single
-test/t1#p#p0	test/t1#p#p0	97	5	Dynamic	0	Single
-test/t1#p#p1	test/t1#p#p1	97	5	Dynamic	0	Single
+mtr/global_suppressions	mtr/global_suppressions	33	7	Dynamic	0	Single
+mtr/test_suppressions	mtr/test_suppressions	33	7	Dynamic	0	Single
+test/t1#p#p0	test/t1#p#p0	97	8	Dynamic	0	Single
+test/t1#p#p1	test/t1#p#p1	97	8	Dynamic	0	Single
 === information_schema.innodb_tablespaces and innodb_datafiles ===
 Space_Name	Space_Type	Page_Size	Zip_Size	Formats_Permitted	Path
 mtr/global_suppressions	Single	DEFAULT	0	Dynamic	MYSQLD_DATADIR/mtr/global_suppressions.ibd
@@ -49,6 +49,7 @@ test/t1#p#p1	Single	DEFAULT	0	Dynamic	MYSQL_TMP_DIR/alternate_dir/data2/test/t1#
 Space_Name	File_Type	Engine	Status	Tablespace_Name	Path
 mtr/global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/global_suppressions	MYSQLD_DATADIR/mtr/global_suppressions.ibd
 mtr/test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_suppressions	MYSQLD_DATADIR/mtr/test_suppressions.ibd
+mysql/consensus_info	TABLESPACE	InnoDB	NORMAL	mysql/consensus_info	MYSQLD_DATADIR/mysql/consensus_info.ibd
 test/t1#p#p0	TABLESPACE	InnoDB	NORMAL	test/t1#p#p0	MYSQL_TMP_DIR/alternate_dir/data/test/t1#p#p0.ibd
 test/t1#p#p1	TABLESPACE	InnoDB	NORMAL	test/t1#p#p1	MYSQL_TMP_DIR/alternate_dir/data2/test/t1#p#p1.ibd
 # Verifying .ibd files
@@ -68,7 +69,7 @@ a	b
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `a` int NOT NULL,
+  `a` int(11) NOT NULL,
   `b` text,
   PRIMARY KEY (`a`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
@@ -77,10 +78,10 @@ t1	CREATE TABLE `t1` (
  PARTITION p1 DATA DIRECTORY = 'MYSQL_TMP_DIR/alternate_dir/data2/' ENGINE = InnoDB) */
 === information_schema.innodb_tables  and innodb_tablespaces ===
 Table Name	Tablespace	Table Flags	Columns	Row Format	Zip Size	Space Type
-mtr/global_suppressions	mtr/global_suppressions	33	4	Dynamic	0	Single
-mtr/test_suppressions	mtr/test_suppressions	33	4	Dynamic	0	Single
-test/t1#p#p0	test/t1#p#p0	97	5	Dynamic	0	Single
-test/t1#p#p1	test/t1#p#p1	97	5	Dynamic	0	Single
+mtr/global_suppressions	mtr/global_suppressions	33	7	Dynamic	0	Single
+mtr/test_suppressions	mtr/test_suppressions	33	7	Dynamic	0	Single
+test/t1#p#p0	test/t1#p#p0	97	8	Dynamic	0	Single
+test/t1#p#p1	test/t1#p#p1	97	8	Dynamic	0	Single
 === information_schema.innodb_tablespaces and innodb_datafiles ===
 Space_Name	Space_Type	Page_Size	Zip_Size	Formats_Permitted	Path
 mtr/global_suppressions	Single	DEFAULT	0	Dynamic	MYSQLD_DATADIR/mtr/global_suppressions.ibd
@@ -91,6 +92,7 @@ test/t1#p#p1	Single	DEFAULT	0	Dynamic	MYSQL_TMP_DIR/alternate_dir/data2/test/t1#
 Space_Name	File_Type	Engine	Status	Tablespace_Name	Path
 mtr/global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/global_suppressions	MYSQLD_DATADIR/mtr/global_suppressions.ibd
 mtr/test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_suppressions	MYSQLD_DATADIR/mtr/test_suppressions.ibd
+mysql/consensus_info	TABLESPACE	InnoDB	NORMAL	mysql/consensus_info	MYSQLD_DATADIR/mysql/consensus_info.ibd
 test/t1#p#p0	TABLESPACE	InnoDB	NORMAL	test/t1#p#p0	MYSQL_TMP_DIR/alternate_dir/data/test/t1#p#p0.ibd
 test/t1#p#p1	TABLESPACE	InnoDB	NORMAL	test/t1#p#p1	MYSQL_TMP_DIR/alternate_dir/data2/test/t1#p#p1.ibd
 # Verifying .ibd files
@@ -99,7 +101,7 @@ RENAME TABLE t1 TO t11;
 SHOW CREATE TABLE t11;
 Table	Create Table
 t11	CREATE TABLE `t11` (
-  `a` int NOT NULL,
+  `a` int(11) NOT NULL,
   `b` text,
   PRIMARY KEY (`a`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
@@ -108,10 +110,10 @@ t11	CREATE TABLE `t11` (
  PARTITION p1 DATA DIRECTORY = 'MYSQL_TMP_DIR/alternate_dir/data2/' ENGINE = InnoDB) */
 === information_schema.innodb_tables  and innodb_tablespaces ===
 Table Name	Tablespace	Table Flags	Columns	Row Format	Zip Size	Space Type
-mtr/global_suppressions	mtr/global_suppressions	33	4	Dynamic	0	Single
-mtr/test_suppressions	mtr/test_suppressions	33	4	Dynamic	0	Single
-test/t11#p#p0	test/t11#p#p0	97	5	Dynamic	0	Single
-test/t11#p#p1	test/t11#p#p1	97	5	Dynamic	0	Single
+mtr/global_suppressions	mtr/global_suppressions	33	7	Dynamic	0	Single
+mtr/test_suppressions	mtr/test_suppressions	33	7	Dynamic	0	Single
+test/t11#p#p0	test/t11#p#p0	97	8	Dynamic	0	Single
+test/t11#p#p1	test/t11#p#p1	97	8	Dynamic	0	Single
 === information_schema.innodb_tablespaces and innodb_datafiles ===
 Space_Name	Space_Type	Page_Size	Zip_Size	Formats_Permitted	Path
 mtr/global_suppressions	Single	DEFAULT	0	Dynamic	MYSQLD_DATADIR/mtr/global_suppressions.ibd
@@ -122,6 +124,7 @@ test/t11#p#p1	Single	DEFAULT	0	Dynamic	MYSQL_TMP_DIR/alternate_dir/data2/test/t1
 Space_Name	File_Type	Engine	Status	Tablespace_Name	Path
 mtr/global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/global_suppressions	MYSQLD_DATADIR/mtr/global_suppressions.ibd
 mtr/test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_suppressions	MYSQLD_DATADIR/mtr/test_suppressions.ibd
+mysql/consensus_info	TABLESPACE	InnoDB	NORMAL	mysql/consensus_info	MYSQLD_DATADIR/mysql/consensus_info.ibd
 test/t11#p#p0	TABLESPACE	InnoDB	NORMAL	test/t11#p#p0	MYSQL_TMP_DIR/alternate_dir/data/test/t11#p#p0.ibd
 test/t11#p#p1	TABLESPACE	InnoDB	NORMAL	test/t11#p#p1	MYSQL_TMP_DIR/alternate_dir/data2/test/t11#p#p1.ibd
 # Verifying .ibd files
@@ -139,7 +142,7 @@ DEALLOCATE PREPARE stmt1;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `a` int NOT NULL,
+  `a` int(11) NOT NULL,
   `b` text,
   PRIMARY KEY (`a`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
@@ -148,10 +151,10 @@ t1	CREATE TABLE `t1` (
  PARTITION p1 DATA DIRECTORY = 'MYSQL_TMP_DIR/alternate_dir/data2/' ENGINE = InnoDB) */
 === information_schema.innodb_tables  and innodb_tablespaces ===
 Table Name	Tablespace	Table Flags	Columns	Row Format	Zip Size	Space Type
-mtr/global_suppressions	mtr/global_suppressions	33	4	Dynamic	0	Single
-mtr/test_suppressions	mtr/test_suppressions	33	4	Dynamic	0	Single
-test/t1#p#p0	test/t1#p#p0	97	5	Dynamic	0	Single
-test/t1#p#p1	test/t1#p#p1	97	5	Dynamic	0	Single
+mtr/global_suppressions	mtr/global_suppressions	33	7	Dynamic	0	Single
+mtr/test_suppressions	mtr/test_suppressions	33	7	Dynamic	0	Single
+test/t1#p#p0	test/t1#p#p0	97	8	Dynamic	0	Single
+test/t1#p#p1	test/t1#p#p1	97	8	Dynamic	0	Single
 === information_schema.innodb_tablespaces and innodb_datafiles ===
 Space_Name	Space_Type	Page_Size	Zip_Size	Formats_Permitted	Path
 mtr/global_suppressions	Single	DEFAULT	0	Dynamic	MYSQLD_DATADIR/mtr/global_suppressions.ibd
@@ -162,6 +165,7 @@ test/t1#p#p1	Single	DEFAULT	0	Dynamic	MYSQL_TMP_DIR/alternate_dir/data2/test/t1#
 Space_Name	File_Type	Engine	Status	Tablespace_Name	Path
 mtr/global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/global_suppressions	MYSQLD_DATADIR/mtr/global_suppressions.ibd
 mtr/test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_suppressions	MYSQLD_DATADIR/mtr/test_suppressions.ibd
+mysql/consensus_info	TABLESPACE	InnoDB	NORMAL	mysql/consensus_info	MYSQLD_DATADIR/mysql/consensus_info.ibd
 test/t1#p#p0	TABLESPACE	InnoDB	NORMAL	test/t1#p#p0	MYSQL_TMP_DIR/alternate_dir/data/test/t1#p#p0.ibd
 test/t1#p#p1	TABLESPACE	InnoDB	NORMAL	test/t1#p#p1	MYSQL_TMP_DIR/alternate_dir/data2/test/t1#p#p1.ibd
 DROP TABLE t1;
@@ -202,7 +206,7 @@ id	purchased
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `id` int DEFAULT NULL,
+  `id` int(11) DEFAULT NULL,
   `purchased` date DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 /*!50100 PARTITION BY RANGE (year(`purchased`))
@@ -218,14 +222,14 @@ SUBPARTITION BY HASH (to_days(`purchased`))
   SUBPARTITION s5 DATA DIRECTORY = 'MYSQL_TMP_DIR/alternate_dir/data2/' ENGINE = InnoDB)) */
 === information_schema.innodb_tables  and innodb_tablespaces ===
 Table Name	Tablespace	Table Flags	Columns	Row Format	Zip Size	Space Type
-mtr/global_suppressions	mtr/global_suppressions	33	4	Dynamic	0	Single
-mtr/test_suppressions	mtr/test_suppressions	33	4	Dynamic	0	Single
-test/t1#p#p0#sp#s0	test/t1#p#p0#sp#s0	97	5	Dynamic	0	Single
-test/t1#p#p0#sp#s1	test/t1#p#p0#sp#s1	97	5	Dynamic	0	Single
-test/t1#p#p1#sp#s2	test/t1#p#p1#sp#s2	97	5	Dynamic	0	Single
-test/t1#p#p1#sp#s3	test/t1#p#p1#sp#s3	97	5	Dynamic	0	Single
-test/t1#p#p2#sp#s4	test/t1#p#p2#sp#s4	97	5	Dynamic	0	Single
-test/t1#p#p2#sp#s5	test/t1#p#p2#sp#s5	97	5	Dynamic	0	Single
+mtr/global_suppressions	mtr/global_suppressions	33	7	Dynamic	0	Single
+mtr/test_suppressions	mtr/test_suppressions	33	7	Dynamic	0	Single
+test/t1#p#p0#sp#s0	test/t1#p#p0#sp#s0	97	8	Dynamic	0	Single
+test/t1#p#p0#sp#s1	test/t1#p#p0#sp#s1	97	8	Dynamic	0	Single
+test/t1#p#p1#sp#s2	test/t1#p#p1#sp#s2	97	8	Dynamic	0	Single
+test/t1#p#p1#sp#s3	test/t1#p#p1#sp#s3	97	8	Dynamic	0	Single
+test/t1#p#p2#sp#s4	test/t1#p#p2#sp#s4	97	8	Dynamic	0	Single
+test/t1#p#p2#sp#s5	test/t1#p#p2#sp#s5	97	8	Dynamic	0	Single
 === information_schema.innodb_tablespaces and innodb_datafiles ===
 Space_Name	Space_Type	Page_Size	Zip_Size	Formats_Permitted	Path
 mtr/global_suppressions	Single	DEFAULT	0	Dynamic	MYSQLD_DATADIR/mtr/global_suppressions.ibd
@@ -240,6 +244,7 @@ test/t1#p#p2#sp#s5	Single	DEFAULT	0	Dynamic	MYSQL_TMP_DIR/alternate_dir/data2/te
 Space_Name	File_Type	Engine	Status	Tablespace_Name	Path
 mtr/global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/global_suppressions	MYSQLD_DATADIR/mtr/global_suppressions.ibd
 mtr/test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_suppressions	MYSQLD_DATADIR/mtr/test_suppressions.ibd
+mysql/consensus_info	TABLESPACE	InnoDB	NORMAL	mysql/consensus_info	MYSQLD_DATADIR/mysql/consensus_info.ibd
 test/t1#p#p0#sp#s0	TABLESPACE	InnoDB	NORMAL	test/t1#p#p0#sp#s0	MYSQL_TMP_DIR/alternate_dir/data/test/t1#p#p0#sp#s0.ibd
 test/t1#p#p0#sp#s1	TABLESPACE	InnoDB	NORMAL	test/t1#p#p0#sp#s1	MYSQL_TMP_DIR/alternate_dir/data2/test/t1#p#p0#sp#s1.ibd
 test/t1#p#p1#sp#s2	TABLESPACE	InnoDB	NORMAL	test/t1#p#p1#sp#s2	MYSQL_TMP_DIR/alternate_dir/data/test/t1#p#p1#sp#s2.ibd
@@ -286,7 +291,7 @@ id	purchased
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `id` int DEFAULT NULL,
+  `id` int(11) DEFAULT NULL,
   `purchased` date DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=DYNAMIC
 /*!50100 PARTITION BY RANGE (year(`purchased`))
@@ -302,14 +307,14 @@ SUBPARTITION BY HASH (to_days(`purchased`))
   SUBPARTITION s5 DATA DIRECTORY = 'MYSQL_TMP_DIR/alternate_dir/data2/' ENGINE = InnoDB)) */
 === information_schema.innodb_tables  and innodb_tablespaces ===
 Table Name	Tablespace	Table Flags	Columns	Row Format	Zip Size	Space Type
-mtr/global_suppressions	mtr/global_suppressions	33	4	Dynamic	0	Single
-mtr/test_suppressions	mtr/test_suppressions	33	4	Dynamic	0	Single
-test/t1#p#p0#sp#s0	test/t1#p#p0#sp#s0	97	5	Dynamic	0	Single
-test/t1#p#p0#sp#s1	test/t1#p#p0#sp#s1	97	5	Dynamic	0	Single
-test/t1#p#p1#sp#s2	test/t1#p#p1#sp#s2	97	5	Dynamic	0	Single
-test/t1#p#p1#sp#s3	test/t1#p#p1#sp#s3	97	5	Dynamic	0	Single
-test/t1#p#p2#sp#s4	test/t1#p#p2#sp#s4	97	5	Dynamic	0	Single
-test/t1#p#p2#sp#s5	test/t1#p#p2#sp#s5	97	5	Dynamic	0	Single
+mtr/global_suppressions	mtr/global_suppressions	33	7	Dynamic	0	Single
+mtr/test_suppressions	mtr/test_suppressions	33	7	Dynamic	0	Single
+test/t1#p#p0#sp#s0	test/t1#p#p0#sp#s0	97	8	Dynamic	0	Single
+test/t1#p#p0#sp#s1	test/t1#p#p0#sp#s1	97	8	Dynamic	0	Single
+test/t1#p#p1#sp#s2	test/t1#p#p1#sp#s2	97	8	Dynamic	0	Single
+test/t1#p#p1#sp#s3	test/t1#p#p1#sp#s3	97	8	Dynamic	0	Single
+test/t1#p#p2#sp#s4	test/t1#p#p2#sp#s4	97	8	Dynamic	0	Single
+test/t1#p#p2#sp#s5	test/t1#p#p2#sp#s5	97	8	Dynamic	0	Single
 === information_schema.innodb_tablespaces and innodb_datafiles ===
 Space_Name	Space_Type	Page_Size	Zip_Size	Formats_Permitted	Path
 mtr/global_suppressions	Single	DEFAULT	0	Dynamic	MYSQLD_DATADIR/mtr/global_suppressions.ibd
@@ -324,6 +329,7 @@ test/t1#p#p2#sp#s5	Single	DEFAULT	0	Dynamic	MYSQL_TMP_DIR/alternate_dir/data2/te
 Space_Name	File_Type	Engine	Status	Tablespace_Name	Path
 mtr/global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/global_suppressions	MYSQLD_DATADIR/mtr/global_suppressions.ibd
 mtr/test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_suppressions	MYSQLD_DATADIR/mtr/test_suppressions.ibd
+mysql/consensus_info	TABLESPACE	InnoDB	NORMAL	mysql/consensus_info	MYSQLD_DATADIR/mysql/consensus_info.ibd
 test/t1#p#p0#sp#s0	TABLESPACE	InnoDB	NORMAL	test/t1#p#p0#sp#s0	MYSQL_TMP_DIR/alternate_dir/data/test/t1#p#p0#sp#s0.ibd
 test/t1#p#p0#sp#s1	TABLESPACE	InnoDB	NORMAL	test/t1#p#p0#sp#s1	MYSQL_TMP_DIR/alternate_dir/data2/test/t1#p#p0#sp#s1.ibd
 test/t1#p#p1#sp#s2	TABLESPACE	InnoDB	NORMAL	test/t1#p#p1#sp#s2	MYSQL_TMP_DIR/alternate_dir/data/test/t1#p#p1#sp#s2.ibd
@@ -357,7 +363,7 @@ SUBPARTITION sp8));
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `a` int DEFAULT NULL
+  `a` int(11) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 /*!50100 PARTITION BY RANGE (`a`)
 SUBPARTITION BY HASH (`a`)
@@ -385,7 +391,7 @@ PARTITION p1);
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `a` int NOT NULL,
+  `a` int(11) NOT NULL,
   PRIMARY KEY (`a`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 /*!50100 PARTITION BY KEY (a)
@@ -404,14 +410,14 @@ ENGINE = InnoDB;
 SHOW CREATE TABLE t_file_per_table_on;
 Table	Create Table
 t_file_per_table_on	CREATE TABLE `t_file_per_table_on` (
-  `a` int NOT NULL AUTO_INCREMENT,
+  `a` int(11) NOT NULL AUTO_INCREMENT,
   `b` varchar(128) DEFAULT NULL,
   PRIMARY KEY (`a`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 SHOW CREATE TABLE t_file_per_table_off;
 Table	Create Table
 t_file_per_table_off	CREATE TABLE `t_file_per_table_off` (
-  `a` int NOT NULL AUTO_INCREMENT,
+  `a` int(11) NOT NULL AUTO_INCREMENT,
   `b` varchar(128) DEFAULT NULL,
   PRIMARY KEY (`a`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
@@ -419,14 +425,14 @@ SET @@global.innodb_file_per_table = ON;
 SHOW CREATE TABLE t_file_per_table_on;
 Table	Create Table
 t_file_per_table_on	CREATE TABLE `t_file_per_table_on` (
-  `a` int NOT NULL AUTO_INCREMENT,
+  `a` int(11) NOT NULL AUTO_INCREMENT,
   `b` varchar(128) DEFAULT NULL,
   PRIMARY KEY (`a`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 SHOW CREATE TABLE t_file_per_table_off;
 Table	Create Table
 t_file_per_table_off	CREATE TABLE `t_file_per_table_off` (
-  `a` int NOT NULL AUTO_INCREMENT,
+  `a` int(11) NOT NULL AUTO_INCREMENT,
   `b` varchar(128) DEFAULT NULL,
   PRIMARY KEY (`a`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
@@ -436,7 +442,7 @@ ALTER TABLE t1 COALESCE PARTITION 1;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `a` int NOT NULL,
+  `a` int(11) NOT NULL,
   PRIMARY KEY (`a`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 /*!50100 PARTITION BY KEY (a)
@@ -446,7 +452,7 @@ SET @@sql_quote_show_create=0;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE t1 (
-  a int NOT NULL,
+  a int(11) NOT NULL,
   PRIMARY KEY (a)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 /*!50100 PARTITION BY KEY (a)
@@ -454,11 +460,11 @@ t1	CREATE TABLE t1 (
 SET @@sql_quote_show_create=@old_sql_quote_show_create;
 === information_schema.innodb_tables  and innodb_tablespaces ===
 Table Name	Tablespace	Table Flags	Columns	Row Format	Zip Size	Space Type
-mtr/global_suppressions	mtr/global_suppressions	33	4	Dynamic	0	Single
-mtr/test_suppressions	mtr/test_suppressions	33	4	Dynamic	0	Single
-test/t1#p#p0	test/t1#p#p0	97	4	Dynamic	0	Single
-test/t_file_per_table_off	innodb_system	161	5	Dynamic	0	System
-test/t_file_per_table_on	test/t_file_per_table_on	33	5	Dynamic	0	Single
+mtr/global_suppressions	mtr/global_suppressions	33	7	Dynamic	0	Single
+mtr/test_suppressions	mtr/test_suppressions	33	7	Dynamic	0	Single
+test/t1#p#p0	test/t1#p#p0	97	7	Dynamic	0	Single
+test/t_file_per_table_off	innodb_system	161	8	Dynamic	0	System
+test/t_file_per_table_on	test/t_file_per_table_on	33	8	Dynamic	0	Single
 === information_schema.innodb_tablespaces and innodb_datafiles ===
 Space_Name	Space_Type	Page_Size	Zip_Size	Formats_Permitted	Path
 mtr/global_suppressions	Single	DEFAULT	0	Dynamic	MYSQLD_DATADIR/mtr/global_suppressions.ibd
@@ -469,6 +475,7 @@ test/t_file_per_table_on	Single	DEFAULT	0	Dynamic	MYSQLD_DATADIR/test/t_file_per
 Space_Name	File_Type	Engine	Status	Tablespace_Name	Path
 mtr/global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/global_suppressions	MYSQLD_DATADIR/mtr/global_suppressions.ibd
 mtr/test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_suppressions	MYSQLD_DATADIR/mtr/test_suppressions.ibd
+mysql/consensus_info	TABLESPACE	InnoDB	NORMAL	mysql/consensus_info	MYSQLD_DATADIR/mysql/consensus_info.ibd
 test/t1#p#p0	TABLESPACE	InnoDB	NORMAL	test/t1#p#p0	MYSQL_TMP_DIR/alternate_dir/data_part/test/t1#p#p0.ibd
 test/t_file_per_table_on	TABLESPACE	InnoDB	NORMAL	test/t_file_per_table_on	MYSQLD_DATADIR/test/t_file_per_table_on.ibd
 DROP TABLE t1;
@@ -476,14 +483,14 @@ SET @@global.innodb_file_per_table = ON;
 SHOW CREATE TABLE t_file_per_table_on;
 Table	Create Table
 t_file_per_table_on	CREATE TABLE `t_file_per_table_on` (
-  `a` int NOT NULL AUTO_INCREMENT,
+  `a` int(11) NOT NULL AUTO_INCREMENT,
   `b` varchar(128) DEFAULT NULL,
   PRIMARY KEY (`a`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 SHOW CREATE TABLE t_file_per_table_off;
 Table	Create Table
 t_file_per_table_off	CREATE TABLE `t_file_per_table_off` (
-  `a` int NOT NULL AUTO_INCREMENT,
+  `a` int(11) NOT NULL AUTO_INCREMENT,
   `b` varchar(128) DEFAULT NULL,
   PRIMARY KEY (`a`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
@@ -491,14 +498,14 @@ SET @@global.innodb_file_per_table = OFF;
 SHOW CREATE TABLE t_file_per_table_on;
 Table	Create Table
 t_file_per_table_on	CREATE TABLE `t_file_per_table_on` (
-  `a` int NOT NULL AUTO_INCREMENT,
+  `a` int(11) NOT NULL AUTO_INCREMENT,
   `b` varchar(128) DEFAULT NULL,
   PRIMARY KEY (`a`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 SHOW CREATE TABLE t_file_per_table_off;
 Table	Create Table
 t_file_per_table_off	CREATE TABLE `t_file_per_table_off` (
-  `a` int NOT NULL AUTO_INCREMENT,
+  `a` int(11) NOT NULL AUTO_INCREMENT,
   `b` varchar(128) DEFAULT NULL,
   PRIMARY KEY (`a`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci

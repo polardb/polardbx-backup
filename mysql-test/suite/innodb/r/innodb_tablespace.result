@@ -3,10 +3,6 @@ SET default_storage_engine=InnoDB;
 # TABLESPACE related tests.
 #
 #
-# Restart with innodb-directories set to MYSQL_TMP_DIR.
-#
-# restart: --innodb-directories=MYSQL_TMP_DIR
-#
 # CREATE TABLE ... DATA DIRECTORY
 # Innodb does not support INDEX DIRECTORY.
 #
@@ -30,7 +26,7 @@ Warning	1618	<INDEX DIRECTORY> option ignored
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `a` int NOT NULL,
+  `a` int(11) NOT NULL,
   `b` text,
   PRIMARY KEY (`a`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
@@ -61,7 +57,7 @@ Warning	1618	<DATA DIRECTORY> option ignored
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `a` int NOT NULL,
+  `a` int(11) NOT NULL,
   `b` text,
   PRIMARY KEY (`a`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
@@ -92,16 +88,16 @@ t1.ibd
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `a` int NOT NULL,
+  `a` int(11) NOT NULL,
   `b` text,
   PRIMARY KEY (`a`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci DATA DIRECTORY='MYSQL_TMP_DIR/alt_dir/'
 # Show that the new system tables have this table in them correctly
 === information_schema.innodb_tables  and innodb_tablespaces ===
 Table Name	Tablespace	Table Flags	Columns	Row Format	Zip Size	Space Type
-mtr/global_suppressions	mtr/global_suppressions	33	4	Dynamic	0	Single
-mtr/test_suppressions	mtr/test_suppressions	33	4	Dynamic	0	Single
-test/t1	test/t1	97	5	Dynamic	0	Single
+mtr/global_suppressions	mtr/global_suppressions	33	7	Dynamic	0	Single
+mtr/test_suppressions	mtr/test_suppressions	33	7	Dynamic	0	Single
+test/t1	test/t1	97	8	Dynamic	0	Single
 === information_schema.innodb_tablespaces and innodb_datafiles ===
 Space_Name	Space_Type	Page_Size	Zip_Size	Formats_Permitted	Path
 mtr/global_suppressions	Single	DEFAULT	0	Dynamic	MYSQLD_DATADIR/mtr/global_suppressions.ibd
@@ -111,6 +107,7 @@ test/t1	Single	DEFAULT	0	Dynamic	MYSQL_TMP_DIR/alt_dir/test/t1.ibd
 Space_Name	File_Type	Engine	Status	Tablespace_Name	Path
 mtr/global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/global_suppressions	MYSQLD_DATADIR/mtr/global_suppressions.ibd
 mtr/test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_suppressions	MYSQLD_DATADIR/mtr/test_suppressions.ibd
+mysql/consensus_info	TABLESPACE	InnoDB	NORMAL	mysql/consensus_info	MYSQLD_DATADIR/mysql/consensus_info.ibd
 test/t1	TABLESPACE	InnoDB	NORMAL	test/t1	MYSQL_TMP_DIR/alt_dir/test/t1.ibd
 #
 # Show that the system tables are updated on drop table
@@ -118,8 +115,8 @@ test/t1	TABLESPACE	InnoDB	NORMAL	test/t1	MYSQL_TMP_DIR/alt_dir/test/t1.ibd
 DROP TABLE t1;
 === information_schema.innodb_tables  and innodb_tablespaces ===
 Table Name	Tablespace	Table Flags	Columns	Row Format	Zip Size	Space Type
-mtr/global_suppressions	mtr/global_suppressions	33	4	Dynamic	0	Single
-mtr/test_suppressions	mtr/test_suppressions	33	4	Dynamic	0	Single
+mtr/global_suppressions	mtr/global_suppressions	33	7	Dynamic	0	Single
+mtr/test_suppressions	mtr/test_suppressions	33	7	Dynamic	0	Single
 === information_schema.innodb_tablespaces and innodb_datafiles ===
 Space_Name	Space_Type	Page_Size	Zip_Size	Formats_Permitted	Path
 mtr/global_suppressions	Single	DEFAULT	0	Dynamic	MYSQLD_DATADIR/mtr/global_suppressions.ibd
@@ -128,6 +125,7 @@ mtr/test_suppressions	Single	DEFAULT	0	Dynamic	MYSQLD_DATADIR/mtr/test_suppressi
 Space_Name	File_Type	Engine	Status	Tablespace_Name	Path
 mtr/global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/global_suppressions	MYSQLD_DATADIR/mtr/global_suppressions.ibd
 mtr/test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_suppressions	MYSQLD_DATADIR/mtr/test_suppressions.ibd
+mysql/consensus_info	TABLESPACE	InnoDB	NORMAL	mysql/consensus_info	MYSQLD_DATADIR/mysql/consensus_info.ibd
 #
 # Create the same table a second time in the same place
 #
@@ -139,15 +137,15 @@ a	b
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `a` int NOT NULL,
+  `a` int(11) NOT NULL,
   `b` text,
   PRIMARY KEY (`a`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci DATA DIRECTORY='MYSQL_TMP_DIR/alt_dir/'
 === information_schema.innodb_tables  and innodb_tablespaces ===
 Table Name	Tablespace	Table Flags	Columns	Row Format	Zip Size	Space Type
-mtr/global_suppressions	mtr/global_suppressions	33	4	Dynamic	0	Single
-mtr/test_suppressions	mtr/test_suppressions	33	4	Dynamic	0	Single
-test/t1	test/t1	97	5	Dynamic	0	Single
+mtr/global_suppressions	mtr/global_suppressions	33	7	Dynamic	0	Single
+mtr/test_suppressions	mtr/test_suppressions	33	7	Dynamic	0	Single
+test/t1	test/t1	97	8	Dynamic	0	Single
 === information_schema.innodb_tablespaces and innodb_datafiles ===
 Space_Name	Space_Type	Page_Size	Zip_Size	Formats_Permitted	Path
 mtr/global_suppressions	Single	DEFAULT	0	Dynamic	MYSQLD_DATADIR/mtr/global_suppressions.ibd
@@ -157,6 +155,7 @@ test/t1	Single	DEFAULT	0	Dynamic	MYSQL_TMP_DIR/alt_dir/test/t1.ibd
 Space_Name	File_Type	Engine	Status	Tablespace_Name	Path
 mtr/global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/global_suppressions	MYSQLD_DATADIR/mtr/global_suppressions.ibd
 mtr/test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_suppressions	MYSQLD_DATADIR/mtr/test_suppressions.ibd
+mysql/consensus_info	TABLESPACE	InnoDB	NORMAL	mysql/consensus_info	MYSQLD_DATADIR/mysql/consensus_info.ibd
 test/t1	TABLESPACE	InnoDB	NORMAL	test/t1	MYSQL_TMP_DIR/alt_dir/test/t1.ibd
 ---- MYSQLD_DATADIR/test
 ---- MYSQL_TMP_DIR/alt_dir/test
@@ -171,9 +170,9 @@ a	b
 3	Truncate the table, then insert
 === information_schema.innodb_tables  and innodb_tablespaces ===
 Table Name	Tablespace	Table Flags	Columns	Row Format	Zip Size	Space Type
-mtr/global_suppressions	mtr/global_suppressions	33	4	Dynamic	0	Single
-mtr/test_suppressions	mtr/test_suppressions	33	4	Dynamic	0	Single
-test/t1	test/t1	97	5	Dynamic	0	Single
+mtr/global_suppressions	mtr/global_suppressions	33	7	Dynamic	0	Single
+mtr/test_suppressions	mtr/test_suppressions	33	7	Dynamic	0	Single
+test/t1	test/t1	97	8	Dynamic	0	Single
 === information_schema.innodb_tablespaces and innodb_datafiles ===
 Space_Name	Space_Type	Page_Size	Zip_Size	Formats_Permitted	Path
 mtr/global_suppressions	Single	DEFAULT	0	Dynamic	MYSQLD_DATADIR/mtr/global_suppressions.ibd
@@ -183,6 +182,7 @@ test/t1	Single	DEFAULT	0	Dynamic	MYSQL_TMP_DIR/alt_dir/test/t1.ibd
 Space_Name	File_Type	Engine	Status	Tablespace_Name	Path
 mtr/global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/global_suppressions	MYSQLD_DATADIR/mtr/global_suppressions.ibd
 mtr/test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_suppressions	MYSQLD_DATADIR/mtr/test_suppressions.ibd
+mysql/consensus_info	TABLESPACE	InnoDB	NORMAL	mysql/consensus_info	MYSQLD_DATADIR/mysql/consensus_info.ibd
 test/t1	TABLESPACE	InnoDB	NORMAL	test/t1	MYSQL_TMP_DIR/alt_dir/test/t1.ibd
 SELECT name, server_version, space_version FROM information_schema.innodb_tablespaces where name="mysql";
 name	server_version	space_version
@@ -201,9 +201,9 @@ a	b
 4	Rename the table, then insert
 === information_schema.innodb_tables  and innodb_tablespaces ===
 Table Name	Tablespace	Table Flags	Columns	Row Format	Zip Size	Space Type
-mtr/global_suppressions	mtr/global_suppressions	33	4	Dynamic	0	Single
-mtr/test_suppressions	mtr/test_suppressions	33	4	Dynamic	0	Single
-test/t2	test/t2	97	5	Dynamic	0	Single
+mtr/global_suppressions	mtr/global_suppressions	33	7	Dynamic	0	Single
+mtr/test_suppressions	mtr/test_suppressions	33	7	Dynamic	0	Single
+test/t2	test/t2	97	8	Dynamic	0	Single
 === information_schema.innodb_tablespaces and innodb_datafiles ===
 Space_Name	Space_Type	Page_Size	Zip_Size	Formats_Permitted	Path
 mtr/global_suppressions	Single	DEFAULT	0	Dynamic	MYSQLD_DATADIR/mtr/global_suppressions.ibd
@@ -213,6 +213,7 @@ test/t2	Single	DEFAULT	0	Dynamic	MYSQL_TMP_DIR/alt_dir/test/t2.ibd
 Space_Name	File_Type	Engine	Status	Tablespace_Name	Path
 mtr/global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/global_suppressions	MYSQLD_DATADIR/mtr/global_suppressions.ibd
 mtr/test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_suppressions	MYSQLD_DATADIR/mtr/test_suppressions.ibd
+mysql/consensus_info	TABLESPACE	InnoDB	NORMAL	mysql/consensus_info	MYSQLD_DATADIR/mysql/consensus_info.ibd
 test/t2	TABLESPACE	InnoDB	NORMAL	test/t2	MYSQL_TMP_DIR/alt_dir/test/t2.ibd
 ---- MYSQLD_DATADIR/test
 ---- MYSQL_TMP_DIR/alt_dir/test
@@ -227,10 +228,10 @@ a	b
 5	CREATE TABLE LIKE
 === information_schema.innodb_tables  and innodb_tablespaces ===
 Table Name	Tablespace	Table Flags	Columns	Row Format	Zip Size	Space Type
-mtr/global_suppressions	mtr/global_suppressions	33	4	Dynamic	0	Single
-mtr/test_suppressions	mtr/test_suppressions	33	4	Dynamic	0	Single
-test/t2	test/t2	97	5	Dynamic	0	Single
-test/t3	test/t3	33	5	Dynamic	0	Single
+mtr/global_suppressions	mtr/global_suppressions	33	7	Dynamic	0	Single
+mtr/test_suppressions	mtr/test_suppressions	33	7	Dynamic	0	Single
+test/t2	test/t2	97	8	Dynamic	0	Single
+test/t3	test/t3	33	8	Dynamic	0	Single
 === information_schema.innodb_tablespaces and innodb_datafiles ===
 Space_Name	Space_Type	Page_Size	Zip_Size	Formats_Permitted	Path
 mtr/global_suppressions	Single	DEFAULT	0	Dynamic	MYSQLD_DATADIR/mtr/global_suppressions.ibd
@@ -241,6 +242,7 @@ test/t3	Single	DEFAULT	0	Dynamic	MYSQLD_DATADIR/test/t3.ibd
 Space_Name	File_Type	Engine	Status	Tablespace_Name	Path
 mtr/global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/global_suppressions	MYSQLD_DATADIR/mtr/global_suppressions.ibd
 mtr/test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_suppressions	MYSQLD_DATADIR/mtr/test_suppressions.ibd
+mysql/consensus_info	TABLESPACE	InnoDB	NORMAL	mysql/consensus_info	MYSQLD_DATADIR/mysql/consensus_info.ibd
 test/t2	TABLESPACE	InnoDB	NORMAL	test/t2	MYSQL_TMP_DIR/alt_dir/test/t2.ibd
 test/t3	TABLESPACE	InnoDB	NORMAL	test/t3	MYSQLD_DATADIR/test/t3.ibd
 ---- MYSQLD_DATADIR/test
@@ -251,8 +253,8 @@ t3.ibd
 DROP TABLE t2, t3;
 === information_schema.innodb_tables  and innodb_tablespaces ===
 Table Name	Tablespace	Table Flags	Columns	Row Format	Zip Size	Space Type
-mtr/global_suppressions	mtr/global_suppressions	33	4	Dynamic	0	Single
-mtr/test_suppressions	mtr/test_suppressions	33	4	Dynamic	0	Single
+mtr/global_suppressions	mtr/global_suppressions	33	7	Dynamic	0	Single
+mtr/test_suppressions	mtr/test_suppressions	33	7	Dynamic	0	Single
 === information_schema.innodb_tablespaces and innodb_datafiles ===
 Space_Name	Space_Type	Page_Size	Zip_Size	Formats_Permitted	Path
 mtr/global_suppressions	Single	DEFAULT	0	Dynamic	MYSQLD_DATADIR/mtr/global_suppressions.ibd
@@ -261,6 +263,7 @@ mtr/test_suppressions	Single	DEFAULT	0	Dynamic	MYSQLD_DATADIR/mtr/test_suppressi
 Space_Name	File_Type	Engine	Status	Tablespace_Name	Path
 mtr/global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/global_suppressions	MYSQLD_DATADIR/mtr/global_suppressions.ibd
 mtr/test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_suppressions	MYSQLD_DATADIR/mtr/test_suppressions.ibd
+mysql/consensus_info	TABLESPACE	InnoDB	NORMAL	mysql/consensus_info	MYSQLD_DATADIR/mysql/consensus_info.ibd
 ---- MYSQLD_DATADIR/test
 ---- MYSQL_TMP_DIR/alt_dir/test
 #
@@ -310,7 +313,7 @@ Warning	1618	<DATA DIRECTORY> option ignored
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TEMPORARY TABLE `t1` (
-  `a` int NOT NULL,
+  `a` int(11) NOT NULL,
   `b` text,
   PRIMARY KEY (`a`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
@@ -352,6 +355,7 @@ test/t1	Single	DEFAULT	0	Dynamic	MYSQL_TMP_DIR/alt_dir/test/t1.ibd
 Space_Name	File_Type	Engine	Status	Tablespace_Name	Path
 mtr/global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/global_suppressions	MYSQLD_DATADIR/mtr/global_suppressions.ibd
 mtr/test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_suppressions	MYSQLD_DATADIR/mtr/test_suppressions.ibd
+mysql/consensus_info	TABLESPACE	InnoDB	NORMAL	mysql/consensus_info	MYSQLD_DATADIR/mysql/consensus_info.ibd
 test/t1	TABLESPACE	InnoDB	NORMAL	test/t1	MYSQL_TMP_DIR/alt_dir/test/t1.ibd
 INSERT INTO t1 VALUES (7, "Create the remote table via static DDL statements");
 SELECT * FROM t1;
@@ -360,7 +364,7 @@ a	b
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `a` int NOT NULL,
+  `a` int(11) NOT NULL,
   `b` text,
   PRIMARY KEY (`a`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci DATA DIRECTORY='MYSQL_TMP_DIR/alt_dir/'
@@ -383,6 +387,7 @@ test/t1	Single	DEFAULT	0	Dynamic	MYSQL_TMP_DIR/alt_dir/test/t1.ibd
 Space_Name	File_Type	Engine	Status	Tablespace_Name	Path
 mtr/global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/global_suppressions	MYSQLD_DATADIR/mtr/global_suppressions.ibd
 mtr/test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_suppressions	MYSQLD_DATADIR/mtr/test_suppressions.ibd
+mysql/consensus_info	TABLESPACE	InnoDB	NORMAL	mysql/consensus_info	MYSQLD_DATADIR/mysql/consensus_info.ibd
 test/t1	TABLESPACE	InnoDB	NORMAL	test/t1	MYSQL_TMP_DIR/alt_dir/test/t1.ibd
 INSERT INTO t1 VALUES (8, "Create the remote table via dynamic DDL statements");
 SELECT * FROM t1;
@@ -391,7 +396,7 @@ a	b
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `a` int NOT NULL,
+  `a` int(11) NOT NULL,
   `b` text,
   PRIMARY KEY (`a`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci DATA DIRECTORY='MYSQL_TMP_DIR/alt_dir/'
@@ -424,10 +429,10 @@ INSERT INTO emp values(3,'IBM','NAIL',70);
 SHOW CREATE TABLE emp;
 Table	Create Table
 emp	CREATE TABLE `emp` (
-  `id` int NOT NULL,
+  `id` int(11) NOT NULL,
   `store_name` varchar(30) DEFAULT NULL,
   `parts` varchar(30) DEFAULT NULL,
-  `store_id` int DEFAULT NULL
+  `store_id` int(11) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 /*!50100 PARTITION BY LIST (`store_id`)
 (PARTITION east VALUES IN (10,20,30) DATA DIRECTORY = 'MYSQL_TMP_DIR/alt_dir_east/' ENGINE = InnoDB,
@@ -435,11 +440,11 @@ emp	CREATE TABLE `emp` (
  PARTITION west VALUES IN (70,80,100) DATA DIRECTORY = 'MYSQL_TMP_DIR/alt_dir_west/' ENGINE = InnoDB) */
 === information_schema.innodb_tables  and innodb_tablespaces ===
 Table Name	Tablespace	Table Flags	Columns	Row Format	Zip Size	Space Type
-mtr/global_suppressions	mtr/global_suppressions	33	4	Dynamic	0	Single
-mtr/test_suppressions	mtr/test_suppressions	33	4	Dynamic	0	Single
-test/emp#p#east	test/emp#p#east	97	7	Dynamic	0	Single
-test/emp#p#north	test/emp#p#north	97	7	Dynamic	0	Single
-test/emp#p#west	test/emp#p#west	97	7	Dynamic	0	Single
+mtr/global_suppressions	mtr/global_suppressions	33	7	Dynamic	0	Single
+mtr/test_suppressions	mtr/test_suppressions	33	7	Dynamic	0	Single
+test/emp#p#east	test/emp#p#east	97	10	Dynamic	0	Single
+test/emp#p#north	test/emp#p#north	97	10	Dynamic	0	Single
+test/emp#p#west	test/emp#p#west	97	10	Dynamic	0	Single
 === information_schema.innodb_tablespaces and innodb_datafiles ===
 Space_Name	Space_Type	Page_Size	Zip_Size	Formats_Permitted	Path
 mtr/global_suppressions	Single	DEFAULT	0	Dynamic	MYSQLD_DATADIR/mtr/global_suppressions.ibd
@@ -451,6 +456,7 @@ test/emp#p#west	Single	DEFAULT	0	Dynamic	MYSQL_TMP_DIR/alt_dir_west/test/emp#p#w
 Space_Name	File_Type	Engine	Status	Tablespace_Name	Path
 mtr/global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/global_suppressions	MYSQLD_DATADIR/mtr/global_suppressions.ibd
 mtr/test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_suppressions	MYSQLD_DATADIR/mtr/test_suppressions.ibd
+mysql/consensus_info	TABLESPACE	InnoDB	NORMAL	mysql/consensus_info	MYSQLD_DATADIR/mysql/consensus_info.ibd
 test/emp#p#east	TABLESPACE	InnoDB	NORMAL	test/emp#p#east	MYSQL_TMP_DIR/alt_dir_east/test/emp#p#east.ibd
 test/emp#p#north	TABLESPACE	InnoDB	NORMAL	test/emp#p#north	MYSQL_TMP_DIR/alt_dir_north/test/emp#p#north.ibd
 test/emp#p#west	TABLESPACE	InnoDB	NORMAL	test/emp#p#west	MYSQL_TMP_DIR/alt_dir_west/test/emp#p#west.ibd
@@ -473,20 +479,20 @@ ALTER TABLE emp DROP PARTITION west;
 SHOW CREATE TABLE emp;
 Table	Create Table
 emp	CREATE TABLE `emp` (
-  `id` int NOT NULL,
+  `id` int(11) NOT NULL,
   `store_name` varchar(30) DEFAULT NULL,
   `parts` varchar(30) DEFAULT NULL,
-  `store_id` int DEFAULT NULL
+  `store_id` int(11) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 /*!50100 PARTITION BY LIST (`store_id`)
 (PARTITION east VALUES IN (10,20,30) DATA DIRECTORY = 'MYSQL_TMP_DIR/alt_dir_east' ENGINE = InnoDB,
  PARTITION north VALUES IN (40,50,60) DATA DIRECTORY = 'MYSQL_TMP_DIR/alt_dir_north' ENGINE = InnoDB) */
 === information_schema.innodb_tables  and innodb_tablespaces ===
 Table Name	Tablespace	Table Flags	Columns	Row Format	Zip Size	Space Type
-mtr/global_suppressions	mtr/global_suppressions	33	4	Dynamic	0	Single
-mtr/test_suppressions	mtr/test_suppressions	33	4	Dynamic	0	Single
-test/emp#p#east	test/emp#p#east	97	7	Dynamic	0	Single
-test/emp#p#north	test/emp#p#north	97	7	Dynamic	0	Single
+mtr/global_suppressions	mtr/global_suppressions	33	7	Dynamic	0	Single
+mtr/test_suppressions	mtr/test_suppressions	33	7	Dynamic	0	Single
+test/emp#p#east	test/emp#p#east	97	10	Dynamic	0	Single
+test/emp#p#north	test/emp#p#north	97	10	Dynamic	0	Single
 === information_schema.innodb_tablespaces and innodb_datafiles ===
 Space_Name	Space_Type	Page_Size	Zip_Size	Formats_Permitted	Path
 mtr/global_suppressions	Single	DEFAULT	0	Dynamic	MYSQLD_DATADIR/mtr/global_suppressions.ibd
@@ -497,6 +503,7 @@ test/emp#p#north	Single	DEFAULT	0	Dynamic	MYSQL_TMP_DIR/alt_dir_north/test/emp#p
 Space_Name	File_Type	Engine	Status	Tablespace_Name	Path
 mtr/global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/global_suppressions	MYSQLD_DATADIR/mtr/global_suppressions.ibd
 mtr/test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_suppressions	MYSQLD_DATADIR/mtr/test_suppressions.ibd
+mysql/consensus_info	TABLESPACE	InnoDB	NORMAL	mysql/consensus_info	MYSQLD_DATADIR/mysql/consensus_info.ibd
 test/emp#p#east	TABLESPACE	InnoDB	NORMAL	test/emp#p#east	MYSQL_TMP_DIR/alt_dir_east/test/emp#p#east.ibd
 test/emp#p#north	TABLESPACE	InnoDB	NORMAL	test/emp#p#north	MYSQL_TMP_DIR/alt_dir_north/test/emp#p#north.ibd
 SELECT * FROM emp;
@@ -518,10 +525,10 @@ DATA DIRECTORY = 'MYSQL_TMP_DIR/alt_dir_west');
 SHOW CREATE TABLE emp;
 Table	Create Table
 emp	CREATE TABLE `emp` (
-  `id` int NOT NULL,
+  `id` int(11) NOT NULL,
   `store_name` varchar(30) DEFAULT NULL,
   `parts` varchar(30) DEFAULT NULL,
-  `store_id` int DEFAULT NULL
+  `store_id` int(11) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 /*!50100 PARTITION BY LIST (`store_id`)
 (PARTITION east VALUES IN (10,20,30) DATA DIRECTORY = 'MYSQL_TMP_DIR/alt_dir_east' ENGINE = InnoDB,
@@ -529,11 +536,11 @@ emp	CREATE TABLE `emp` (
  PARTITION west VALUES IN (70,80,100) DATA DIRECTORY = 'MYSQL_TMP_DIR/alt_dir_west' ENGINE = InnoDB) */
 === information_schema.innodb_tables  and innodb_tablespaces ===
 Table Name	Tablespace	Table Flags	Columns	Row Format	Zip Size	Space Type
-mtr/global_suppressions	mtr/global_suppressions	33	4	Dynamic	0	Single
-mtr/test_suppressions	mtr/test_suppressions	33	4	Dynamic	0	Single
-test/emp#p#east	test/emp#p#east	97	7	Dynamic	0	Single
-test/emp#p#north	test/emp#p#north	97	7	Dynamic	0	Single
-test/emp#p#west	test/emp#p#west	97	7	Dynamic	0	Single
+mtr/global_suppressions	mtr/global_suppressions	33	7	Dynamic	0	Single
+mtr/test_suppressions	mtr/test_suppressions	33	7	Dynamic	0	Single
+test/emp#p#east	test/emp#p#east	97	10	Dynamic	0	Single
+test/emp#p#north	test/emp#p#north	97	10	Dynamic	0	Single
+test/emp#p#west	test/emp#p#west	97	10	Dynamic	0	Single
 === information_schema.innodb_tablespaces and innodb_datafiles ===
 Space_Name	Space_Type	Page_Size	Zip_Size	Formats_Permitted	Path
 mtr/global_suppressions	Single	DEFAULT	0	Dynamic	MYSQLD_DATADIR/mtr/global_suppressions.ibd
@@ -545,6 +552,7 @@ test/emp#p#west	Single	DEFAULT	0	Dynamic	MYSQL_TMP_DIR/alt_dir_west/test/emp#p#w
 Space_Name	File_Type	Engine	Status	Tablespace_Name	Path
 mtr/global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/global_suppressions	MYSQLD_DATADIR/mtr/global_suppressions.ibd
 mtr/test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_suppressions	MYSQLD_DATADIR/mtr/test_suppressions.ibd
+mysql/consensus_info	TABLESPACE	InnoDB	NORMAL	mysql/consensus_info	MYSQLD_DATADIR/mysql/consensus_info.ibd
 test/emp#p#east	TABLESPACE	InnoDB	NORMAL	test/emp#p#east	MYSQL_TMP_DIR/alt_dir_east/test/emp#p#east.ibd
 test/emp#p#north	TABLESPACE	InnoDB	NORMAL	test/emp#p#north	MYSQL_TMP_DIR/alt_dir_north/test/emp#p#north.ibd
 test/emp#p#west	TABLESPACE	InnoDB	NORMAL	test/emp#p#west	MYSQL_TMP_DIR/alt_dir_west/test/emp#p#west.ibd
@@ -568,10 +576,10 @@ ALTER TABLE emp TRUNCATE PARTITION west;
 SHOW CREATE TABLE emp;
 Table	Create Table
 emp	CREATE TABLE `emp` (
-  `id` int NOT NULL,
+  `id` int(11) NOT NULL,
   `store_name` varchar(30) DEFAULT NULL,
   `parts` varchar(30) DEFAULT NULL,
-  `store_id` int DEFAULT NULL
+  `store_id` int(11) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 /*!50100 PARTITION BY LIST (`store_id`)
 (PARTITION east VALUES IN (10,20,30) DATA DIRECTORY = 'MYSQL_TMP_DIR/alt_dir_east' ENGINE = InnoDB,
@@ -579,11 +587,11 @@ emp	CREATE TABLE `emp` (
  PARTITION west VALUES IN (70,80,100) DATA DIRECTORY = 'MYSQL_TMP_DIR/alt_dir_west' ENGINE = InnoDB) */
 === information_schema.innodb_tables  and innodb_tablespaces ===
 Table Name	Tablespace	Table Flags	Columns	Row Format	Zip Size	Space Type
-mtr/global_suppressions	mtr/global_suppressions	33	4	Dynamic	0	Single
-mtr/test_suppressions	mtr/test_suppressions	33	4	Dynamic	0	Single
-test/emp#p#east	test/emp#p#east	97	7	Dynamic	0	Single
-test/emp#p#north	test/emp#p#north	97	7	Dynamic	0	Single
-test/emp#p#west	test/emp#p#west	97	7	Dynamic	0	Single
+mtr/global_suppressions	mtr/global_suppressions	33	7	Dynamic	0	Single
+mtr/test_suppressions	mtr/test_suppressions	33	7	Dynamic	0	Single
+test/emp#p#east	test/emp#p#east	97	10	Dynamic	0	Single
+test/emp#p#north	test/emp#p#north	97	10	Dynamic	0	Single
+test/emp#p#west	test/emp#p#west	97	10	Dynamic	0	Single
 === information_schema.innodb_tablespaces and innodb_datafiles ===
 Space_Name	Space_Type	Page_Size	Zip_Size	Formats_Permitted	Path
 mtr/global_suppressions	Single	DEFAULT	0	Dynamic	MYSQLD_DATADIR/mtr/global_suppressions.ibd
@@ -595,6 +603,7 @@ test/emp#p#west	Single	DEFAULT	0	Dynamic	MYSQL_TMP_DIR/alt_dir_west/test/emp#p#w
 Space_Name	File_Type	Engine	Status	Tablespace_Name	Path
 mtr/global_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/global_suppressions	MYSQLD_DATADIR/mtr/global_suppressions.ibd
 mtr/test_suppressions	TABLESPACE	InnoDB	NORMAL	mtr/test_suppressions	MYSQLD_DATADIR/mtr/test_suppressions.ibd
+mysql/consensus_info	TABLESPACE	InnoDB	NORMAL	mysql/consensus_info	MYSQLD_DATADIR/mysql/consensus_info.ibd
 test/emp#p#east	TABLESPACE	InnoDB	NORMAL	test/emp#p#east	MYSQL_TMP_DIR/alt_dir_east/test/emp#p#east.ibd
 test/emp#p#north	TABLESPACE	InnoDB	NORMAL	test/emp#p#north	MYSQL_TMP_DIR/alt_dir_north/test/emp#p#north.ibd
 test/emp#p#west	TABLESPACE	InnoDB	NORMAL	test/emp#p#west	MYSQL_TMP_DIR/alt_dir_west/test/emp#p#west.ibd
@@ -710,18 +719,6 @@ abc/def/xyz/123#p#p1#sp#s3	Single
 SELECT COUNT(*) FROM `abc/def`.`xyz/123`;
 COUNT(*)
 16
-SELECT file_name, tablespace_name FROM information_schema.files WHERE file_name LIKE '%123%';
-FILE_NAME	TABLESPACE_NAME
-MYSQL_TMP_DIR/my_dir2/abc@002fdef/xyz@002f123#p#p0@002fpart#sp#s0.ibd	abc/def/xyz/123#p#p0/part#sp#s0
-MYSQL_TMP_DIR/my_dir2/abc@002fdef/xyz@002f123#p#p0@002fpart#sp#s1@002fsubpart.ibd	abc/def/xyz/123#p#p0/part#sp#s1/subpart
-MYSQL_TMP_DIR/my_dir2/abc@002fdef/xyz@002f123#p#p1#sp#s2.ibd	abc/def/xyz/123#p#p1#sp#s2
-MYSQL_TMP_DIR/my_dir2/abc@002fdef/xyz@002f123#p#p1#sp#s3.ibd	abc/def/xyz/123#p#p1#sp#s3
-SELECT name, space_type FROM information_schema.innodb_tablespaces WHERE name LIKE '%123%';
-name	space_type
-abc/def/xyz/123#p#p0/part#sp#s0	Single
-abc/def/xyz/123#p#p0/part#sp#s1/subpart	Single
-abc/def/xyz/123#p#p1#sp#s2	Single
-abc/def/xyz/123#p#p1#sp#s3	Single
 #
 # Restart server without --innodb_directories option
 #
@@ -775,4 +772,3 @@ abc/def/xyz/123#p#p1#sp#s3	Single
 # Cleanup
 #
 DROP DATABASE `abc/def`;
-# restart:

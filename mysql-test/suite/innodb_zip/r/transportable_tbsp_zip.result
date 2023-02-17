@@ -300,8 +300,8 @@ COUNT(*)
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` int NOT NULL AUTO_INCREMENT,
-  `c2` int DEFAULT NULL,
+  `c1` int(11) NOT NULL AUTO_INCREMENT,
+  `c2` int(11) DEFAULT NULL,
   PRIMARY KEY (`c1`)
 ) ENGINE=InnoDB AUTO_INCREMENT=28 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
 FLUSH TABLES t1 FOR EXPORT;
@@ -323,8 +323,8 @@ INSERT INTO t1(c2) SELECT c2 FROM t1;
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` int NOT NULL AUTO_INCREMENT,
-  `c2` int DEFAULT NULL,
+  `c1` int(11) NOT NULL AUTO_INCREMENT,
+  `c2` int(11) DEFAULT NULL,
   PRIMARY KEY (`c1`),
   KEY `idx` (`c2`)
 ) ENGINE=InnoDB AUTO_INCREMENT=59 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=COMPRESSED
@@ -389,7 +389,7 @@ SELECT * FROM t1;
 ERROR HY000: Tablespace has been discarded for table 't1'
 restore: t1 .ibd and .cfg files
 ALTER TABLE t1 IMPORT TABLESPACE;
-ERROR HY000: Schema mismatch (Number of columns don't match, table has 6 columns but the tablespace meta-data file has 5 columns)
+ERROR HY000: Schema mismatch (Number of columns don't match, table has 9 columns but the tablespace meta-data file has 8 columns)
 unlink: t1.ibd
 unlink: t1.cfg
 DROP TABLE t1;
@@ -435,8 +435,8 @@ unlink: t1.cfg
 SHOW CREATE TABLE t1;
 Table	Create Table
 t1	CREATE TABLE `t1` (
-  `c1` int NOT NULL AUTO_INCREMENT,
-  `c2` int DEFAULT NULL,
+  `c1` int(11) NOT NULL AUTO_INCREMENT,
+  `c2` int(11) DEFAULT NULL,
   PRIMARY KEY (`c1`),
   KEY `idx` (`c2`)
 ) ENGINE=InnoDB AUTO_INCREMENT=59 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=COMPRESSED

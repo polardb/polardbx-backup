@@ -723,7 +723,7 @@ call p_verify_status_increment(2, 0, 1, 0);
 alter table t2 add column b int default 5;
 --echo # A commit is done internally by ALTER. 
 --disable_warnings
-call p_verify_status_increment(3, 0, 3, 0);
+call p_verify_status_increment(4, 0, 3, 0);
 commit;
 --echo # There is nothing left to commit
 call p_verify_status_increment(0, 0, 0, 0);
@@ -904,10 +904,12 @@ if ($have_debug)
   call p_verify_status_increment(20, 4, 2, 0);
 }
 
+# Lizard: handle_commit has been added because we have to modify data dictionary for tow
+# added columns.
 alter table t3 rename t4;
-call p_verify_status_increment(20, 4, 3, 0);
+call p_verify_status_increment(23, 4, 3, 0);
 rename table t4 to t3;
-call p_verify_status_increment(24, 4, 5, 0);
+call p_verify_status_increment(27, 4, 5, 0);
 truncate table t3;
 
 if (!$have_debug)
