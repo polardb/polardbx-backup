@@ -568,7 +568,6 @@ SET(SQL_SHARED_SOURCES
   tztime.cc
   uniques.cc
   xa.cc
-  ../libmysql/libmysql.cc
 )
 
 # BISON_TARGET(<Name> <YaccInput> <CodeOutput>
