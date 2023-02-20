@@ -644,6 +644,7 @@ SET(SQL_SHARED_SOURCES
   package/proc_dummy.cc
   daemon_proxy_keyring/daemon_proxy_keyring.cc
   xa_handler.cc
+  xa/xa_proc.cc
 )
 
 IF(BUILD_IS_SINGLE_CONFIG)
