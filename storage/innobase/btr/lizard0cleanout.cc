@@ -453,7 +453,7 @@ bool Cursor::store_position(btr_pcur_t *pcur) {
   m_index = btr_cur_get_index(pcur->get_btr_cur());
   m_old_rec = page_cur_get_rec(pcur->get_page_cur());
 
-  auto page = page_align(m_old_rec);
+  ut_d(auto page = page_align(m_old_rec));
 
   ut_ad(!page_is_empty(page) && page_is_leaf(page));
 
