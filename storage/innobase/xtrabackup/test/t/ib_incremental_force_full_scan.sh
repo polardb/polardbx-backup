@@ -1,5 +1,7 @@
 # Test for incremental backups that use forced full scan even when bitmaps are present
 
+skip_test "Requires Percona Server"
+
 require_xtradb
 is_64bit || skip_test "Disabled on 32-bit hosts due to LP bug #1359182"
 

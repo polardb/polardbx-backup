@@ -245,7 +245,7 @@ function switch_server()
     fi
 
     XB_ARGS="--defaults-file=$MYSQLD_VARDIR/my.cnf \
---no-version-check ${XB_EXTRA_OPTS:-}"
+--no-version-check --skip-flush-binlog ${XB_EXTRA_OPTS:-}"
 
     # Some aliases for compatibility, as tests use the following names
     topdir="$MYSQLD_VARDIR"
@@ -583,6 +583,24 @@ function get_binlog_pos()
         fi
         count=$((count+1))
     done <<< "`run_cmd $MYSQL $MYSQL_ARGS -Nse 'SHOW MASTER STATUS\G' mysql`"
+
+    echo $res
+}
+
+function get_commit_index()
+{
+    local count
+    local res
+
+    count=0
+    while read line; do
+        if [ $count -eq 0 ] # Position:
+        then
+            res=`echo "$line" | sed s/COMMIT_INDEX://`
+            break;
+        fi
+        count=$((count+1))
+    done <<< "`run_cmd $MYSQL $MYSQL_ARGS -Nse 'select COMMIT_INDEX from alisql_cluster_local' information_schema`"
 
     echo $res
 }

@@ -2,6 +2,8 @@
 # Bug #1418438: innobackupex --compress only compress innodb tables
 ###############################################################################
 
+skip_test "Bugfix for MyISAM, xdb have no"
+
 start_server
 
 mysql -e "CREATE TABLE test (A INT PRIMARY KEY) ENGINE=MyISAM" test

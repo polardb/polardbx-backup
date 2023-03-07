@@ -1924,9 +1924,11 @@ bool backup_start(Backup_context &context) {
     }
   }
 
-  msg_ts("Executing FLUSH NO_WRITE_TO_BINLOG BINARY LOGS\n");
-  xb_mysql_query(mysql_connection, "FLUSH NO_WRITE_TO_BINLOG BINARY LOGS",
-                 false);
+  if (!opt_skip_flush_binary_logs) {
+    msg_ts("Executing FLUSH NO_WRITE_TO_BINLOG BINARY LOGS\n");
+    xb_mysql_query(mysql_connection, "FLUSH NO_WRITE_TO_BINLOG BINARY LOGS",
+                   false);
+  }
 
   context.log_status = log_status_get(mysql_connection);
 

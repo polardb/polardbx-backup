@@ -5,6 +5,8 @@
 
 . inc/common.sh
 
+skip_test "Requires turn off binlog, but xdb can not"
+
 # Make sure we start the server with the binary log disabled
 start_server --skip-log-bin
 

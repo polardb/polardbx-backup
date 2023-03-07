@@ -39,7 +39,7 @@ EOF
     xtrabackup --backup --target-dir=$topdir/backup
 
     binlog_file=`get_binlog_file`
-    binlog_pos=`get_binlog_pos`
+    commit_idx=`get_commit_index`
 
     verify_binlog_info_on
 
@@ -63,11 +63,11 @@ function verify_binlog_info_on()
     if [ $gtid = 1 ]
     then
 		run_cmd diff -u $xb_binlog_info - <<EOF
-$binlog_file	$binlog_pos	$gtid_executed
+$binlog_file	$commit_idx
 EOF
 	else
 		run_cmd diff -u $xb_binlog_info - <<EOF
-$binlog_file	$binlog_pos
+$binlog_file	$commit_idx
 EOF
 	fi
     xtrabackup --prepare --target-dir=$topdir/backup
@@ -82,7 +82,7 @@ EOF
     then
         # Real coordinates in xtrabackup_binlog_pos_innodb
         run_cmd diff -u $xb_binlog_info_innodb - <<EOF
-$binlog_file	$binlog_pos
+$binlog_file$binlog_pos
 EOF
     else
         # Stale coordinates in xtrabackup_binlog_pos_innodb

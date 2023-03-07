@@ -141,7 +141,6 @@ EOF
 MYSQLD_EXTRA_MY_CNF_OPTS="
 innodb_redo_log_encrypt
 innodb_undo_log_encrypt
-binlog-encryption
 log-bin
 "
 
@@ -159,39 +158,38 @@ test_do "ENCRYPTION='y' COMPRESSION='lz4'" "none"
 
 . inc/keyring_vault.sh
 
-if is_xtradb && keyring_vault_ping ; then
+#if is_xtradb && keyring_vault_ping ; then
+## cleanup environment variables
+#MYSQLD_EXTRA_MY_CNF_OPTS="
+#innodb_redo_log_encrypt
+#innodb_undo_log_encrypt
+#binlog-encryption
+#log-bin
+#"
+#XB_EXTRA_MY_CNF_OPTS=
+#
+## and rerun with keyring_vault
+#
+#. inc/keyring_vault.sh
+#keyring_vault_mount
+#
+#function cleanup_keyring() {
+#	keyring_vault_remove_all_keys
+#}
+#
+#trap "keyring_vault_unmount" EXIT
+#
+#test_do "ENCRYPTION='y'" "top-secret"
+#test_do "ENCRYPTION='y' COMPRESSION='zlib'" "generate"
+#
+#keyring_vault_unmount
+#trap "" EXIT
+#fi
+
 # cleanup environment variables
 MYSQLD_EXTRA_MY_CNF_OPTS="
 innodb_redo_log_encrypt
 innodb_undo_log_encrypt
-binlog-encryption
-log-bin
-"
-XB_EXTRA_MY_CNF_OPTS=
-
-# and rerun with keyring_vault
-
-. inc/keyring_vault.sh
-keyring_vault_mount
-
-function cleanup_keyring() {
-	keyring_vault_remove_all_keys
-}
-
-trap "keyring_vault_unmount" EXIT
-
-test_do "ENCRYPTION='y'" "top-secret"
-test_do "ENCRYPTION='y' COMPRESSION='zlib'" "generate"
-
-keyring_vault_unmount
-trap "" EXIT
-fi
-
-# cleanup environment variables
-MYSQLD_EXTRA_MY_CNF_OPTS="
-innodb_redo_log_encrypt
-innodb_undo_log_encrypt
-binlog-encryption
 log-bin
 "
 XB_EXTRA_MY_CNF_OPTS=

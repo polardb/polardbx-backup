@@ -218,6 +218,8 @@ bool io_watching_thread_running = false;
 
 bool xtrabackup_logfile_is_renamed = false;
 
+bool opt_skip_flush_binary_logs = false;
+
 int xtrabackup_parallel;
 bool opt_strict = false;
 
@@ -765,6 +767,7 @@ enum options_xtrabackup {
   OPT_RDS_XB_REDO_FS_BUFFER,
   OPT_RDS_XTRA_TABLE_LEVEL,
   OPT_RDS_ENCRYPT_ALGORITHM,
+  OPT_SKIP_FLUSH_BINARY_LOGS,
 };
 
 struct my_option xb_client_options[] = {
@@ -1321,6 +1324,11 @@ struct my_option xb_client_options[] = {
      "Maximum count of ROCKSB checkpoints.", &opt_rocksdb_checkpoint_max_count,
      &opt_rocksdb_checkpoint_max_count, 0, GET_INT, REQUIRED_ARG, 0, 0, INT_MAX,
      0, 0, 0},
+
+    {"skip-flush-binlog", OPT_SKIP_FLUSH_BINARY_LOGS,
+     "Skip FLUSH NO_WRITE_TO_BINLOG BINARY LOGS",
+     (uchar *)&opt_skip_flush_binary_logs, (uchar *)&opt_skip_flush_binary_logs,
+     0, GET_BOOL, NO_ARG, 0, 0, 0, 0, 0, 0},
 
     {0, 0, 0, 0, 0, 0, GET_NO_ARG, NO_ARG, 0, 0, 0, 0, 0, 0}};
 

@@ -20,7 +20,7 @@ ALTER TABLE sbtest1
   ADD COLUMN b JSON AS('{"k1": "value", "k2": [10, 20]}');
 CREATE INDEX jindex on sbtest1((CAST(b->'$.k2' AS UNSIGNED ARRAY)));
 ALTER TABLE sbtest1
-  ADD COLUMN d INT AS JSON_UNQUOTE(b->'$.k1') STORED;
+  ADD COLUMN d INT AS (b->'$.k1') STORED;
 EOF
 
 for i in {1..100} ; do
@@ -42,7 +42,7 @@ done
 
 xtrabackup --backup --target-dir=$topdir/backup
 
-cp -av $topdir/backup /dev/shm/bak11
+#cp -av $topdir/backup /dev/shm/bak11
 
 stop_server
 

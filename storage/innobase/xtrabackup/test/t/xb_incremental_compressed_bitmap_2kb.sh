@@ -1,5 +1,7 @@
 # Test incremental backups that use bitmaps with 2KB compressed pages
 
+skip_test "Requires Percona Server"
+
 require_xtradb
 is_64bit || skip_test "Disabled on 32-bit hosts due to LP bug #1359182"
 

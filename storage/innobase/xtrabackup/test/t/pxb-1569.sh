@@ -2,6 +2,8 @@
 # PXB-1569: --history does not work when autocommit is disabled
 #
 
+skip_test "Requires Percona Server"
+
 start_server
 
 mysql -e "CREATE USER 'bkpuser'@'localhost' IDENTIFIED BY '111'"

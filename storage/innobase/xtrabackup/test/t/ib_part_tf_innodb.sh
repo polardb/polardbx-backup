@@ -23,6 +23,7 @@ checksum_a=`checksum_table test test`
 # Only backup of test.test table will be taken
 cat >$topdir/tables <<EOF
 test.test
+mysql.consensus_info
 EOF
 ib_part_add_mandatory_tables $mysql_datadir $topdir/tables
 xtrabackup --backup --tables-file=$topdir/tables --target-dir=$topdir/backup

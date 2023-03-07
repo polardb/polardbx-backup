@@ -4,6 +4,8 @@
 
 . inc/common.sh
 
+skip_test "The format of binlog_info have been redefined for XDB"
+
 require_server_version_higher_than 5.6.0
 
 MYSQLD_EXTRA_MY_CNF_OPTS="

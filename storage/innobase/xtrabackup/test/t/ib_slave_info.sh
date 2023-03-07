@@ -1,5 +1,7 @@
 . inc/common.sh
 
+skip_test "Requires master-slave mode, but xdb can not"
+
 MYSQLD_EXTRA_MY_CNF_OPTS="
 relay_log_recovery=on
 "

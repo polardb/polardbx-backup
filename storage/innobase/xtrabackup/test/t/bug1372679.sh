@@ -5,6 +5,8 @@
 
 require_server_version_higher_than 5.6.0
 
+skip_test "Requires master-slave mode, but xdb can not"
+
 # Test that --slave-info with MTS enabled + GTID disabled fails
 
 MYSQLD_EXTRA_MY_CNF_OPTS="

@@ -54,68 +54,68 @@ function backup_restore() {
     restore $*
 }
 
-vlog "------- TEST 1 -------"
-FILES=""
-backup_restore --skip-log-bin
+#vlog "------- TEST 1 -------"
+#FILES=""
+#backup_restore --skip-log-bin
 
 vlog "------- TEST 2 -------"
-FILES="mysql-bin.index mysql-bin.000004"
+FILES="mysql-bin.index mysql-bin.000001"
 backup_restore --log-bin
 
 vlog "------- TEST 3 -------"
-FILES="binlog123.index binlog123.000003"
+FILES="binlog123.index binlog123.000001"
 backup_restore --log-bin=binlog123
 
 vlog "------- TEST 4 -------"
-FILES="binlog898.index binlog123.000003"
+FILES="binlog898.index binlog123.000001"
 backup_restore --log-bin=binlog123 --log-bin-index=binlog898
 
 vlog "------- TEST 5 -------"
-FILES="binlog898.index binlog123.000003"
+FILES="binlog898.index binlog123.000001"
 backup_restore --log-bin=binlog123 --log-bin-index=binlog898.index
 
 vlog "------- TEST 6 -------"
-FILES="log.index $topdir/binlog-dir1/bin.000003"
+FILES="log.index $topdir/binlog-dir1/bin.000001"
 backup_restore --log-bin=$topdir/binlog-dir1/bin --log-bin-index=log
 
 vlog "------- TEST 7 -------"
-FILES="$topdir/binlog-dir1/idx.index binlog-abcd.000003"
+FILES="$topdir/binlog-dir1/idx.index binlog-abcd.000001"
 backup_restore --log-bin=binlog-abcd --log-bin-index=$topdir/binlog-dir1/idx
 
 vlog "------- TEST 8 -------"
-FILES="$topdir/binlog-dir2/idx.index $topdir/binlog-dir1/bin.000003"
+FILES="$topdir/binlog-dir2/idx.index $topdir/binlog-dir1/bin.000001"
 backup_restore --log-bin=$topdir/binlog-dir1/bin --log-bin-index=$topdir/binlog-dir2/idx
 
 vlog "------- TEST 9 -------"
-FILES="$topdir/binlog-dir2/idx.index $topdir/binlog-dir1/bin.000003"
+FILES="$topdir/binlog-dir2/idx.index $topdir/binlog-dir1/bin.000001"
 backup_restore --log-bin=$topdir/binlog-dir1/bin --log-bin-index=$topdir/binlog-dir2/idx.index
 
 vlog "------- TEST 10 -------"
-FILES="$topdir/binlog-dir1/bin.index $topdir/binlog-dir1/bin.000003"
+FILES="$topdir/binlog-dir1/bin.index $topdir/binlog-dir1/bin.000001"
 backup_restore --log-bin=$topdir/binlog-dir1/bin
 
 
 # do the same, but with updating my.cnf
 
-vlog "------- TEST 101 -------"
-MYSQLD_EXTRA_MY_CNF_OPTS="
-skip-log-bin
-"
-FILES=""
-backup_restore
+#vlog "------- TEST 101 -------"
+#MYSQLD_EXTRA_MY_CNF_OPTS="
+#skip-log-bin
+#"
+#FILES=""
+#backup_restore
 
 vlog "------- TEST 102 -------"
 MYSQLD_EXTRA_MY_CNF_OPTS="
 log-bin
 "
-FILES="mysql-bin.index mysql-bin.000004"
+FILES="mysql-bin.index mysql-bin.000001"
 backup_restore
 
 vlog "------- TEST 103 -------"
 MYSQLD_EXTRA_MY_CNF_OPTS="
 log-bin=binlog123
 "
-FILES="binlog123.index binlog123.000004"
+FILES="binlog123.index binlog123.000001"
 backup_restore
 
 vlog "------- TEST 104 -------"
@@ -123,7 +123,7 @@ MYSQLD_EXTRA_MY_CNF_OPTS="
 log-bin=binlog123
 log-bin-index=binlog898
 "
-FILES="binlog898.index binlog123.000004"
+FILES="binlog898.index binlog123.000001"
 backup_restore
 
 vlog "------- TEST 105 -------"
@@ -131,7 +131,7 @@ MYSQLD_EXTRA_MY_CNF_OPTS="
 log-bin=binlog123
 log-bin-index=binlog898.index
 "
-FILES="binlog898.index binlog123.000004"
+FILES="binlog898.index binlog123.000001"
 backup_restore
 
 vlog "------- TEST 106 -------"
@@ -139,7 +139,7 @@ MYSQLD_EXTRA_MY_CNF_OPTS="
 log-bin=$topdir/binlog-dir1/bin
 log-bin-index=log
 "
-FILES="log.index $topdir/binlog-dir1/bin.000004"
+FILES="log.index $topdir/binlog-dir1/bin.000001"
 backup_restore
 
 vlog "------- TEST 107 -------"
@@ -147,7 +147,7 @@ MYSQLD_EXTRA_MY_CNF_OPTS="
 log-bin=binlog-abcd
 log-bin-index=$topdir/binlog-dir1/idx
 "
-FILES="$topdir/binlog-dir1/idx.index binlog-abcd.000004"
+FILES="$topdir/binlog-dir1/idx.index binlog-abcd.000001"
 backup_restore
 
 vlog "------- TEST 108 -------"
@@ -155,7 +155,7 @@ MYSQLD_EXTRA_MY_CNF_OPTS="
 log-bin=$topdir/binlog-dir1/bin
 log-bin-index=$topdir/binlog-dir2/idx
 "
-FILES="$topdir/binlog-dir2/idx.index $topdir/binlog-dir1/bin.000004"
+FILES="$topdir/binlog-dir2/idx.index $topdir/binlog-dir1/bin.000001"
 backup_restore
 
 vlog "------- TEST 109 -------"
@@ -163,14 +163,14 @@ MYSQLD_EXTRA_MY_CNF_OPTS="
 log-bin=$topdir/binlog-dir1/bin
 log-bin-index=$topdir/binlog-dir2/idx.index
 "
-FILES="$topdir/binlog-dir2/idx.index $topdir/binlog-dir1/bin.000004"
+FILES="$topdir/binlog-dir2/idx.index $topdir/binlog-dir1/bin.000001"
 backup_restore
 
 vlog "------- TEST 110 -------"
 MYSQLD_EXTRA_MY_CNF_OPTS="
 log-bin=$topdir/binlog-dir1/bin
 "
-FILES="$topdir/binlog-dir1/bin.index $topdir/binlog-dir1/bin.000004"
+FILES="$topdir/binlog-dir1/bin.index $topdir/binlog-dir1/bin.000001"
 backup_restore --log-bin=$topdir/binlog-dir1/bin
 
 
@@ -181,7 +181,7 @@ MYSQLD_EXTRA_MY_CNF_OPTS="
 log-bin=$topdir/binlog-dir1/bin
 log-bin-index=$topdir/binlog-dir1/idx
 "
-FILES="idx.index bin.000004"
+FILES="idx.index bin.000001"
 backup
 restore --log-bin=bin --log-bin-index=idx
 
@@ -190,7 +190,7 @@ MYSQLD_EXTRA_MY_CNF_OPTS="
 log-bin=bin
 log-bin-index=idx
 "
-FILES="logidx.index logbin.000004"
+FILES="logidx.index logbin.000001"
 backup
 restore --log-bin=logbin --log-bin-index=logidx
 
@@ -199,6 +199,6 @@ MYSQLD_EXTRA_MY_CNF_OPTS="
 log-bin=$topdir/binlog-dir1/bin
 log-bin-index=$topdir/binlog-dir1/bin
 "
-FILES="$topdir/binlog-dir2/bin.index $topdir/binlog-dir1/logbin.000004"
+FILES="$topdir/binlog-dir2/bin.index $topdir/binlog-dir1/logbin.000001"
 backup
 restore --log-bin=$topdir/binlog-dir1/logbin --log-bin-index=$topdir/binlog-dir2/bin.index

@@ -3,6 +3,8 @@
 # 2. check data
 # 3. do increment and see if restore works fine
 
+skip_test "Requires prepared data directory, but it can not be used on lizard"
+
 MYSQLD_EXTRA_MY_CNF_OPTS="
 lower_case_table_names
 "

@@ -2,6 +2,7 @@
 # Test history-on-server feature
 ###############################################################################
 
+skip_test "Requires Percona Server"
 
 ###############################################################################
 # Gets a single column value from the last history record added

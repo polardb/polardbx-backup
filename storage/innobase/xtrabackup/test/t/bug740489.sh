@@ -22,7 +22,7 @@ EOF
 backup_dir=$topdir/backup
 run_cmd $XB_BIN \
     --defaults-extra-file=$defaults_extra_file --socket=${MYSQLD_SOCKET} \
-    --no-version-check --backup --target-dir=$backup_dir
+    --no-version-check --skip-flush-binlog --backup --target-dir=$backup_dir
 vlog "Backup created in directory $backup_dir"
 
 run_cmd ${MYSQL} ${MYSQL_ARGS} --password=password <<EOF
@@ -32,12 +32,14 @@ EOF
 stop_server
 # Remove datadir
 rm -r $mysql_datadir
+
 # Restore sakila
 vlog "Applying log"
 vlog "###########"
 vlog "# PREPARE #"
 vlog "###########"
 xtrabackup --prepare --target-dir=$backup_dir
+
 vlog "Restoring MySQL datadir"
 mkdir -p $mysql_datadir
 vlog "###########"
@@ -48,5 +50,6 @@ xtrabackup --copy-back --target-dir=$backup_dir
 start_server
 # Check sakila
 run_cmd ${MYSQL} ${MYSQL_ARGS} --password=password -e "SELECT count(*) from actor" sakila
+stop_server
 
 rm -f $defaults_extra_file

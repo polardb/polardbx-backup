@@ -6,6 +6,8 @@
 # "FLUSH ENGINE LOGS" and Com_flush will show 2 for it
 require_server_version_higher_than 5.5.0
 
+skip_test "Bugfix for MyISAM, xdb have no"
+
 start_server --general-log=1 --log-output=TABLE
 
 has_backup_locks && skip_test "Requires server without backup locks support"

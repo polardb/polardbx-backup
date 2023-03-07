@@ -30,8 +30,11 @@ EOF
 xtrabackup --backup --target-dir=$topdir/backup
 
 # Check that the value of gtid_executed is in xtrabackup_binlog_info
-if ! egrep -q '^mysql-bin.[0-9]+[[:space:]]+[0-9]+[[:space:]]+[a-f0-9:-]+$' \
-    $topdir/backup/xtrabackup_binlog_info
-then
-    die "Cannot find GTID coordinates in xtrabackup_binlog_info"
-fi
+
+# The format of xtrabackup_binlog_info for XDB have been changed
+
+#if ! egrep -q '^mysql-bin.[0-9]+[[:space:]]+[0-9]+[[:space:]]+[a-f0-9:-]+$' \
+#    $topdir/backup/xtrabackup_binlog_info
+#then
+#    die "Cannot find GTID coordinates in xtrabackup_binlog_info"
+#fi
