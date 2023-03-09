@@ -183,6 +183,7 @@
 #include "sql/debug_lock_order.h"
 #endif /* WITH_LOCK_ORDER */
 
+#include "sql/xa_ext.h"
 namespace resourcegroups {
 class Resource_group;
 }  // namespace resourcegroups
@@ -3341,6 +3342,10 @@ int mysql_execute_command(THD *thd, bool first_level) {
   */
 
   lizard::simulate_snapshot_clause(thd, all_tables);
+
+  if (im::cn_heartbeat_timeout_freeze_updating(lex)) {
+    goto error;
+  }
 
   switch (lex->sql_command) {
     case SQLCOM_PREPARE: {
