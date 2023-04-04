@@ -50,6 +50,7 @@ Place, Suite 330, Boston, MA 02111-1307 USA
 #include <fcntl.h>
 #include <signal.h>
 #include <string.h>
+#include "mysql_version.h.in"
 #include "os0event.h"
 
 #ifdef __linux__
@@ -1652,9 +1653,10 @@ static const char *xb_server_default_groups[] = {"xtrabackup", "mysqld", 0, 0,
                                                  0};
 
 static void print_version(void) {
-  msg("%s version %s based on MySQL server %s %s (%s) (revision id: %s)\n",
+  msg("%s version %s based on MySQL server %s %s (%s) (revision id: %s)\n"
+      "PolarDB-X Backup Versions: %s\n",
       my_progname, XTRABACKUP_VERSION, MYSQL_SERVER_VERSION, SYSTEM_TYPE,
-      MACHINE_TYPE, XTRABACKUP_REVISION);
+      MACHINE_TYPE, XTRABACKUP_REVISION, POLARDBX_BACKUP_VERSION);
 }
 
 static void usage(void) {

@@ -24,4 +24,6 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA
 #define XTRABACKUP_VERSION		"@XB_VERSION@"
 #define XTRABACKUP_REVISION		"@XB_REVISION@"
 
+#define POLARDBX_BACKUP_VERSION          "2.0.0"
+
 #endif /* XB_VERSION_H */
