@@ -183,7 +183,8 @@
 #include "sql/debug_lock_order.h"
 #endif /* WITH_LOCK_ORDER */
 
-#include "sql/xa_ext.h"
+#include "sql/xa/lizard_xa_trx.h"
+
 namespace resourcegroups {
 class Resource_group;
 }  // namespace resourcegroups
