@@ -173,6 +173,8 @@
 #include "sql/debug_lock_order.h"
 #endif /* WITH_LOCK_ORDER */
 
+#include "sql/xa/xa_trx.h"
+
 namespace dd {
 class Spatial_reference_system;
 }  // namespace dd

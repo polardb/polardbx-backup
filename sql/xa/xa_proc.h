@@ -29,7 +29,9 @@
 /**
   XA procedures (dbms_xa package)
 
-  1) find_by_gtrid(gtrid, bqual, formatID)
+  1) find_by_gtrid(gtrid)
+  2) prepare_with_trx_slot(gtrid, bqual, formatID)
+  3) send_heartbeat()
 */
 
 namespace im {
@@ -66,7 +68,21 @@ class Sql_cmd_xa_proc_base : public Sql_cmd_trans_proc {
 };
 
 /**
-  1) dbms_xa.find_by_gtrid(gtrid, bqual, formatID)
+  Sql command base for dbms_xa
+
+  1) dbms_xa didn't require any privileges;
+  2) dbms_xa didn't auto commit trans (is admin_proc).
+*/
+class Sql_cmd_xa_proc_trans_base : public Sql_cmd_admin_proc {
+ public:
+  explicit Sql_cmd_xa_proc_trans_base(THD *thd, List<Item> *list, const Proc *proc)
+      : Sql_cmd_admin_proc(thd, list, proc) {
+    set_priv_type(Priv_type::PRIV_NONE_ACL);
+  }
+};
+
+/**
+  1) dbms_xa.find_by_gtrid(gtrid)
 
   Find transactions status in the finalized state by XID.
 */
@@ -155,7 +171,7 @@ class Sql_cmd_xa_proc_prepare_with_trx_slot : public Sql_cmd_xa_proc_base {
  public:
   explicit Sql_cmd_xa_proc_prepare_with_trx_slot(THD *thd, List<Item> *list,
                                                  const Proc *proc)
-      : Sql_cmd_xa_proc_base(thd, list, proc) {}
+      : Sql_cmd_xa_proc_base(thd, list, proc), m_tsa(0) {}
 
   /**
     Implementation of Proc execution body.

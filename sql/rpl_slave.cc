@@ -157,6 +157,8 @@
 #include "rpl_debug_points.h"
 #endif
 
+#include "sql/xa/xa_trx.h"
+
 struct mysql_cond_t;
 struct mysql_mutex_t;
 

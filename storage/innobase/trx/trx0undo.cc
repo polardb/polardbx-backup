@@ -61,6 +61,7 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include "lizard0mon.h"
 #include "lizard0sys.h"
 #include "lizard0cleanout.h"
+#include "lizard0xa.h"
 
 /* How should the old versions in the history list be managed?
    ----------------------------------------------------------
@@ -1291,6 +1292,7 @@ static trx_undo_t *trx_undo_mem_init(
   page_t *last_page;
   trx_undo_rec_t *rec;
   XID xid;
+  uint32_t txn_ext_flag = 0;
 
   ut_a(id < TRX_RSEG_N_SLOTS);
 
@@ -1320,6 +1322,9 @@ static trx_undo_t *trx_undo_mem_init(
   bool txn_exists = ((flag & TRX_UNDO_FLAG_TXN) != 0);
   if (txn_exists) {
     lizard_trx_undo_hdr_txn_validation(undo_page, undo_header, mtr);
+
+    txn_ext_flag =
+        mtr_read_ulint(undo_header + TXN_UNDO_LOG_EXT_FLAG, MLOG_1BYTE, mtr);
   }
 
   /* Read X/Open XA transaction identification if it exists, or
@@ -1337,6 +1342,8 @@ static trx_undo_t *trx_undo_mem_init(
 
   undo->flag = flag;
   undo->gtid_allocated = gtid_exists;
+
+  undo->txn_ext_flag = txn_ext_flag;
 
   undo->state = state;
   undo->size = flst_get_len(seg_header + TRX_UNDO_PAGE_LIST);
@@ -1496,6 +1503,7 @@ trx_undo_t *trx_undo_mem_create(trx_rseg_t *rseg, ulint id, ulint type,
   undo->dict_operation = FALSE;
   undo->flag = 0;
   undo->gtid_allocated = false;
+  undo->txn_ext_flag = 0;
 
   undo->rseg = rseg;
 
@@ -1538,6 +1546,7 @@ static void trx_undo_mem_init_for_reuse(
   undo->dict_operation = FALSE;
   undo->flag = 0;
   undo->gtid_allocated = false;
+  undo->txn_ext_flag = 0;
 
   undo->hdr_offset = offset;
   undo->empty = TRUE;
@@ -1995,11 +2004,11 @@ page_t *trx_undo_set_state_at_prepare(trx_t *trx, trx_undo_t *undo,
 
   mlog_write_ulint(undo_header + TRX_UNDO_FLAGS, undo->flag, MLOG_1BYTE, mtr);
 
-  if (lizard::fsp_is_txn_tablespace_by_id(undo->space)) {
-    ut_a(lizard::txn_check_gtrid_rseg_mapping(trx));
-  }
-
   trx_undo_write_xid(undo_header, &undo->xid, mtr);
+
+  if (lizard::fsp_is_txn_tablespace_by_id(undo->space)) {
+    ut_a(lizard::xa::trx_slot_check_validity(trx));
+  }
 
   return (undo_page);
 }
@@ -2107,7 +2116,7 @@ void trx_undo_free_trx_with_prepared_or_active_logs(trx_t *trx,
 
     trx->rsegs.m_txn.txn_undo = nullptr;
 
-    trx->rsegs.m_txn.xid.reset();
+    trx->rsegs.m_txn.xid_for_hash.reset();
   }
 
   if (trx->rsegs.m_redo.update_undo) {

@@ -27,13 +27,11 @@
 */
 #include "sql/binlog_ext.h"
 #include <sstream>
-#include "sql/dd/dd_minor_upgrade.h"
 #include "sql/mysqld.h"
 #include "sql/opt_costconstantcache.h"
 #include "sql/rpl_info_factory.h"
 #include "sql/transaction.h"
 #include "sql/tztime.h"
-#include "sql/xa_ext.h"
 #include "sql/consensus_log_event.h"
 
 namespace lizard {

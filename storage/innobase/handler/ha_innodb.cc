@@ -215,6 +215,7 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include "lizard0mysql.h"
 #include "lizard0gp.h"
 #include "ha_innodb_ext.h"
+#include "lizard0xa.h"  // srv_stop_purge_no_heartbeat_timeout, ...
 
 #ifndef UNIV_HOTBACKUP
 /** Stop printing warnings, if the count exceeds this threshold. */
@@ -19366,12 +19367,12 @@ static int innobase_xa_prepare(handlerton *hton, /*!< in: InnoDB handlerton */
   if (prepare_trx ||
       (!thd_test_options(thd, OPTION_NOT_AUTOCOMMIT | OPTION_BEGIN))) {
 
-    ut_a(xa_compare_xid_between_thd_and_trx(thd, trx));
-
     /* We were instructed to prepare the whole transaction, or
     this is an SQL statement end and autocommit is on */
 
     ut_ad(trx_is_registered_for_2pc(trx));
+
+    ut_a(xa_compare_xid_between_thd_and_trx(thd, trx));
 
     dberr_t err = trx_prepare_for_mysql(trx);
 

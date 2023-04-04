@@ -108,6 +108,33 @@ namespace xa {
   @retval hash value.
 */
 uint64_t hash_gtrid(const char *in_gtrid, unsigned in_len);
+
+/** Check validity of the XID status of the trx.
+@param[in]      trx   innodb transaction
+@return true if check successfully. */
+extern bool trx_slot_check_validity(const trx_t *trx);
+
+/** Get XID of an external xa from THD.
+@param[in]      THD   thd
+@return nullptr if no external xa. */
+extern const XID *trx_slot_get_xa_xid_from_thd(THD *thd);
+
+/*************************************************
+*                Heartbeat Freezer              *
+*************************************************/
+/** Freeze purge sys and update operations if no heartbeat is received for a
+long time */
+extern bool srv_no_heartbeat_freeze;
+
+/** No heartbeat timeout. */
+extern ulint srv_no_heartbeat_freeze_timeout;
+
+/**
+  Decide if the purge system should be frozen and all update operations
+  blocked.
+*/
+extern bool hb_freezer_determine_freeze();
+
 }  // namespace xa
 }  // namespace lizard
 

@@ -11536,3 +11536,5 @@ mysql_declare_plugin(binlog){
     nullptr, /* config options                  */
     0,
 } mysql_declare_plugin_end;
+
+#include "sql/binlog_ext.cc"
