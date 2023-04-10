@@ -36,7 +36,7 @@
 #include "lizard0xa.h"
 #include "lizard0undo.h"
 #include "ha_innodb.h"
-#include "lizard0sys.h"
+#include "lizard0gcs.h"
 
 #include <sql_class.h>
 

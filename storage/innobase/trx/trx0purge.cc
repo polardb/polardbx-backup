@@ -62,7 +62,7 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include "trx0rseg.h"
 #include "trx0trx.h"
 
-#include "lizard0sys.h"
+#include "lizard0gcs.h"
 #include "lizard0txn.h"
 #include "lizard0undo.h"
 #include "lizard0purge.h"
@@ -212,6 +212,15 @@ void trx_purge_sys_close() {
 
   purge_sys = nullptr;
 }
+
+/** Get current purged GCN number */
+/*
+gcn_t gcs_get_purged_gcn() {
+  ut_a(purge_sys);
+
+  return purge_sys->purged_gcn.get();
+}
+*/
 
 /*================ UNDO LOG HISTORY LIST =============================*/
 
@@ -455,8 +464,7 @@ loop:
 
   undo_trx_scn = lizard::trx_undo_hdr_read_scn(log_hdr, &mtr).scn;
 
-  ut_ad(lizard::lizard_sys &&
-        undo_trx_scn <= lizard::lizard_sys->scn.acquire_scn());
+  ut_ad(lizard::gcs && undo_trx_scn <= lizard::gcs_load_scn());
 
   if (undo_trx_scn >= limit->scn) {
     /* limit space_id should match the rollback segment

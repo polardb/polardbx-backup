@@ -5,7 +5,12 @@
 
 #include "lizard0mysql.h"
 #include "lizard0scn0hist.h"
-#include "lizard0sys.h"
+#include "lizard0gcs.h"
+#include "sql/sql_class.h"
+/*
+#include "sql/lizard/lizard_snapshot.h"
+*/
+
 
 namespace lizard {
 
@@ -183,6 +188,13 @@ simulate_error:
 
   /* set as as-of query */
   prebuilt->m_asof_query.set(fbq_scn, fbq_gcn);
+
+  /*
+  if (snapshot_vision->type() == Snapshot_type::AS_OF_GCN &&
+      snapshot_vision->is_outer()) {
+    lizard::gcs->scn.set_snapshot_gcn(fbq_gcn);
+  }
+  */
 
   return DB_SUCCESS;
 }

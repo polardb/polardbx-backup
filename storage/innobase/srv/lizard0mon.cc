@@ -33,7 +33,7 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include "mysql/status_var.h"
 
 #include "lizard0mon.h"
-#include "lizard0sys.h"
+#include "lizard0gcs.h"
 #include "lizard0undo.h"
 
 namespace lizard {
@@ -45,10 +45,10 @@ static lizard_var_t lizard_vars;
 lizard_stats_t lizard_stats;
 
 static void export_lizard_status(void) {
-  if (lizard_sys != nullptr) {
+  if (gcs != nullptr) {
     lizard_vars.txn_undo_log_free_list_len =
-        lizard_sys->txn_undo_log_free_list_len;
-    lizard_vars.txn_undo_log_cached = lizard_sys->txn_undo_log_cached;
+        gcs->txn_undo_log_free_list_len;
+    lizard_vars.txn_undo_log_cached = gcs->txn_undo_log_cached;
   } else {
     lizard_vars.txn_undo_log_free_list_len = 0;
     lizard_vars.txn_undo_log_cached = 0;

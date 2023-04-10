@@ -119,7 +119,7 @@ Place, Suite 330, Boston, MA 02111-1307 USA
 #include "xtrabackup_config.h"
 #include "table_info.h"
 
-#include "lizard0sys.h"
+#include "lizard0gcs.h"
 #include "lizard0fsp.h"
 #include "lizard0dict.h"
 #include "lizard0scn.h"
