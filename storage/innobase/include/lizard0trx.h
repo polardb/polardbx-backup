@@ -39,12 +39,12 @@ this program; if not, write to the Free Software Foundation, Inc.,
 
 struct trx_t;
 
-typedef std::unordered_map<trx_id_t, trx_t *, std::hash<trx_id_t>,
-                           std::equal_to<trx_id_t>,
-                           ut_allocator<std::pair<trx_id_t, trx_t *>>>
+typedef std::unordered_map<const trx_id_t, trx_t *, std::hash<trx_id_t>,
+                           std::equal_to<>,
+                           ut_allocator<std::pair<const trx_id_t, trx_t *>>>
     TrxIdHash;
 
-typedef std::pair<trx_id_t, trx_t *> TrxPair;
+typedef std::pair<const trx_id_t, trx_t *> TrxPair;
 
 namespace lizard {
 

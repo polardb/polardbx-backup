@@ -465,7 +465,7 @@ bool get_mysql_vars(MYSQL *connection) {
   char *xengine_hotbackup_var = nullptr;
   char *xengine_datadir_var = nullptr;
   char *xengine_wal_dir_var = nullptr;
-  char *galaxyengine_version = nullptr;
+  char *polardbx_engine_version = nullptr;
 
   unsigned long server_version = mysql_get_server_version(connection);
 
@@ -504,7 +504,7 @@ bool get_mysql_vars(MYSQL *connection) {
       {"xengine_hotbackup", &xengine_hotbackup_var},
       {"xengine_datadir", &xengine_datadir_var},
       {"xengine_wal_dir", &xengine_wal_dir_var},
-      {"galaxyengine_version", &galaxyengine_version},
+      {"polardbx_engine_version", &polardbx_engine_version},
       {nullptr, nullptr}};
 
   read_mysql_variables(connection, "SHOW VARIABLES", mysql_vars, true);
@@ -528,10 +528,10 @@ bool get_mysql_vars(MYSQL *connection) {
     goto out;
   }
 
-  if (galaxyengine_version != NULL) {
-    msg("!!!detect GalaxyEngine!!!\n");
+  if (polardbx_engine_version != NULL) {
+    msg("!!!detect polardbx_engine_version!!!\n");
     server_flavor = FLAVOR_X_CLUSTER;
-    msg("GalaxyEngine version is %s.\n", galaxyengine_version);
+    msg("polardbx_engine_version version is %s.\n", polardbx_engine_version);
   }
 
   /* X-Cluster do not support relay_log_info_repository=FILE */
