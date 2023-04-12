@@ -267,6 +267,10 @@ our @DEFAULT_SUITES = qw(
   test_services
   x
   component_keyring_file
+  rds
+  xcluster
+  lizard
+  innodb_gcn
 );
 
 our $DEFAULT_SUITES = join ',', @DEFAULT_SUITES;

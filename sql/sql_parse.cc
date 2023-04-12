@@ -3340,6 +3340,8 @@ int mysql_execute_command(THD *thd, bool first_level) {
     until we have the MDL, and LOCK TABLE could massively delay this.
   */
 
+  lizard::simulate_snapshot_clause(thd, all_tables);
+
   switch (lex->sql_command) {
     case SQLCOM_PREPARE: {
       mysql_sql_stmt_prepare(thd);
@@ -6144,7 +6146,7 @@ Table_ref *Query_block::add_table_to_list(
   }
 
   ptr->sequence_scan.set(seq_scan_mode);
-
+  ptr->snapshot_hint = nullptr;
   return ptr;
 }
 
