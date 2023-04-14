@@ -33,10 +33,14 @@
 #include "trx0sys.h"
 #include "trx0types.h"
 
-#include "lizard0xa.h"
-#include "lizard0undo.h"
 #include "ha_innodb.h"
 #include "lizard0gcs.h"
+#include "lizard0xa.h"
+#include "lizard0undo.h"
+
+/*
+#include "lizard_iface.h"
+*/
 
 #include <sql_class.h>
 

@@ -5554,7 +5554,7 @@ static int innobase_commit(handlerton *hton, /*!< in: InnoDB handlerton */
       trx->txn_desc.cmmt.gcn = thd->m_extra_desc.m_commit_gcn;
       if (trx->txn_desc.cmmt.gcn == lizard::GCN_NULL) {
         trx->txn_desc.cmmt.gcn = thd->m_extra_desc.m_commit_gcn =
-            lizard::gcs_acquire_gcn();
+            lizard::gcs_load_gcn();
       }
     }
     */
