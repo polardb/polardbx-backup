@@ -342,11 +342,11 @@ gcn_t SCN::get_snapshot_gcn() { return m_snapshot_gcn.load(); }
 */
 enum scn_state_t commit_mark_state(const commit_mark_t &cmmt) {
   /** The init value */
-  if (cmmt.scn == SCN_NULL && cmmt.utc == UTC_NULL) return SCN_STATE_INITIAL;
+  if (cmmt.scn == SCN_NULL && cmmt.us == UTC_NULL) return SCN_STATE_INITIAL;
 
   /** The assigned commit scn value */
-  if (cmmt.scn > 0 && cmmt.scn < SCN_MAX && cmmt.utc > 0 &&
-      cmmt.utc < UTC_MAX && cmmt.gcn > 0 && cmmt.gcn < GCN_MAX) {
+  if (cmmt.scn > 0 && cmmt.scn < SCN_MAX && cmmt.us > 0 && cmmt.us < UTC_MAX &&
+      cmmt.gcn > 0 && cmmt.gcn < GCN_MAX) {
     /** TODO: Replace by real GCN in future */
     return SCN_STATE_ALLOCATED;
   }
