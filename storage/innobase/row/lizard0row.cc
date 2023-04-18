@@ -280,7 +280,7 @@ void row_upd_rec_lizard_fields_in_cleanout(rec_t *rec, page_zip_des_t *page_zip,
   ut_ad(!index->table->skip_alter_undo);
   ut_ad(!index->table->is_temporary());
 
-  lizard_ut_ad(!lizard_undo_ptr_is_active(txn_rec->undo_ptr));
+  lizard_ut_ad(!undo_ptr_is_active(txn_rec->undo_ptr));
   row_upd_rec_lizard_fields_low(rec, page_zip, index, offsets, txn_rec->scn,
                                 txn_rec->undo_ptr, txn_rec->gcn);
 }
@@ -429,7 +429,7 @@ bool row_get_rec_undo_ptr_is_active(const rec_t *rec, const dict_index_t *index,
                                     const ulint *offsets) {
   undo_ptr_t undo_ptr = row_get_rec_undo_ptr(rec, index, offsets);
 
-  return lizard_undo_ptr_is_active(undo_ptr);
+  return undo_ptr_is_active(undo_ptr);
 }
 
 /**
@@ -1033,7 +1033,7 @@ bool row_lizard_valid(const rec_t *rec, const dict_index_t *index,
     undo_decode_undo_ptr(undo_ptr, &undo_addr);
 
     /** UBA is valid */
-    lizard_undo_addr_validation(&undo_addr, index);
+    undo_addr_validation(&undo_addr, index);
 
     /** Scn and trx state are matched */
     ut_a(is_active == (scn == SCN_NULL));
@@ -1073,7 +1073,7 @@ bool row_lizard_has_cleanout(const rec_t *rec, const dict_index_t *index,
     undo_decode_undo_ptr(undo_ptr, &undo_addr);
 
     /** UBA is valid */
-    lizard_undo_addr_validation(&undo_addr, index);
+    undo_addr_validation(&undo_addr, index);
     /** commit */
     ut_a(!is_active);
     /** valid scn */
