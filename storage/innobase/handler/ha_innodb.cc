@@ -22485,6 +22485,20 @@ static MYSQL_SYSVAR_ULONG(undo_space_reserved_size,
                           0, 0, UINT_MAX32, 0);
 */
 
+static MYSQL_SYSVAR_BOOL(freeze_db_if_no_cn_heartbeat_enable,
+                         lizard::xa::srv_no_heartbeat_freeze,
+                         PLUGIN_VAR_OPCMDARG,
+                         "If set to true, will freeze purge sys and updating "
+                         "if there is no heartbeat.",
+                         NULL, NULL, FALSE);
+
+static MYSQL_SYSVAR_ULONG(freeze_db_if_no_cn_heartbeat_timeout_sec,
+                          lizard::xa::srv_no_heartbeat_freeze_timeout,
+                          PLUGIN_VAR_OPCMDARG,
+                          "If the heartbeat has not been received after the "
+                          "timeout, freezing the purge sys and updating.",
+                          NULL, NULL, 10, 1, UINT_MAX32, 0);
+
 static SYS_VAR *innobase_system_variables[] = {
     MYSQL_SYSVAR(api_trx_level),
     MYSQL_SYSVAR(api_bk_commit_interval),
@@ -22718,6 +22732,8 @@ static SYS_VAR *innobase_system_variables[] = {
     MYSQL_SYSVAR(undo_space_reserved_size),
     MYSQL_SYSVAR(txn_undo_page_reuse_max_percent),
     */
+    MYSQL_SYSVAR(freeze_db_if_no_cn_heartbeat_enable),
+    MYSQL_SYSVAR(freeze_db_if_no_cn_heartbeat_timeout_sec),
     nullptr};
 
 mysql_declare_plugin(innobase){
