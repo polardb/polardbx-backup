@@ -9957,13 +9957,15 @@ ER_CANT_SET_PERSISTED
 
 reserved-error-section 5000 5999
 
-
 ################################################################################
 #
 # Start of Galaxy error message. 7500 - 7999
 # Error message intended to be sent to client should start here.
 #
 start-error-number 7500
+
+ER_NATIVE_PROC_PARAMETER_MISMATCH
+   eng "Native procedure %s the %dth parameter mismatch"
 
 ER_AS_OF_EXPR_NOT_CONSTANT
   eng "Snapshot (as of) item must be a 'const for execution' expression"
