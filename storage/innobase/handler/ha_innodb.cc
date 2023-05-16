@@ -22503,6 +22503,12 @@ static MYSQL_SYSVAR_ULONG(freeze_db_if_no_cn_heartbeat_timeout_sec,
                           "timeout, freezing the purge sys and updating.",
                           NULL, NULL, 10, 1, UINT_MAX32, 0);
 
+static MYSQL_SYSVAR_ULONG(txn_cached_list_keep_size,
+                          lizard::srv_txn_cached_list_keep_size,
+                          PLUGIN_VAR_OPCMDARG,
+                          "max list size of txn_cached_list", NULL, NULL, 0, 0,
+                          512, 0);
+
 static SYS_VAR *innobase_system_variables[] = {
     MYSQL_SYSVAR(api_trx_level),
     MYSQL_SYSVAR(api_bk_commit_interval),
@@ -22738,6 +22744,7 @@ static SYS_VAR *innobase_system_variables[] = {
     */
     MYSQL_SYSVAR(freeze_db_if_no_cn_heartbeat_enable),
     MYSQL_SYSVAR(freeze_db_if_no_cn_heartbeat_timeout_sec),
+    MYSQL_SYSVAR(txn_cached_list_keep_size),
     nullptr};
 
 mysql_declare_plugin(innobase){
