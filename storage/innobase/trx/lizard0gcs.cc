@@ -71,8 +71,6 @@ void gcs_init() {
 
   new (&(gcs->persisters)) Persisters();
 
-  new (&(gcs->crecover)) CRecover();
-
   /** Promise here didn't have any active trx */
   ut_ad(trx_sys == nullptr || UT_LIST_GET_LEN(trx_sys->rw_trx_list) == 0);
 
@@ -101,7 +99,11 @@ void gcs_init() {
   @param[in]	gcn	Parsed gcn
 */
 void CRecover::recover_gcn(gcn_t gcn) {
+  /** Xtrabackup Redo_Log_Data_Manager::copy_once parse redo but not actually
+  reocvery. */
+  /*
   ut_ad(is_need_recovery());
+  */
   ut_ad(gcn != GCN_NULL);
 
   m_metadata.set_gcn_if_bigger(gcn);
@@ -133,7 +135,7 @@ void CRecover::apply_gcn() {
 commit_mark_t gcs_t::new_commit(trx_t *trx, mtr_t *mtr) {
   commit_mark_t cmmt = COMMIT_MARK_NULL;
 
-  ut_ad(!crecover.is_need_recovery());
+  ut_ad(!recv_sys || !recv_sys->cn_recover->is_need_recovery());
 
   /** 1. generate scn number */
   scn_list_mutex_enter();
@@ -198,13 +200,14 @@ bool gcs_persist_gcn() {
 bool gcs_t::persist_gcn() {
   bool written = false;
   gcn_t current_gcn;
-  /** Recover must be completed. */
-  ut_ad(!crecover.is_need_recovery());
 
   gcn_persist_mutex_enter();
 
   current_gcn = gcn.load_gcn();
   if (current_gcn > m_persisted_gcn.load()) {
+    /** Recover must be completed. */
+    ut_ad(!recv_sys || !recv_sys->cn_recover->is_need_recovery());
+
     m_persisted_gcn.store(current_gcn);
 
     PersistentGcsData meta;
@@ -255,8 +258,6 @@ void gcs_close() {
     gcs->gcn.~GCN();
 
     gcs->persisters.~Persisters();
-
-    gcs->crecover.~CRecover();
 
     gcs->mtx_inited = false;
 

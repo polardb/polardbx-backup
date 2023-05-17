@@ -81,6 +81,7 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #endif /* !UNIV_HOTBACKUP */
 
 #include "lizard0cleanout.h"
+#include "lizard0gcs.h"
 
 std::list<space_id_t> recv_encr_ts_list;
 
@@ -393,6 +394,11 @@ void recv_sys_create() {
   mutex_create(LATCH_ID_RECV_WRITER, &recv_sys->writer_mutex);
 
   recv_sys->spaces = nullptr;
+
+  recv_sys->cn_recover = static_cast<lizard::CRecover *>(
+      ut_zalloc_nokey(sizeof(*recv_sys->cn_recover)));
+
+  new (recv_sys->cn_recover) lizard::CRecover();
 }
 
 /** Resize the recovery parsing buffer upto log_buffer_size */
@@ -492,6 +498,10 @@ void recv_sys_close() {
 
   ut_ad(!recv_writer_is_active());
   mutex_free(&recv_sys->writer_mutex);
+
+  recv_sys->cn_recover->~CRecover();
+  ut_free(recv_sys->cn_recover);
+  recv_sys->cn_recover = nullptr;
 
   ut_free(recv_sys);
   recv_sys = nullptr;
@@ -2793,7 +2803,7 @@ static ulint recv_parse_log_rec(mlog_id_t *type, byte *ptr, byte *end_ptr,
       new_ptr =
           lizard::mlog_parse_initial_gcn_log_record(ptr, end_ptr, type, &gcn);
 
-      lizard::gcs->crecover.recover_gcn(gcn);
+      recv_sys->cn_recover->recover_gcn(gcn);
 
       return (new_ptr == nullptr ? 0 : new_ptr - ptr);
   }
@@ -3690,6 +3700,9 @@ static void recv_recovery_begin(log_t &log, lsn_t *contiguous_lsn,
 
   mutex_exit(&recv_sys->mutex);
 
+  /** Scan gcn redo log to recover. */
+  recv_sys->cn_recover->need_recovery(true);
+
   ulint max_mem =
       UNIV_PAGE_SIZE * (buf_pool_get_n_pages() -
                         (recv_n_pool_free_frames * srv_buf_pool_instances));
@@ -3726,8 +3739,6 @@ static void recv_init_crash_recovery() {
   ut_a(!recv_needed_recovery);
 
   recv_needed_recovery = true;
-  /** Scan gcn redo log to recover. */
-  lizard::gcs->crecover.need_recovery(true);
 
   ib::info(ER_IB_MSG_726);
   ib::info(ER_IB_MSG_727);
@@ -4083,7 +4094,7 @@ MetadataRecover *recv_recovery_from_checkpoint_finish(log_t &log,
     metadata = nullptr;
   }
 
-  lizard::gcs->crecover.apply_gcn();
+  recv_sys->cn_recover->apply_gcn();
 
   recv_sys_free();
 
