@@ -52,6 +52,10 @@ this program; if not, write to the Free Software Foundation, Inc.,
 class MetadataRecover;
 class PersistentTableMetadata;
 
+namespace lizard {
+class CRecover;
+}
+
 struct recv_addr_t;
 
 #ifdef XTRABACKUP
@@ -694,6 +698,8 @@ struct recv_sys_t {
 
   /* Saved log records to avoid second round parsing log. */
   Mlog_records saved_recs;
+  /** Commit number recover. */
+  lizard::CRecover *cn_recover;
 };
 
 /** The recovery system */
