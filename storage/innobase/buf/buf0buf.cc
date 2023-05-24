@@ -3237,6 +3237,7 @@ buf_page_t *buf_page_get_zip(const page_id_t &page_id,
   buf_pool_t *buf_pool = buf_pool_get(page_id);
 
   Counter::inc(buf_pool->stat.m_n_page_gets, page_id.page_no());
+  PPI_STATEMENT_CALL(inc_statement_logical_read)(1);
 
   for (;;) {
   lookup:
@@ -4226,6 +4227,7 @@ buf_block_t *Buf_fetch<T>::single_page() {
   buf_block_t *block;
 
   Counter::inc(m_buf_pool->stat.m_n_page_gets, m_page_id.page_no());
+  PPI_STATEMENT_CALL(inc_statement_logical_read)(1);
 
   for (;;) {
     if (static_cast<T *>(this)->get(block) == DB_NOT_FOUND) {
@@ -4539,6 +4541,8 @@ bool buf_page_optimistic_get(ulint rw_latch, buf_block_t *block,
     Counter::inc(buf_pool->stat.m_n_page_gets, block->page.id.page_no());
   }
 
+  PPI_STATEMENT_CALL(inc_statement_logical_read)(1);
+
   return (true);
 }
 
@@ -4632,6 +4636,7 @@ bool buf_page_get_known_nowait(ulint rw_latch, buf_block_t *block,
 
   Counter::inc(buf_pool->stat.m_n_page_gets, block->page.id.page_no());
 
+  PPI_STATEMENT_CALL(inc_statement_logical_read)(1);
   return (true);
 }
 
@@ -4701,6 +4706,8 @@ const buf_block_t *buf_page_try_get(const page_id_t &page_id,
   buf_block_dbg_add_level(block, SYNC_NO_ORDER_CHECK);
 
   Counter::inc(buf_pool->stat.m_n_page_gets, block->page.id.page_no());
+
+  PPI_STATEMENT_CALL(inc_statement_logical_read)(1);
 
 #ifdef UNIV_IBUF_COUNT_DEBUG
   ut_a(ibuf_count_get(block->page.id) == 0);

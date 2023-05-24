@@ -111,6 +111,8 @@
 #include "thr_lock.h"
 #include "violite.h"
 
+#include "ppi/ppi_statement.h"
+
 #include "sql/lizard/lizard_rpl_gcn.h" // my_gcn_t, struct MyGCN...
 #include "sql/trans_proc/returning_parse.h"
 
@@ -160,6 +162,10 @@ struct LOG_INFO;
 
 typedef struct user_conn USER_CONN;
 struct MYSQL_LOCK;
+
+struct PPI_thread;
+struct PPI_transaction;
+struct PPI_stat;
 
 class Sequence_last_value;
 typedef collation_unordered_map<std::string, Sequence_last_value *>
@@ -1985,6 +1991,8 @@ class THD : public MDL_context_owner,
       transaction.
     */
     bool m_transaction_rollback_request;
+
+    PPI_transaction *m_ppi_transaction;
   };
 
  public:
@@ -4625,6 +4633,10 @@ class THD : public MDL_context_owner,
   void set_secondary_engine_optimization(Secondary_engine_optimization state) {
     m_secondary_engine_optimization = state;
   }
+
+  PPI_thread *ppi_thread;
+  PPI_transaction *ppi_transaction;
+  std::unique_ptr<PPI_stat> ppi_statement_stat;
 
   /**
     Can secondary storage engines be used for query execution in

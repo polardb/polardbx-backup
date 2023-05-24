@@ -139,6 +139,8 @@
 #include "sql/lizard_binlog.h"
 #include "sql/gcn_log_event.h"
 
+#include "ppi/ppi_transaction.h"
+
 class Item;
 
 using binary_log::checksum_crc32;
@@ -8344,6 +8346,9 @@ std::pair<int, my_off_t> MYSQL_BIN_LOG::flush_thread_caches(THD *thd) {
     */
     thd->set_trans_pos(log_file_name, m_binlog_file->position());
     if (wrote_xid) inc_prep_xids(thd);
+
+    PPI_TRANSACTION_CALL(inc_transaction_binlog_size)
+    (thd->ppi_transaction, bytes);
   }
   DBUG_PRINT("debug", ("bytes: %llu", bytes));
   return std::make_pair(error, bytes);

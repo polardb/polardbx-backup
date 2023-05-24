@@ -138,6 +138,7 @@
 #include "sql/xa.h"
 #include "template_utils.h"  // pointer_cast
 #include "thr_lock.h"
+#include "sys_vars_ext.h"
 #ifdef _WIN32
 #include "sql/named_pipe.h"
 #endif
