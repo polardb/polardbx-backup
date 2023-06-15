@@ -134,6 +134,7 @@
 #include "sql/xa/sql_cmd_xa.h"  // Sql_cmd_xa_*
 #include "sql_partition.h"
 #include "thr_lock.h"
+#include "sql/sys_vars_ext.h"
 
 class Item;
 
@@ -8960,6 +8961,8 @@ int MYSQL_BIN_LOG::ordered_commit(THD *thd, bool all, bool skip_commit) {
     DEBUG_SYNC(thd, "before_sync_binlog_file");
     std::pair<bool, bool> result = sync_binlog_file(false);
     sync_error = result.first;
+
+    DBUG_EXECUTE_IF("simulate_crash_when_sync_binlog", DBUG_SUICIDE(););
   }
 
   if (update_binlog_end_pos_after_sync && flush_error == 0 && sync_error == 0) {

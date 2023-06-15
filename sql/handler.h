@@ -70,6 +70,7 @@
 #include "sql/sql_plugin_ref.h"  // plugin_ref
 #include "thr_lock.h"            // thr_lock_type
 #include "typelib.h"
+#include "sql/lizard0handler.h"	
 
 class Alter_info;
 class Create_field;
@@ -1449,17 +1450,19 @@ enum xa_status_code {
   XAER_OUTSIDE = -9
 };
 
-typedef xa_status_code (*commit_by_xid_t)(handlerton *hton, XID *xid);
+typedef xa_status_code (*commit_by_xid_t)(handlerton *hton, XID *xid,
+                                          XA_specification *spec);
 
-typedef xa_status_code (*rollback_by_xid_t)(handlerton *hton, XID *xid);
+typedef xa_status_code (*rollback_by_xid_t)(handlerton *hton, XID *xid,
+                                            XA_specification *xa_spec);
 
 /**
   Instructs the storage engine to mark the externally coordinated
   transactions identified by the XID parameters as prepared in the server
   TC.
  */
-using set_prepared_in_tc_by_xid_t = xa_status_code (*)(handlerton *hton,
-                                                       XID *xid);
+using set_prepared_in_tc_by_xid_t =
+    xa_status_code (*)(handlerton *hton, XID *xid, XA_specification *xa_spec);
 
 /**
   Create handler object for the table in the storage engine.
@@ -7245,7 +7248,8 @@ int ha_rollback_trans(THD *thd, bool all);
   @return 0 if recovery was successful, non-zero otherwise.
 */
 int ha_recover(Xid_commit_list *commit_list = nullptr,
-               Xa_state_list *xa_state_list = nullptr);
+               Xa_state_list *xa_state_list = nullptr,
+               XA_spec_list *spec_list = nullptr);
 
 /**
   Perform SE-specific cleanup after recovery of transactions.

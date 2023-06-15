@@ -1036,6 +1036,7 @@ SET(BINLOG_SOURCE
   rpl_utility.cc
   sql_binlog.cc
   stream_cipher.cc
+  binlog/lizard0recovery.cc
   )
 ADD_LIBRARY(binlog STATIC ${BINLOG_SOURCE})
 TARGET_LINK_LIBRARIES(binlog binlogevents_static)
