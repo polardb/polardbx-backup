@@ -501,6 +501,12 @@ struct System_variables {
   Explain_format_type explain_format;
 
   ulonglong global_query_wait_timeout;
+
+  /** Gcn to read a snapshot by asof select. */
+  ulonglong innodb_snapshot_gcn;
+
+  /** Commit gcn for next transition. */
+  ulonglong innodb_commit_gcn;
 };
 
 /**

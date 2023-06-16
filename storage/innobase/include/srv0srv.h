@@ -1239,6 +1239,8 @@ struct export_var_t {
                                       index lookups when freeing
                                       file pages */
 #endif                                /* UNIV_DEBUG */
+
+  ulint commit_gcn;
 };
 
 #ifndef UNIV_HOTBACKUP
