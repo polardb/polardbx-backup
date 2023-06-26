@@ -74,7 +74,7 @@ this program; if not, write to the Free Software Foundation, Inc.,
 
 #include "lizard0mtr.h"
 #include "lizard0scn.h"
-#include "lizard0sys.h"
+#include "lizard0gcs.h"
 #include "lizard0txn.h"
 #include "lizard0undo.h"
 #include "lizard0undo0types.h"
@@ -1194,7 +1194,7 @@ void trx_lists_init_at_db_start(void) {
     // }
     trx_add_to_rw_trx_list(trx);
 
-    lizard::lizard_sys_mod_min_active_trx_id(trx);
+    lizard::gcs_mod_min_active_trx_id(trx);
   }
 }
 
@@ -1497,7 +1497,7 @@ static void trx_start_low(
 
     trx_add_to_rw_trx_list(trx);
 
-    lizard::lizard_sys_mod_min_active_trx_id(trx);
+    lizard::gcs_mod_min_active_trx_id(trx);
 
     trx->state.store(TRX_STATE_ACTIVE, std::memory_order_relaxed);
 
@@ -1939,7 +1939,7 @@ static void trx_erase_lists(trx_t *trx) {
       lizard::trx_vision_release(&trx->vision);
     }
 
-    lizard::lizard_sys_mod_min_active_trx_id(trx);
+    lizard::gcs_mod_min_active_trx_id(trx);
   }
 
   DEBUG_SYNC_C("after_trx_erase_lists");
@@ -2046,7 +2046,7 @@ static void trx_release_impl_and_expl_locks(trx_t *trx, bool serialised) {
 
     trx_sys_gtids_mem_mutex_exit();
 
-    lizard::lizard_sys_erase_lists(trx);
+    lizard::gcs_erase_lists(trx);
   }
 
   lock_trx_release_locks(trx);
@@ -2429,7 +2429,7 @@ void trx_cleanup_at_db_startup(trx_t *trx) /*!< in: transaction */
   ut_a(!trx->read_only);
   trx_remove_from_rw_trx_list(trx);
 
-  lizard::lizard_sys_mod_min_active_trx_id(trx);
+  lizard::gcs_mod_min_active_trx_id(trx);
 
   trx_sys_mutex_exit();
 
@@ -3692,7 +3692,7 @@ void trx_set_rw_mode(trx_t *trx) /*!< in/out: transaction that is RW */
   }
   trx_add_to_rw_trx_list(trx);
 
-  lizard::lizard_sys_mod_min_active_trx_id(trx);
+  lizard::gcs_mod_min_active_trx_id(trx);
 
   trx_sys_mutex_exit();
 

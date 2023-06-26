@@ -255,7 +255,7 @@ SET(INNOBASE_SOURCES
   ut/ut0vec.cc
   ut/ut0wqueue.cc
   trx/lizard0scn.cc
-  trx/lizard0sys.cc
+  trx/lizard0gcs.cc
   dict/lizard0dict.cc
   fil/lizard0fil.cc
   fsp/lizard0fsp.cc
