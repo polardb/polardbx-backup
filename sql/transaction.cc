@@ -79,7 +79,7 @@ void trans_reset_one_shot_chistics(THD *thd) {
   thd->tx_read_only = thd->variables.transaction_read_only;
 
   /* Reset commit and snapshot gcn when transition end. */
-  thd->reset_gcn();
+  thd->reset_gcn_variables();
 }
 
 /**
@@ -216,7 +216,7 @@ bool trans_begin(THD *thd, uint flags) {
 #endif
 
   /* This is a defensive action, reset gcn when explicit transaction begin. */
-  thd->reset_gcn();
+  thd->reset_gcn_variables();
 
   return res;
 }
