@@ -255,7 +255,7 @@ static void trx_init(trx_t *trx) {
   trx->flush_observer = nullptr;
 
   /** Lizard added */
-  trx->txn_desc = TXN_DESC_NULL;
+  trx->txn_desc.reset();
 
   trx->gp_state = GP_STATE_NULL;
   trx->gp_wait.reset();
@@ -679,7 +679,7 @@ void trx_free_prepared_or_active_recovered(trx_t *trx) {
 
   trx->state.store(TRX_STATE_NOT_STARTED, std::memory_order_relaxed);
   trx->will_lock = 0;
-  trx->txn_desc = TXN_DESC_NULL;
+  trx->txn_desc.reset();
   trx->xa_spec = nullptr;
 
   trx_free(trx);
@@ -874,6 +874,7 @@ static trx_t *trx_resurrect_insert(
 
   assert_trx_commit_mark_initial(trx);
   assert_txn_desc_initial(trx);
+  ut_ad(lizard::slot_addr_validate(undo->slot_addr));
 
   /* This is single-threaded startup code, we do not need the
   protection of trx->mutex or trx_sys->mutex here. */
@@ -903,8 +904,6 @@ static trx_t *trx_resurrect_insert(
       }
     } else {
       /** We have to wait for the scn number from resurrect txn undo log */
-      trx->txn_desc.cmmt = COMMIT_MARK_NULL;
-
       trx->state.store(TRX_STATE_COMMITTED_IN_MEMORY,
                        std::memory_order_relaxed);
     }
@@ -2435,7 +2434,7 @@ void trx_cleanup_at_db_startup(trx_t *trx) /*!< in: transaction */
   ut_ad(trx->is_recovered);
   ut_ad(!trx->in_rw_trx_list);
   ut_ad(!trx->in_mysql_trx_list);
-  trx->txn_desc = TXN_DESC_NULL;
+  trx->txn_desc.reset();
   trx->xa_spec = nullptr;
   new (&trx->rsegs.m_txn) txn_undo_ptr_t();
 
