@@ -25,6 +25,8 @@
 #include "sys_vars_ext.h"
 #include "sql/ha_sequence.h"
 
+#include "sql/xa/lizard_xa_trx.h"
+
 
 static bool set_owned_vision_gcn_on_update(sys_var *, THD *thd, enum_var_type) {
   if (thd->variables.innodb_snapshot_gcn == MYSQL_GCN_NULL) {
@@ -69,3 +71,35 @@ static Sys_var_bool Sys_innodb_current_snapshot_gcn(
     "the value is current max snapshot sequence and plus one",
     HINT_UPDATEABLE SESSION_ONLY(innodb_current_snapshot_gcn), CMD_LINE(OPT_ARG),
     DEFAULT(false), NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(0), ON_UPDATE(0));
+
+/**
+  If enable the hb_freezer, pretend to send heartbeat before updating, so it
+  won't be blocked because of timeout.
+*/
+bool freeze_db_if_no_cn_heartbeat_enable_on_update(sys_var *, THD *,
+                                                   enum_var_type) {
+  const bool is_enable = lizard::xa::no_heartbeat_freeze;
+
+  /** 1. Pretend to send heartbeat. */
+  if (is_enable) {
+    lizard::xa::hb_freezer_heartbeat();
+  }
+
+  lizard::xa::opt_no_heartbeat_freeze = lizard::xa::no_heartbeat_freeze;
+  return false;
+}
+static Sys_var_bool Sys_freeze_db_if_no_cn_heartbeat_enable(
+    "innodb_freeze_db_if_no_cn_heartbeat_enable",
+    "If set to true, will freeze purge sys and updating "
+    "if there is no heartbeat.",
+    GLOBAL_VAR(lizard::xa::no_heartbeat_freeze), CMD_LINE(OPT_ARG),
+    DEFAULT(false), NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(0),
+    ON_UPDATE(freeze_db_if_no_cn_heartbeat_enable_on_update));
+
+static Sys_var_ulonglong Sys_freeze_db_if_no_cn_heartbeat_timeout_sec(
+    "innodb_freeze_db_if_no_cn_heartbeat_timeout_sec",
+    "If the heartbeat has not been received after the "
+    "timeout, freezing the purge sys and updating.",
+    GLOBAL_VAR(lizard::xa::opt_no_heartbeat_freeze_timeout),
+    CMD_LINE(REQUIRED_ARG), VALID_RANGE(1, 24 * 60 * 60), DEFAULT(10),
+    BLOCK_SIZE(1), NO_MUTEX_GUARD, NOT_IN_BINLOG, ON_CHECK(0), ON_UPDATE(0));
