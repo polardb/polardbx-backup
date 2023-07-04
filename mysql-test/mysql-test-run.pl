@@ -268,7 +268,6 @@ our @DEFAULT_SUITES = qw(
   x
   component_keyring_file
   rds
-  xcluster
   lizard
   innodb_gcn
 );

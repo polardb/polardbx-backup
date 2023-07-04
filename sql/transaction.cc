@@ -215,9 +215,6 @@ bool trans_begin(THD *thd, uint flags) {
   }
 #endif
 
-  /* This is a defensive action, reset gcn when explicit transaction begin. */
-  thd->reset_gcn_variables();
-
   return res;
 }
 

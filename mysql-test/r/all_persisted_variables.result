@@ -41,6 +41,7 @@ include/assert.inc [Expect 500+ variables in the table. Due to open Bugs, we are
 # Test SET PERSIST
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 include/assert.inc [Expect 492 persisted variables in the table.]
 =======
 <<<<<<< HEAD
@@ -53,6 +54,9 @@ include/assert.inc [Expect 476 persisted variables in the table.]
 include/assert.inc [Expect 494 persisted variables in the table.]
 >>>>>>> 09b380173238... [Sequence] Support show cache for sequence
 >>>>>>> 1c0a9b325e74... [Sequence] Support show cache for sequence
+=======
+include/assert.inc [Expect 496 persisted variables in the table.]
+>>>>>>> 6de5f3dd2edf... [Feature] Writting Gcn_log_event before Gtid_log_event
 
 ************************************************************
 * 3. Restart server, it must preserve the persisted variable
@@ -60,6 +64,7 @@ include/assert.inc [Expect 494 persisted variables in the table.]
 ************************************************************
 # restart
 
+<<<<<<< HEAD
 <<<<<<< HEAD
 include/assert.inc [Expect 492 persisted variables in persisted_variables table.]
 include/assert.inc [Expect 492 persisted variables shown as PERSISTED in variables_info table.]
@@ -81,6 +86,11 @@ include/assert.inc [Expect 494 persisted variables shown as PERSISTED in variabl
 include/assert.inc [Expect 494 persisted variables with matching peristed and global values.]
 >>>>>>> 09b380173238... [Sequence] Support show cache for sequence
 >>>>>>> 1c0a9b325e74... [Sequence] Support show cache for sequence
+=======
+include/assert.inc [Expect 496 persisted variables in persisted_variables table.]
+include/assert.inc [Expect 496 persisted variables shown as PERSISTED in variables_info table.]
+include/assert.inc [Expect 496 persisted variables with matching peristed and global values.]
+>>>>>>> 6de5f3dd2edf... [Feature] Writting Gcn_log_event before Gtid_log_event
 
 ************************************************************
 * 4. Test RESET PERSIST IF EXISTS. Verify persisted variable

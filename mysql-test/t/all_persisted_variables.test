@@ -42,6 +42,7 @@ call mtr.add_suppression("Failed to initialize TLS for channel: mysql_main");
 
 let $total_global_vars=`SELECT COUNT(*) FROM performance_schema.global_variables where variable_name NOT LIKE 'ndb_%' AND variable_name NOT LIKE 'debug_%'`;
 <<<<<<< HEAD
+<<<<<<< HEAD
 let $total_persistent_vars=492;
 =======
 <<<<<<< HEAD
@@ -54,6 +55,9 @@ let $total_persistent_vars=476;
 let $total_persistent_vars=494;
 >>>>>>> 09b380173238... [Sequence] Support show cache for sequence
 >>>>>>> 1c0a9b325e74... [Sequence] Support show cache for sequence
+=======
+let $total_persistent_vars=496;
+>>>>>>> 6de5f3dd2edf... [Feature] Writting Gcn_log_event before Gtid_log_event
 
 --echo ***************************************************************
 --echo * 0. Verify that variables present in performance_schema.global
