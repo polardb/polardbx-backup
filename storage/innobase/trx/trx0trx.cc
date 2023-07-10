@@ -1192,8 +1192,6 @@ void trx_lists_init_at_db_start(void) {
     //   trx_sys->rw_trx_ids.push_back(trx->id);
     // }
     trx_add_to_rw_trx_list(trx);
-
-    lizard::gcs_mod_min_active_trx_id(trx);
   }
 }
 
@@ -1495,8 +1493,6 @@ static void trx_start_low(
           srv_force_recovery >= SRV_FORCE_NO_TRX_UNDO);
 
     trx_add_to_rw_trx_list(trx);
-
-    lizard::gcs_mod_min_active_trx_id(trx);
 
     trx->state.store(TRX_STATE_ACTIVE, std::memory_order_relaxed);
 
@@ -3686,8 +3682,6 @@ void trx_set_rw_mode(trx_t *trx) /*!< in/out: transaction that is RW */
     trx->vision.set_vision_creator_trx_id(trx->id);
   }
   trx_add_to_rw_trx_list(trx);
-
-  lizard::gcs_mod_min_active_trx_id(trx);
 
   trx_sys_mutex_exit();
 
