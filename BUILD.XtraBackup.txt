@@ -17,7 +17,8 @@ In Debian-based distributions, you need to:
 In RPM-based distribution (like CentOS 7), you need to:
 
   $ yum install cmake gcc gcc-c++ libaio libaio-devel bison ncurses-devel \
-    libgcrypt-devel libcurl-devel libev-devel python-sphinx vim-common
+    libgcrypt-devel libcurl-devel libev-devel python-sphinx vim-common \
+    procps-ng-devel
 
 For CentOS 5 use ncurses5-devel instead ncurses-devel
 

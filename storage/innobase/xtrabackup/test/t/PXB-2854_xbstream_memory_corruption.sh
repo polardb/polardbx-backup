@@ -1,5 +1,7 @@
 # PXB-2854 - Quicklz decompression memory corruption issue
 
+require_qpress
+
 head -c 100000 </dev/urandom > $topdir/payload.bin
 qpress $topdir/payload.bin $topdir/payload.qp
 printf '\x00\x01\x00' | dd of=$topdir/payload.qp bs=1 seek=8 count=3 conv=notrunc
