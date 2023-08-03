@@ -38,8 +38,8 @@ start_server
 mysql -e "CREATE UNDO TABLESPACE undo1 ADD DATAFILE '$undo_directory_ext/undo1.ibu'"
 mysql -e "CREATE UNDO TABLESPACE undo2 ADD DATAFILE 'undo2.ibu'"
 
-mysql -e "ALTER UNDO TABLESPACE innodb_undo_001 SET INACTIVE"
-mysql -e "ALTER UNDO TABLESPACE innodb_undo_002 SET INACTIVE"
+mysql -e "ALTER UNDO TABLESPACE innodb_undo_005 SET INACTIVE"
+mysql -e "ALTER UNDO TABLESPACE innodb_undo_006 SET INACTIVE"
 
 load_sakila
 
@@ -122,8 +122,8 @@ mysql -e "CREATE UNDO TABLESPACE undo2 ADD DATAFILE '$undo_directory_ext/undo2.i
 mysql -e "CREATE UNDO TABLESPACE undo3 ADD DATAFILE 'undo3.ibu'"
 mysql -e "CREATE UNDO TABLESPACE undo4 ADD DATAFILE 'undo4.ibu'"
 
-mysql -e "ALTER UNDO TABLESPACE innodb_undo_001 SET INACTIVE"
-mysql -e "ALTER UNDO TABLESPACE innodb_undo_002 SET INACTIVE"
+mysql -e "ALTER UNDO TABLESPACE innodb_undo_005 SET INACTIVE"
+mysql -e "ALTER UNDO TABLESPACE innodb_undo_006 SET INACTIVE"
 
 load_sakila
 
@@ -200,8 +200,8 @@ mysql -e "CREATE UNDO TABLESPACE undo2 ADD DATAFILE '$undo_directory_ext/undo2.i
 mysql -e "CREATE UNDO TABLESPACE undo3 ADD DATAFILE 'undo3.ibu'"
 mysql -e "CREATE UNDO TABLESPACE undo4 ADD DATAFILE 'undo4.ibu'"
 
-mysql -e "ALTER UNDO TABLESPACE innodb_undo_001 SET INACTIVE"
-mysql -e "ALTER UNDO TABLESPACE innodb_undo_002 SET INACTIVE"
+mysql -e "ALTER UNDO TABLESPACE innodb_undo_005 SET INACTIVE"
+mysql -e "ALTER UNDO TABLESPACE innodb_undo_006 SET INACTIVE"
 
 load_sakila
 
@@ -276,8 +276,8 @@ start_server
 mysql -e "CREATE UNDO TABLESPACE undo1 ADD DATAFILE 'undo1.ibu'"
 mysql -e "CREATE UNDO TABLESPACE undo2 ADD DATAFILE 'undo2.ibu'"
 
-mysql -e "ALTER UNDO TABLESPACE innodb_undo_001 SET INACTIVE"
-mysql -e "ALTER UNDO TABLESPACE innodb_undo_002 SET INACTIVE"
+mysql -e "ALTER UNDO TABLESPACE innodb_undo_005 SET INACTIVE"
+mysql -e "ALTER UNDO TABLESPACE innodb_undo_006 SET INACTIVE"
 
 load_sakila
 

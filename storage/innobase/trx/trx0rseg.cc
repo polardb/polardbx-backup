@@ -138,6 +138,7 @@ void trx_rseg_mem_free(trx_rseg_t *rseg) {
     /* There can't be any active transactions. */
     ut_a(UT_LIST_GET_LEN(rseg->update_undo_list) == 0);
     ut_a(UT_LIST_GET_LEN(rseg->insert_undo_list) == 0);
+    ut_a(UT_LIST_GET_LEN(rseg->txn_undo_list) == 0);
   } else {
     for (auto undo : rseg->update_undo_list.removable()) {
       UT_LIST_REMOVE(rseg->update_undo_list, undo);
@@ -153,9 +154,16 @@ void trx_rseg_mem_free(trx_rseg_t *rseg) {
 
       trx_undo_mem_free(undo);
     }
+    for (auto undo : rseg->txn_undo_list.removable()) {
+      UT_LIST_REMOVE(rseg->txn_undo_list, undo);
+
+      MONITOR_DEC(MONITOR_NUM_UNDO_SLOT_CACHED);
+
+      trx_undo_mem_free(undo);
+    }
   }
 
-  ut_a(UT_LIST_GET_LEN(rseg->txn_undo_list) == 0);
+
 
   for (auto undo : rseg->txn_undo_cached.removable()) {
     UT_LIST_REMOVE(rseg->txn_undo_cached, undo);
