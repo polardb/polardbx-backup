@@ -4714,7 +4714,8 @@ class THD : public MDL_context_owner,
 };
 
 inline ulonglong thd_get_snapshot_gcn(THD *thd) {
-  if (thd) return thd->get_snapshot_gcn();
+  if (thd && thd->variables.dynamic_variables_ptr) 
+    return thd->get_snapshot_gcn();
 
   return MYSQL_GCN_NULL;
 }

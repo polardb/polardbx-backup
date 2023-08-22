@@ -112,7 +112,8 @@ cat extra/boost/boost_1_77_0.tar.bz2.*  > extra/boost/boost_1_77_0.tar.bz2
 cmake .                                    \
     -DCMAKE_BUILD_TYPE="$build_type"       \
     -DCMAKE_INSTALL_PREFIX="$dest_dir"     \
-    -DCMAKE_COMPILE_COMMANDS=1 \
+    -DCMAKE_COMPILE_COMMANDS=1             \
+    -DCMAKE_EXPORT_COMPILE_COMMANDS=1      \
     -DBUILD_CONFIG=xtrabackup_release      \
     -DWITH_DEBUG=$debug                    \
     -DFORCE_INSOURCE_BUILD=1               \

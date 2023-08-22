@@ -24498,5 +24498,9 @@ static bool innobase_check_reserved_file_name(handlerton *, const char *name) {
 #endif /* !UNIV_HOTBACKUP */
 
 bool thd_get_transaction_group(THD *thd) {
-  return THDVAR(thd, transaction_group);
+  if (thd->variables.dynamic_variables_ptr) {
+    return THDVAR(thd, transaction_group);
+  }
+  
+  return false;
 }
