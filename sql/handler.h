@@ -6943,6 +6943,7 @@ class handler {
 
   friend class DsMrr_impl;
   
+ public:
   virtual int ha_flush_cache(TABLE *, void *) { return HA_ERR_WRONG_COMMAND; }
 };
 
