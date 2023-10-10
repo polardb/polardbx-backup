@@ -1502,7 +1502,9 @@ bool backup_start(Backup_context &context) {
     }
   }
 
-  write_binlog_info(mysql_connection);
+  if (!write_binlog_info(mysql_connection)) {
+    return false;
+  }
 
   if (have_flush_engine_logs) {
     xb::info() << "Executing FLUSH NO_WRITE_TO_BINLOG ENGINE LOGS...";

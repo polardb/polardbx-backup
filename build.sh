@@ -69,7 +69,7 @@ then
 fi
 
 build_type="debug"
-dest_dir="/u01/mysql"
+dest_dir=$HOME/tmp_run2
 server_suffix="rds-dev"
 
 parse_options "$@"
@@ -102,9 +102,10 @@ elif [ x"$build_type" = x"Debug" ]; then
   CXXFLAGS="$COMMON_FLAGS"
 fi
 
-CC=/opt/rh/devtoolset-7/root/usr/bin/gcc
-CXX=/opt/rh/devtoolset-7/root/usr/bin/g++
-export CC CFLAGS CXX CXXFLAGS
+CC=/opt/rh/devtoolset-11/root/usr/bin/gcc
+CXX=/opt/rh/devtoolset-11/root/usr/bin/g++
+source /opt/rh/devtoolset-11/enable
+#export CC CFLAGS CXX CXXFLAGS
 
 rm -rf CMakeCache.txt
 make clean

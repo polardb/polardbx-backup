@@ -94,8 +94,11 @@ mysql_flavor_t server_flavor = FLAVOR_UNKNOWN;
 unsigned long mysql_server_version = 0;
 /* the version of xtrabackup used during the backup */
 unsigned long xb_backup_version = 0;
+char xcluster_version[64] = {}; /* format: x.x.x */
+int workers_num = 0;
 
 /* server capabilities */
+bool have_changed_page_bitmaps = false;
 bool have_backup_locks = false;
 bool have_lock_wait_timeout = false;
 bool have_galera_enabled = false;
@@ -115,6 +118,9 @@ os_event_t kill_query_thread_stopped;
 os_event_t kill_query_thread_stop;
 
 bool sql_thread_started = false;
+
+/* Whether xtrabackup disabled polarx replication */
+bool xcluster_sql_thread_started = false;
 std::string mysql_slave_position;
 std::string mysql_binlog_position;
 char *buffer_pool_filename = NULL;
@@ -360,6 +366,7 @@ static bool check_server_version(unsigned long version_number,
   mysql_server_version = version_number;
 
   server_flavor = FLAVOR_UNKNOWN;
+  const char *pos = NULL;
   if (strstr(version_comment, "Percona") != NULL) {
     server_flavor = FLAVOR_PERCONA_SERVER;
   } else if (strstr(version_comment, "MariaDB") != NULL ||
@@ -367,6 +374,11 @@ static bool check_server_version(unsigned long version_number,
     server_flavor = FLAVOR_MARIADB;
   } else if (strstr(version_comment, "MySQL") != NULL) {
     server_flavor = FLAVOR_MYSQL;
+  } else if ((pos = strstr(version_string, "X-Cluster")) != NULL) {
+    xb::info() << "!!!detect X-Cluster!!!\n";
+    server_flavor = FLAVOR_X_CLUSTER;
+    strncpy(xcluster_version, pos + 10, strchr(pos + 10, '-') - pos - 10);
+    xb::info() << "X-Cluster version is ." << xcluster_version;
   }
 
   version_supported =
@@ -438,6 +450,7 @@ bool get_mysql_vars(MYSQL *connection) {
   char *innodb_page_size_var = nullptr;
   char *innodb_log_checksums_var = nullptr;
   char *innodb_checksum_algorithm_var = nullptr;
+  char *relay_log_info_repository_var = nullptr;
   char *innodb_redo_log_encrypt_var = nullptr;
   char *innodb_undo_log_encrypt_var = nullptr;
   char *server_plugin_dir_var = nullptr;
@@ -472,6 +485,7 @@ bool get_mysql_vars(MYSQL *connection) {
       {"innodb_directories", &innodb_directories_var},
       {"innodb_page_size", &innodb_page_size_var},
       {"innodb_log_checksums", &innodb_log_checksums_var},
+      {"relay_log_info_repository", &relay_log_info_repository_var},
       {"innodb_redo_log_encrypt", &innodb_redo_log_encrypt_var},
       {"innodb_undo_log_encrypt", &innodb_undo_log_encrypt_var},
       {"server_uuid", &server_uuid_var},
@@ -500,6 +514,15 @@ bool get_mysql_vars(MYSQL *connection) {
   if (!(ret = check_server_version(server_version, version_var,
                                    version_comment_var, innodb_version_var))) {
     goto out;
+  }
+
+  /* X-Cluster do not support relay_log_info_repository=FILE */
+  if (server_flavor == FLAVOR_X_CLUSTER
+      && (relay_log_info_repository_var == NULL
+          || strcmp(relay_log_info_repository_var, "TABLE") != 0)) {
+    xb::error() << "Error: relay_log_info_repository = " << relay_log_info_repository_var
+                << " is not supported. Please set relay_log_info_repository=TABLE and retry.\n";
+    return(false);
   }
 
   if (server_version > 50500) {
@@ -677,6 +700,9 @@ bool get_mysql_vars(MYSQL *connection) {
     have_keyring_component = true;
   }
 
+  if (server_flavor == FLAVOR_X_CLUSTER)
+    workers_num = atoi(slave_parallel_workers_var);
+
 out:
   free_mysql_variables(mysql_vars);
 
@@ -697,10 +723,13 @@ bool detect_mysql_capabilities_for_backup() {
 
   if (opt_slave_info && have_multi_threaded_slave && !have_gtid_slave &&
       !opt_safe_slave_backup) {
-    xb::error() << "The --slave-info option requires GTID enabled or "
-                << "--safe-slave-backup "
-                << "option used for a multi-threaded slave.";
-    return (false);
+    if (server_flavor == FLAVOR_X_CLUSTER) {
+      xb::error() << "X-Cluster is ok: --slave-info option with GTID disabled for a multi-threaded slave.";
+    } else {
+      xb::error() << "The --slave-info option requires GTID enabled or --safe-slave-backup "
+          "option used for a multi-threaded slave.\n";
+      return (false);
+    }
   }
 
   char *count_str =
@@ -1074,13 +1103,13 @@ bool lock_tables_ftwrl(MYSQL *connection) {
     }
   }
 
-  xb::info() << "Executing FLUSH TABLES WITH READ LOCK...";
+  xb::info() << "Executing FLUSH LOCAL TABLES WITH READ LOCK...";
 
   if (opt_kill_long_queries_timeout) {
     start_query_killer();
   }
 
-  xb_mysql_query(connection, "FLUSH TABLES WITH READ LOCK", false);
+  xb_mysql_query(connection, "FLUSH LOCAL TABLES WITH READ LOCK", false);
 
   if (opt_kill_long_queries_timeout) {
     stop_query_killer();
@@ -1110,6 +1139,8 @@ bool lock_tables_maybe(MYSQL *connection, int timeout, int retry_count) {
     return (true);
   }
 
+  disable_replication_for_polarx(connection);
+
   if (have_backup_locks && !force_ftwrl) {
     return lock_tables_for_backup(connection, timeout, retry_count);
   }
@@ -1133,6 +1164,8 @@ void unlock_all(MYSQL *connection) {
   }
 
   xb::info() << "All tables unlocked";
+
+  enable_replication_for_polarx(connection);
 }
 
 static int get_open_temp_tables(MYSQL *connection) {
@@ -1594,6 +1627,16 @@ static void log_status_replication_parse(const char *s,
     }
     log_status.channels.push_back(cs);
   }
+  
+  if (server_flavor == FLAVOR_X_CLUSTER) {
+      replication_channel_status_t cs;
+      cs.channel_name = "";
+      cs.relay_log_file = "";
+      cs.relay_log_position = 0;
+      cs.relay_master_log_file = "";
+      cs.exec_master_log_position = 0;
+      log_status.channels.push_back(cs);
+  }
 }
 
 /** Parse LSN information from JSON.
@@ -1690,6 +1733,19 @@ void log_status_get(MYSQL *conn) {
   mysql_free_result(result);
 }
 
+static const char *format_binlog_filename(const char *path)
+{
+   const char *pos = path;
+   if (!path)
+       return pos;
+   for (const char *t = path; *t != '\0'; t++)
+   {
+       if ((*t) == '/')
+           pos = t + 1;
+   }
+   return pos;
+}
+
 /*********************************************************************/ /**
  Retrieves MySQL binlog position and
  saves it in a file. It also prints it to stdout.
@@ -1699,8 +1755,153 @@ bool write_binlog_info(MYSQL *connection) {
   std::ostringstream s;
   char *gtid_mode = NULL;
   bool result, gtid;
+  char *consensus_apply_index = NULL;
+  char *commit_index = NULL;
+  char *role = NULL;
+  char *server_ready_for_rw = NULL;
+  /* do term check before and after write consensus index info */
+  uint64 start_term = 0, end_term = 0;
+  char *start_term_var = NULL;
+  char *end_term_var = NULL;
+  // char *filename = NULL;
+  // char *position = NULL;
+  // char *gtid_executed = NULL;
+  char *log_name = NULL;
+  char *start_log_index = NULL;
+  MYSQL_RES* show_res = NULL;
+#if 0
+  mysql_variable status[] = {
+      {"File", &filename},
+      {"Position", &position},
+      {"Executed_Gtid_Set", &gtid_executed},
+      {NULL, NULL}
+  };
+#endif
+  mysql_variable xcluster_index[] = {
+      {"Consensus_apply_index", &consensus_apply_index},
+      {NULL, NULL}
+  };
+
+  mysql_variable xcluster_leader_index[] = {
+      {"role", &role},
+      {"commit_index", &commit_index},
+      {"server_ready_for_rw", &server_ready_for_rw},
+      {NULL, NULL}
+  };
+
+  mysql_variable start_term_vars[] = {
+      {"current_term", &start_term_var},
+      {NULL, NULL}
+  };
+
+  mysql_variable end_term_vars[] = {
+       {"current_term", &end_term_var},
+       {NULL, NULL}
+  };
 
   mysql_variable vars[] = {{"gtid_mode", &gtid_mode}, {NULL, NULL}};
+
+  mysql_variable show_vars[] = {
+        {"Log_name", &log_name},
+        {"Start_log_index", &start_log_index},
+        {NULL, NULL}
+  };
+
+  if (server_flavor == FLAVOR_X_CLUSTER) {
+    bool show_binlog_name = strncmp(xcluster_version, "1.0.1", 5) > 0;
+    /* first term check */
+    read_mysql_variables(connection,
+        "select current_term from information_schema.alisql_cluster_local",
+        start_term_vars, false);
+    start_term = strtoull(start_term_var, NULL ,10);
+    xb::info() << "X-Cluster start term: " << start_term;
+
+    /* non-leader binlog file and position */
+    read_mysql_variables(connection,
+        "select Consensus_apply_index from mysql.slave_relay_log_info",
+        xcluster_index, false);
+    /* role and leader position */
+    read_mysql_variables(connection,
+        "select role, commit_index, server_ready_for_rw from information_schema.alisql_cluster_local",
+        xcluster_leader_index, false);
+
+    /* last term check */
+    read_mysql_variables(connection,
+        "select current_term from information_schema.alisql_cluster_local",
+        end_term_vars, false);
+    end_term = strtoull(end_term_var, NULL ,10);
+    xb::info() << "X-Cluster end term: " << end_term;
+
+    if (start_term != end_term) {
+      xb::info() << "X-Cluster term changed, backup failed, please retry";
+      result = false;
+      goto cleanup;
+    }
+
+    const char *binname_res = NULL;
+    const char *index_res = NULL;
+    if (strcmp(role, "Leader") == 0) {
+      if (strcmp(server_ready_for_rw, "Yes") != 0) {
+        xb::info() << "Leader server_ready_for_rw is No, backup failed, please retry";
+        result = false;
+        goto cleanup;
+      }
+      if (commit_index == NULL) {
+        xb::info() << "Fail to read binlog name or index, please retry";
+        result = false;
+        goto cleanup;
+      }
+      index_res = commit_index;
+    } else {
+      if (consensus_apply_index == NULL) {
+        xb::info() << "Fail to read binlog name or index, please retry";
+        result = false;
+        goto cleanup;
+      }
+      index_res = consensus_apply_index;
+    }
+    /* read binlog name from `show consensus logs` */
+    uint64 index = strtoull(index_res, NULL, 0);
+    show_res = xb_mysql_query(connection, "SHOW CONSENSUS LOGS", true, true);
+    while (read_mysql_variables_from_result(show_res, show_vars, false)) {
+      if (log_name == NULL || start_log_index == NULL) {
+        xb::info() << "Failed to get binlog filename from SHOW CONSENSUS LOGS";
+        goto cleanup;
+      }
+      if (index >= strtoull(start_log_index, NULL, 0)) {
+        binname_res = log_name;
+      } else {
+        if (index == 0) {
+          binname_res = log_name;
+          if (strlen(binname_res) > 6) {
+            memcpy((char*)binname_res + strlen(binname_res) - 6, "000001", 6);
+          } else {
+            xb::info() << "Failed to get binlog filename from SHOW CONSENSUS LOGS";
+            result = false;
+            goto cleanup;
+          }
+        }
+        break;
+      }
+    }
+    binname_res = format_binlog_filename(binname_res);
+    if (binname_res == NULL) {
+      xb::info() << "Failed to get binlog filename from SHOW CONSENSUS LOGS";
+      result = false;
+      goto cleanup;
+    }
+    if (show_binlog_name) {
+      s <<"role: '"<<role<<"' server_ready_for_rw:'"<<server_ready_for_rw<<"' commit_index:'" <<
+          commit_index<< "' consensus_apply_index:'"<<consensus_apply_index<<"' filename '"<<binname_res<<"'";
+    } else {
+      s <<"role: '"<<role<<"' server_ready_for_rw:'"<<server_ready_for_rw<<"' commit_index:'" <<
+          commit_index<< "' consensus_apply_index:'"<<consensus_apply_index<<"'";
+    }
+    mysql_binlog_position = s.str();
+    result = backup_file_printf(XTRABACKUP_BINLOG_INFO, "%s\t%s\n", binname_res, index_res);
+    goto cleanup;
+  }
+
   read_mysql_variables(connection, "SHOW VARIABLES", vars, true);
 
   if (log_status.filename.empty() && log_status.gtid_executed.empty()) {
@@ -1734,6 +1935,14 @@ bool write_binlog_info(MYSQL *connection) {
 
 cleanup:
   free_mysql_variables(vars);
+  free_mysql_variables(xcluster_index);
+  free_mysql_variables(xcluster_leader_index);
+  free_mysql_variables(start_term_vars);
+  free_mysql_variables(end_term_vars);
+  free_mysql_variables(show_vars);
+  if (server_flavor == FLAVOR_X_CLUSTER) {
+    mysql_free_result(show_res);
+  }
 
   return (result);
 }
@@ -2381,4 +2590,34 @@ bool print_instant_versioned_tables(MYSQL *connection) {
     mysql_free_result(result);
   }
   return ret;
+}
+
+void disable_replication_for_polarx(MYSQL *connection) {
+  if (xcluster_sql_thread_started) return;
+
+  if (server_flavor == FLAVOR_X_CLUSTER) {
+    // if slave_sql_running, stop mts
+    char *slave_sql_running = NULL;
+    mysql_variable status[] = {{"Slave_SQL_Running", &slave_sql_running},
+                               {NULL, NULL}};
+    read_mysql_variables(connection, "SHOW SLAVE STATUS", status, false);
+    if (strcmp(slave_sql_running, "Yes") == 0) {
+      xb::info() << "Disable replication for polarx...";
+      xcluster_sql_thread_started = true;
+      xb_mysql_query(connection, "STOP SLAVE SQL_THREAD", false, false);
+      xb_mysql_query(connection, "STOP XPAXOS_REPLICATION", false, false);
+    }
+    free_mysql_variables(status);
+  }
+}
+
+void enable_replication_for_polarx(MYSQL *connection) {
+  if (!xcluster_sql_thread_started) return;
+
+  if (server_flavor == FLAVOR_X_CLUSTER) {
+    xb::info() << "Enable replication for polarx...";
+    xb_mysql_query(connection, "START SLAVE SQL_THREAD", false, false);
+    xb_mysql_query(connection, "START XPAXOS_REPLICATION", false, false);
+    xcluster_sql_thread_started = false;
+  }
 }
