@@ -377,7 +377,7 @@ static bool check_server_version(unsigned long version_number,
   } else if ((pos = strstr(version_string, "X-Cluster")) != NULL) {
     xb::info() << "!!!detect X-Cluster!!!\n";
     server_flavor = FLAVOR_X_CLUSTER;
-    strncpy(xcluster_version, pos + 10, strchr(pos + 10, '-') - pos - 10);
+    strcpy(xcluster_version, pos + 10);
     xb::info() << "X-Cluster version is ." << xcluster_version;
   }
 
@@ -1356,7 +1356,8 @@ bool write_slave_info(MYSQL *connection) {
     channels[channel_name ? channel_name : ""] = info;
 
     ut_ad(!have_multi_threaded_slave || have_gtid_slave ||
-          strcasecmp(slave_sql_running, "No") == 0);
+          strcasecmp(slave_sql_running, "No") == 0 ||
+          server_flavor == FLAVOR_X_CLUSTER);
 
     free_mysql_variables(status);
   }

@@ -20,6 +20,9 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA
 
+REMOVE_DEFINITIONS(-DMYSQL_SERVER)
+REMOVE_DEFINITIONS(-DXTRABACKUP)
+
 ADD_WSHADOW_WARNING()
 
 # We are not interesting in profiling clients.
@@ -28,7 +31,7 @@ DISABLE_MISSING_PROFILE_WARNING()
 ## Subdirectory with common client code.
 ADD_SUBDIRECTORY(base)
 ## Subdirectory for mysqlpump code.
-ADD_SUBDIRECTORY(dump)
+#ADD_SUBDIRECTORY(dump)
 ## Subdirectory for mysql_migrate_keyring code.
 ADD_SUBDIRECTORY(migrate_keyring)
 
@@ -36,62 +39,62 @@ INCLUDE_DIRECTORIES(
   ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
-MYSQL_ADD_EXECUTABLE(mysql
-  ${CMAKE_SOURCE_DIR}/sql-common/net_ns.cc
-  completion_hash.cc
-  mysql.cc
-  pattern_matcher.cc
-  readline.cc
-  client_query_attributes.cc
-  multi_factor_passwordopt-vars.cc
-  ${CMAKE_CURRENT_SOURCE_DIR}/common/user_registration.cc
-  LINK_LIBRARIES mysqlclient client_base ${EDITLINE_LIBRARY}
-  )
-
-IF(NOT WITHOUT_SERVER)
-  MYSQL_ADD_EXECUTABLE(mysql_upgrade
-    upgrade/program.cc
-    LINK_LIBRARIES mysqlclient client_base
-    )
-ENDIF()
-
-MYSQL_ADD_EXECUTABLE(mysqltest
-  mysqltest.cc
-  mysqltest/error_names.cc
-  mysqltest/expected_errors.cc
-  mysqltest/expected_warnings.cc
-  mysqltest/logfile.cc
-  mysqltest/regular_expressions.cc
-  mysqltest/secondary_engine.cc
-  mysqltest/utils.cc
-  client_query_attributes.cc
-
-  COMPONENT Test
-  DEPENDENCIES GenError GenClientError
-  ENABLE_EXPORTS
-  LINK_LIBRARIES mysqlclient
-  )
-MYSQL_ADD_EXECUTABLE(mysqlcheck
-  check/mysqlcheck.cc
-  check/mysqlcheck_core.cc
-  multi_factor_passwordopt-vars.cc
-  LINK_LIBRARIES mysqlclient
-  )
-MYSQL_ADD_EXECUTABLE(mysqldump
-  mysqldump.cc
-  multi_factor_passwordopt-vars.cc
-  LINK_LIBRARIES mysqlclient
-  )
-MYSQL_ADD_EXECUTABLE(mysqlimport
-  mysqlimport.cc
-  multi_factor_passwordopt-vars.cc
-  LINK_LIBRARIES mysqlclient
-  )
-MYSQL_ADD_EXECUTABLE(mysqlshow
-  mysqlshow.cc
-  multi_factor_passwordopt-vars.cc
-  LINK_LIBRARIES mysqlclient
-  )
+# MYSQL_ADD_EXECUTABLE(mysql
+#   ${CMAKE_SOURCE_DIR}/sql-common/net_ns.cc
+#   completion_hash.cc
+#   mysql.cc
+#   pattern_matcher.cc
+#   readline.cc
+#   client_query_attributes.cc
+#   multi_factor_passwordopt-vars.cc
+#   ${CMAKE_CURRENT_SOURCE_DIR}/common/user_registration.cc
+#   LINK_LIBRARIES mysqlclient client_base ${EDITLINE_LIBRARY}
+#   )
+# 
+# IF(NOT WITHOUT_SERVER)
+#   MYSQL_ADD_EXECUTABLE(mysql_upgrade
+#     upgrade/program.cc
+#     LINK_LIBRARIES mysqlclient client_base
+#     )
+# ENDIF()
+# 
+# MYSQL_ADD_EXECUTABLE(mysqltest
+#   mysqltest.cc
+#   mysqltest/error_names.cc
+#   mysqltest/expected_errors.cc
+#   mysqltest/expected_warnings.cc
+#   mysqltest/logfile.cc
+#   mysqltest/regular_expressions.cc
+#   mysqltest/secondary_engine.cc
+#   mysqltest/utils.cc
+#   client_query_attributes.cc
+# 
+#   COMPONENT Test
+#   DEPENDENCIES GenError GenClientError
+#   ENABLE_EXPORTS
+#   LINK_LIBRARIES mysqlclient
+#   )
+# MYSQL_ADD_EXECUTABLE(mysqlcheck
+#   check/mysqlcheck.cc
+#   check/mysqlcheck_core.cc
+#   multi_factor_passwordopt-vars.cc
+#   LINK_LIBRARIES mysqlclient
+#   )
+# MYSQL_ADD_EXECUTABLE(mysqldump
+#   mysqldump.cc
+#   multi_factor_passwordopt-vars.cc
+#   LINK_LIBRARIES mysqlclient
+#   )
+# MYSQL_ADD_EXECUTABLE(mysqlimport
+#   mysqlimport.cc
+#   multi_factor_passwordopt-vars.cc
+#   LINK_LIBRARIES mysqlclient
+#   )
+# MYSQL_ADD_EXECUTABLE(mysqlshow
+#   mysqlshow.cc
+#   multi_factor_passwordopt-vars.cc
+#   LINK_LIBRARIES mysqlclient
+#   )
 
 OPTION(WITH_JSON_BINLOG_LIBRARY
   "Build and install standalone json_binlog library" OFF)
@@ -213,7 +216,7 @@ IF(HAS_WARN_FLAG)
 ENDIF()
 
 SET(MYSQLBINLOG_SOURCES
-  mysqlbinlog.cc
+  mysqlbinlogtailor.cc
   ${CMAKE_SOURCE_DIR}/sql/log_event.cc
   ${CMAKE_SOURCE_DIR}/sql/rpl_utility.cc
   ${CMAKE_SOURCE_DIR}/sql/rpl_gtid_sid_map.cc
@@ -243,8 +246,9 @@ ELSE()
   LIST(APPEND MYSQLBINLOG_LIBRARIES json_binlog_static)
 ENDIF()
 
-MYSQL_ADD_EXECUTABLE(mysqlbinlog
+MYSQL_ADD_EXECUTABLE(mysqlbinlogtailor
   ${MYSQLBINLOG_SOURCES}
+  mysqlbinlogtailor.cc
   DEPENDENCIES GenError
   LINK_LIBRARIES ${MYSQLBINLOG_LIBRARIES}
   )
@@ -270,35 +274,59 @@ IF(WITH_JSON_BINLOG_LIBRARY)
   ENDIF()
 ENDIF()
 
-TARGET_COMPILE_DEFINITIONS(mysqlbinlog PRIVATE DISABLE_PSI_MUTEX)
-TARGET_INCLUDE_DIRECTORIES(mysqlbinlog PRIVATE ${CMAKE_SOURCE_DIR}/sql)
+TARGET_COMPILE_DEFINITIONS(mysqlbinlogtailor PRIVATE DISABLE_PSI_MUTEX)
+TARGET_INCLUDE_DIRECTORIES(mysqlbinlogtailor PRIVATE ${CMAKE_SOURCE_DIR}/sql)
 
-MYSQL_ADD_EXECUTABLE(mysqladmin
-  mysqladmin.cc
-  multi_factor_passwordopt-vars.cc
-  LINK_LIBRARIES mysqlclient
-  )
-MYSQL_ADD_EXECUTABLE(mysqlslap
-  mysqlslap.cc
-  multi_factor_passwordopt-vars.cc
-  LINK_LIBRARIES mysqlclient
-  )
-MYSQL_ADD_EXECUTABLE(mysql_config_editor
-  mysql_config_editor.cc
-  LINK_LIBRARIES mysqlclient
-  )
-MYSQL_ADD_EXECUTABLE(mysql_secure_installation
-  mysql_secure_installation.cc
-  LINK_LIBRARIES mysqlclient
-  )
-MYSQL_ADD_EXECUTABLE(mysql_ssl_rsa_setup
-  logger.cc
-  mysql_ssl_rsa_setup.cc
-  path.cc
-  LINK_LIBRARIES mysys
-  )
+# MYSQL_ADD_EXECUTABLE(mysqladmin
+#   mysqladmin.cc
+#   multi_factor_passwordopt-vars.cc
+#   LINK_LIBRARIES mysqlclient
+#   )
+# MYSQL_ADD_EXECUTABLE(mysqlslap
+#   mysqlslap.cc
+#   multi_factor_passwordopt-vars.cc
+#   LINK_LIBRARIES mysqlclient
+#   )
+# MYSQL_ADD_EXECUTABLE(mysql_config_editor
+#   mysql_config_editor.cc
+#   LINK_LIBRARIES mysqlclient
+#   )
+# MYSQL_ADD_EXECUTABLE(mysql_secure_installation
+#   mysql_secure_installation.cc
+#   LINK_LIBRARIES mysqlclient
+#   )
+# MYSQL_ADD_EXECUTABLE(mysql_ssl_rsa_setup
+#   logger.cc
+#   mysql_ssl_rsa_setup.cc
+#   path.cc
+#   LINK_LIBRARIES mysys
+#   )
 
-# "WIN32" also covers 64 bit. "echo" is used in some files below "mysql-test/".
-IF(WIN32)
-  MYSQL_ADD_EXECUTABLE(echo echo.cc)
-ENDIF(WIN32)
+#
+#MYSQL_ADD_EXECUTABLE(mysqladmin
+#  mysqladmin.cc
+#  LINK_LIBRARIES mysqlclient
+#  )
+#MYSQL_ADD_EXECUTABLE(mysqlslap
+#  mysqlslap.cc
+#  LINK_LIBRARIES mysqlclient
+#  )
+#MYSQL_ADD_EXECUTABLE(mysql_config_editor
+#  mysql_config_editor.cc
+#  LINK_LIBRARIES mysqlclient
+#  )
+#MYSQL_ADD_EXECUTABLE(mysql_secure_installation
+#  mysql_secure_installation.cc
+#  LINK_LIBRARIES mysqlclient
+#  )
+#MYSQL_ADD_EXECUTABLE(mysql_ssl_rsa_setup
+#  logger.cc
+#  mysql_ssl_rsa_setup.cc
+#  path.cc
+#  LINK_LIBRARIES mysys
+#  )
+#
+## "WIN32" also covers 64 bit. "echo" is used in some files below "mysql-test/".
+#IF(WIN32)
+#  MYSQL_ADD_EXECUTABLE(echo echo.cc)
+#ENDIF(WIN32)

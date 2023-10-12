@@ -573,6 +573,8 @@ class Log_event {
     EVENT_SKIP_COUNT
   };
 
+  size_t get_event_len() { return common_header->data_written; }
+
  protected:
   enum enum_event_cache_type {
     EVENT_INVALID_CACHE = 0,
@@ -1784,6 +1786,7 @@ class XA_prepare_log_event : public binary_log::XA_prepare_event,
   bool write(Basic_ostream *ostream) override;
 #else
   void print(FILE *file, PRINT_EVENT_INFO *print_event_info) const override;
+  void get_serialize_xid(char* buf);
 #endif
 #if defined(MYSQL_SERVER)
   int pack_info(Protocol *protocol) override;
@@ -4392,5 +4395,7 @@ std::pair<bool, binary_log::Log_event_basic_info> extract_log_event_basic_info(
 /**
   @} (end of group Replication)
 */
+
+#include "sql/consensus_log_event.h"
 
 #endif /* _log_event_h */
