@@ -20,27 +20,35 @@
    along with this program; if not, write to the Free Software
    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA */
 
-#ifndef SQL_PACKAGE_PACKAGE_COMMON_INCLUDED
-#define SQL_PACKAGE_PACKAGE_COMMON_INCLUDED
+#ifndef SQL_CCL_CCL_BUCKET_INCLUDED
+#define SQL_CCL_CCL_BUCKET_INCLUDED
 
-#include "sql/common/component.h"
+#include "my_inttypes.h"
 
-/**
-  Common definition of package module.
+/* CCL queue bucket count predefined MAX and DEFAULT value */
+#define CCL_QUEUE_BUCKET_COUNT_MAX        64
+#define CCL_QUEUE_BUCKET_COUNT_DEFAULT    4
 
-   - Memory usage detection
-   - Native package object container structure
-*/
+/* CCL queue bucket size predefined MAX and DEFAULT value */
+#define CCL_QUEUE_BUCKET_SIZE_MAX         4096
+#define CCL_QUEUE_BUCKET_SIZE_DEFAULT     64
+
+
 namespace im {
 
-/* Package memory P_S key */
-extern PSI_memory_key key_memory_package;
+extern ulonglong ccl_queue_bucket_size;
 
-/* Package element map type */
-template <typename T>
-using Package_element_map =
-    Pair_key_icase_unordered_map<std::string, std::string, T>;
+extern ulonglong ccl_queue_bucket_count;
 
-} /*  namespace im */
+/**
+  Init the queue buckets, it will clear all the buckets and insert again.
+*/
+extern void ccl_queue_buckets_init(ulonglong bucket_count,
+                                   ulonglong bucket_size);
+
+} /* namespace im */
+
+
+
 
 #endif

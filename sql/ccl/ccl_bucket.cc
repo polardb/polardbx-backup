@@ -20,27 +20,29 @@
    along with this program; if not, write to the Free Software
    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA */
 
-#ifndef SQL_PACKAGE_PACKAGE_COMMON_INCLUDED
-#define SQL_PACKAGE_PACKAGE_COMMON_INCLUDED
+#include "sql/ccl/ccl_bucket.h"
+#include "sql/ccl/ccl.h"
 
-#include "sql/common/component.h"
-
-/**
-  Common definition of package module.
-
-   - Memory usage detection
-   - Native package object container structure
-*/
 namespace im {
 
-/* Package memory P_S key */
-extern PSI_memory_key key_memory_package;
+/* Ccl queue bucket size */
+ulonglong ccl_queue_bucket_size = CCL_QUEUE_BUCKET_SIZE_DEFAULT;
 
-/* Package element map type */
-template <typename T>
-using Package_element_map =
-    Pair_key_icase_unordered_map<std::string, std::string, T>;
+/* Ccl queue bucket count */
+ulonglong ccl_queue_bucket_count = CCL_QUEUE_BUCKET_COUNT_DEFAULT;
 
-} /*  namespace im */
+/**
+  Init the queue buckets, it will clear all the buckets and insert again.
+*/
+void ccl_queue_buckets_init(ulonglong bucket_count, ulonglong bucket_size) {
+  DBUG_ENTER("init_ccl_queue_buckets");
+  assert(System_ccl::instance());
 
-#endif
+  System_ccl::instance()->get_queue_buckets()->init_queue_buckets(
+      bucket_count, bucket_size, Ccl_error_level::CCL_WARNING);
+
+  DBUG_VOID_RETURN;
+}
+
+} /* namespace im */
+

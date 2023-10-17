@@ -20,27 +20,23 @@
    along with this program; if not, write to the Free Software
    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA */
 
-#ifndef SQL_PACKAGE_PACKAGE_COMMON_INCLUDED
-#define SQL_PACKAGE_PACKAGE_COMMON_INCLUDED
+#ifndef SQL_CCL_CCL_CACHE_INCLUDED
+#define SQL_CCL_CCL_CACHE_INCLUDED
 
-#include "sql/common/component.h"
+#include "sql/ccl/ccl_table_common.h"
+
+namespace im {
+/**
+  Concurrency control cache.
+*/
 
 /**
-  Common definition of package module.
+  Flush cache if force_clean is true and fill new rules.
+  @param[in]      records         rule record set
+  @param[in]      force_clean     whether clear the rule cache
 
-   - Memory usage detection
-   - Native package object container structure
+  @retval         number          how many rule added.
 */
-namespace im {
-
-/* Package memory P_S key */
-extern PSI_memory_key key_memory_package;
-
-/* Package element map type */
-template <typename T>
-using Package_element_map =
-    Pair_key_icase_unordered_map<std::string, std::string, T>;
-
-} /*  namespace im */
-
+size_t refresh_ccl_cache(Conf_records *records, bool force_clean);
+}
 #endif

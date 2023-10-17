@@ -20,21 +20,18 @@
    along with this program; if not, write to the Free Software
    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA */
 
-#include "sql/common/component.h"
+#include "sql/ccl/ccl_common.h"
+#include "my_inttypes.h"
+#include "my_murmur3.h"                 // my_murmur3_32
+#include "my_sys.h"                     // MY_WME, MY_FATALERROR
+#include "mysql/service_mysql_alloc.h"  // my_malloc
 #include <boost/algorithm/string/case_conv.hpp>
 
 namespace im {
 
-template <typename F, typename S>
-bool Pair_key_comparator<F, S>::operator()(
-    const Pair_key_type<F, S> &lhs, const Pair_key_type<F, S> &rhs) const {
-  return (strcmp(lhs.first.c_str(), rhs.first.c_str()) == 0 &&
-          strcmp(lhs.second.c_str(), rhs.second.c_str()) == 0);
+void *Ccl_string_alloc::operator()(size_t s) const {
+  return my_malloc(key_memory_ccl, s, MYF(MY_WME | ME_FATALERROR));
 }
-
-template bool Pair_key_comparator<std::string, std::string>::operator()(
-    const Pair_key_type<std::string, std::string> &lhs,
-    const Pair_key_type<std::string, std::string> &rhs) const;
 
 /* String compare ingoring case */
 template <typename F, typename S>
@@ -51,9 +48,21 @@ bool Pair_key_icase_comparator<F, S>::operator()(
   return (l_f.compare(r_f) == 0 && l_s.compare(r_s) == 0);
 }
 
-template bool Pair_key_icase_comparator<std::string, std::string>::operator()(
-    const Pair_key_type<std::string, std::string> &lhs,
-    const Pair_key_type<std::string, std::string> &rhs) const;
+template bool Pair_key_icase_comparator<String_ccl, String_ccl>::operator()(
+    const Pair_key_type<String_ccl, String_ccl> &lhs,
+    const Pair_key_type<String_ccl, String_ccl> &rhs) const;
+
+} /* namespace im */
+
+namespace std {
+
+size_t hash<im::String_ccl>::operator()(const im::String_ccl &s) const {
+  return murmur3_32(reinterpret_cast<const uchar *>(s.c_str()), s.size(), 0);
+}
+
+} /* namespace std */
+
+namespace im {
 
 template <typename F, typename S>
 size_t Pair_key_icase_hash<F, S>::operator()(
@@ -66,21 +75,7 @@ size_t Pair_key_icase_hash<F, S>::operator()(
          std::hash<S>()(static_cast<const S>(s2));
 }
 
-template size_t Pair_key_icase_hash<std::string, std::string>::operator()(
-    const im::Pair_key_type<std::string, std::string> &p) const;
+template size_t Pair_key_icase_hash<String_ccl, String_ccl>::operator()(
+    const im::Pair_key_type<String_ccl, String_ccl> &p) const;
 
 } /* namespace im */
-
-
-namespace std {
-template<typename F, typename S>
-size_t hash<im::Pair_key_type<F, S>>::operator()(
-    const im::Pair_key_type<F, S> &p) const {
-  return hash<F>()(static_cast<const F>(p.first)) ^
-         hash<S>()(static_cast<const S>(p.second));
-}
-
-template size_t hash<im::Pair_key_type<std::string, std::string>>::operator()(
-    const im::Pair_key_type<std::string, std::string> &p) const;
-
-} /* namespace std */

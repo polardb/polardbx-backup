@@ -20,27 +20,47 @@
    along with this program; if not, write to the Free Software
    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA */
 
-#ifndef SQL_PACKAGE_PACKAGE_COMMON_INCLUDED
-#define SQL_PACKAGE_PACKAGE_COMMON_INCLUDED
+#ifndef SQL_CCL_CCL_HINT_PARSE_INCLUDED
+#define SQL_CCL_CCL_HINT_PARSE_INCLUDED
 
-#include "sql/common/component.h"
+#include "sql/ccl/ccl_hint.h"
+#include "sql/parse_tree_hints.h"
 
-/**
-  Common definition of package module.
+Opt_hints_global *get_global_hints(Parse_context *pc);
 
-   - Memory usage detection
-   - Native package object container structure
-*/
 namespace im {
 
-/* Package memory P_S key */
-extern PSI_memory_key key_memory_package;
+/**
+  Hint PT definition for hint parser.
+*/
+class PT_hint_ccl_queue : public PT_hint {
+  typedef PT_hint super;
 
-/* Package element map type */
-template <typename T>
-using Package_element_map =
-    Pair_key_icase_unordered_map<std::string, std::string, T>;
+ public:
+  explicit PT_hint_ccl_queue(Ccl_hint_type type_arg, Item *item_arg)
+      : PT_hint(CCL_QUEUE_HINT_ENUM, true),
+        m_type(type_arg),
+        m_item(item_arg) {}
 
-} /*  namespace im */
+  virtual bool contextualize(Parse_context *pc) override;
+
+ private:
+  Ccl_hint_type m_type;
+  Item *m_item;
+};
+
+/**
+  Fill the where condition into ccl hint structure.
+
+  @param[in]      pc        Parse context
+  @param[in]      cond      Equal condition
+  @param[in]      left      field item
+  @param[in]      right     value item
+
+*/
+extern void fill_ccl_queue_field_cond(Parse_context *pc, Item *cond, Item *left,
+                                      Item *right);
+
+} /* namespace im */
 
 #endif
