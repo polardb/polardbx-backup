@@ -886,6 +886,7 @@ MySQL clients support the protocol:
 #include "sql/package/package_interface.h"
 #include "plugin/performance_point/pps_server.h"
 #include "sql/sequence_common.h"
+#include "sql/outline/outline_interface.h"
 #include "sql/ccl/ccl_interface.h"
 
 #ifdef WITH_PERFSCHEMA_STORAGE_ENGINE
@@ -975,6 +976,7 @@ MySQL clients support the protocol:
 #include "sql/server_component/mysql_server_keyring_lockable_imp.h"
 #include "sql/server_component/persistent_dynamic_loader_imp.h"
 #include "sql/srv_session.h"
+#include "sql/common/reload.h"
 
 #include "sql/binlog/lizard0recovery.h"
 
@@ -2708,6 +2710,7 @@ static void clean_up(bool print_message) {
 
   im::ccl_destroy();
   im::recycle_bin::recycle_deinit();
+  im::outline_destroy();
 
   object_statistics_context_destroy();
   //destroy_performance_point();
@@ -7550,6 +7553,8 @@ int mysqld_main(int argc, char **argv)
   im::ccl_init();
   /* Init recycle_bin system */
   im::recycle_bin::recycle_init();
+  /* Init outline system */
+  im::outline_init();
 
   object_statistics_context_init();
 
@@ -8166,6 +8171,8 @@ int mysqld_main(int argc, char **argv)
   im::ccl_rules_init(opt_initialize);
   im::ccl_queue_buckets_init(im::ccl_queue_bucket_count,
                              im::ccl_queue_bucket_size);
+
+  im::statement_outline_init(opt_initialize);
 
   (void)RUN_HOOK(server_state, after_recovery, (nullptr));
 
@@ -9999,6 +10006,8 @@ SHOW_VAR status_vars[] = {
      SHOW_SCOPE_GLOBAL},
     {"Resource_group_supported", (char *)show_resource_group_support, SHOW_FUNC,
      SHOW_SCOPE_GLOBAL},
+    {"Reload_slave", (char *)im::reload_entry_status, SHOW_ARRAY,
+     SHOW_SCOPE_ALL},
     {NullS, NullS, SHOW_LONG, SHOW_SCOPE_ALL}};
 
 void add_terminator(vector<my_option> *options) {

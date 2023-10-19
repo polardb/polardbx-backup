@@ -4715,6 +4715,8 @@ void handler::mark_trx_read_write() {
       ha_info->set_trx_read_write();
     }
   }
+
+  im::mark_trx_reload(ha_thd(), ha_thd()->get_transaction(), table_share);
 }
 
 /**

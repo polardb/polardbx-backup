@@ -74,6 +74,15 @@ namespace histograms {
 class Histogram;
 }
 
+namespace im {
+class Reload;
+}
+
+namespace im {
+class Entity_guard;
+class Reload;
+}
+
 class ACL_internal_schema_access;
 class ACL_internal_table_access;
 class COND_EQUAL;
@@ -1277,6 +1286,9 @@ struct TABLE_SHARE {
   bool m_secondary_engine{false};
 
  public:
+  im::Entity_guard *entity_guard;
+  const im::Reload *reload_entry;
+
   /** Sequence attributes represent that it is sequence table */
   Sequence_property *sequence_property;
 };
