@@ -112,6 +112,7 @@
 #include "violite.h"
 
 #include "sql/lizard/lizard_rpl_gcn.h" // my_gcn_t, struct MyGCN...
+#include "sql/trans_proc/returning_parse.h"
 
 enum enum_check_fields : int;
 enum enum_tx_isolation : int;
@@ -4748,6 +4749,11 @@ class THD : public MDL_context_owner,
   }
 
   ulonglong get_snapshot_gcn() { return variables.innodb_snapshot_gcn; }
+  /** Returning clause lex */
+  std::unique_ptr<im::Lex_returning> lex_returning;
+
+  /** Get returning lex */
+  im::Lex_returning *get_lex_returning() { return lex_returning.get(); }
 };
 
 inline ulonglong thd_get_snapshot_gcn(THD *thd) {
