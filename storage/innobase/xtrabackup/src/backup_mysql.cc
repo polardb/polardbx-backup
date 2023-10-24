@@ -1754,7 +1754,8 @@ static const char *format_binlog_filename(const char *path)
 bool write_binlog_info(MYSQL *connection) {
   std::ostringstream s;
   char *gtid_mode = NULL;
-  bool result, gtid;
+  bool result = true;
+  bool gtid;
   char *consensus_apply_index = NULL;
   char *commit_index = NULL;
   char *role = NULL;

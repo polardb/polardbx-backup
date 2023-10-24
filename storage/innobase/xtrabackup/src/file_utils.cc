@@ -6,6 +6,10 @@
 #include "my_io.h"
 #include "my_thread_local.h"
 
+#ifdef HAVE_FALLOC_PUNCH_HOLE_AND_KEEP_SIZE
+#include <linux/falloc.h>
+#endif
+
 using page_type_t = size_t;
 /** Return the value of the PAGE_SSIZE field */
 constexpr uint32_t FSP_FLAGS_GET_PAGE_SSIZE(uint32_t flags) {
