@@ -9,6 +9,8 @@ is_galera && skip_test "Requires a server without Galera support"
 
 . inc/common.sh
 
+skip_test "Requires master-slave mode, but xdb can not"
+
 ################################################################################
 # Create a temporary table and pause "indefinitely" to keep the connection open
 ################################################################################

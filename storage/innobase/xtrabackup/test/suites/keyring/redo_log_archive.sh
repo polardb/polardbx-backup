@@ -24,6 +24,8 @@ function run_test() {
 
   start_server --innodb-redo-log-archive-dirs=":$TEST_VAR_ROOT/b"
 
+  sleep 20
+
   mysql -e "CREATE TABLE redo_log_consumer (
   id INT PRIMARY KEY AUTO_INCREMENT,
   str BLOB

@@ -2,6 +2,8 @@
 # Basic test for InnoDB shared tablespace encryption (ibdata1)
 #
 
+skip_test "Requires Percona Server"
+
 require_xtradb
 require_server_version_higher_than 8.0.13
 

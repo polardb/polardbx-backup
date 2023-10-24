@@ -6,7 +6,7 @@ log-bin=binlog123
 log-bin-index=binlog898.index
 "
 INDEX_FILE="binlog898.index"
-FILES="binlog123.000004"
+FILES="binlog123.000001"
 backup_restore
 # Cleanup
 MYSQLD_EXTRA_MY_CNF_OPTS=""

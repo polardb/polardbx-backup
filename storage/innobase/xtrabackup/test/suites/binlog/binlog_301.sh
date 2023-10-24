@@ -3,5 +3,5 @@
 # Test for binlog name with a single period
 vlog "------- TEST 301 -------"
 INDEX_FILE="my.index"
-FILES="my.000003"
+FILES="my.000001"
 backup_restore --log-bin=my.bin

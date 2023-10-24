@@ -2,6 +2,8 @@
 # PXB-1902: PXB is unable to connect to the database with transition-key when password is specified
 #
 
+skip_test "Requires Percona Server"
+
 start_server
 
 mysql -e "CREATE USER 'bkpuser'@'localhost' IDENTIFIED BY '111'"

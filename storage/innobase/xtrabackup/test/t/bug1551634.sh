@@ -10,6 +10,8 @@
 
 . inc/common.sh
 
+skip_test "Requires master-slave mode, but xdb can not"
+
 require_server_version_higher_than 5.7.6
 
 function init_db()

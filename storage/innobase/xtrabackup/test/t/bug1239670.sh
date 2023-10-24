@@ -4,6 +4,8 @@
 
 require_server_version_higher_than 5.6.0
 
+skip_test "Requires master-slave mode, but xdb can not"
+
 MYSQLD_EXTRA_MY_CNF_OPTS="
 gtid_mode=on
 log_slave_updates=on

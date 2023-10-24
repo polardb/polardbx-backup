@@ -69,6 +69,7 @@ function call_mysql_install_db()
         INSTALL_CMD="${MYSQLD} \
         --defaults-file=${MYSQLD_VARDIR}/my.cnf \
         --basedir=${MYSQL_BASEDIR} \
+        --core-file \
         --initialize-insecure"
 
         if ! ${INSTALL_CMD} ${MYSQLD_EXTRA_ARGS}
@@ -94,6 +95,7 @@ function mysql_ping()
 
     for ((i=1; i<=attempts; i++))
     do
+        vlog "Made $i attempts: Server $MYSQLADMIN $MYSQL_ARGS ping"
         $MYSQLADMIN $MYSQL_ARGS ping >/dev/null 2>&1 && return 0
         sleep 1
         # Is the server process still alive?
@@ -223,6 +225,7 @@ function init_server_variables()
     SRV_MYSQLD_PIDFILE[$id]="${TEST_VAR_ROOT}/mysqld${id}.pid"
     SRV_MYSQLD_ERRFILE[$id]="$vardir/data/mysqld${id}.err"
     SRV_MYSQLD_PORT[$id]=`get_free_port $id`
+    SRV_MYSQLD_RAFT_PORT[$id]=`get_free_port $id`
     SRV_MYSQLD_SOCKET[$id]=`mktemp -t mysql.sock.XXXXXX`
 }
 
@@ -261,6 +264,7 @@ function reset_server_variables()
     SRV_MYSQLD_PIDFILE[$id]=
     SRV_MYSQLD_ERRFILE[$id]=
     SRV_MYSQLD_PORT[$id]=
+    SRV_MYSQLD_RAFT_PORT[$id]=
     SRV_MYSQLD_SOCKET[$id]=
     # Group Replication
     if [[ ${SRV_MYSQLD_GR_PORT:-x} != "x" ]];
@@ -283,10 +287,11 @@ function switch_server()
     MYSQLD_PIDFILE="${SRV_MYSQLD_PIDFILE[$id]}"
     MYSQLD_ERRFILE="${SRV_MYSQLD_ERRFILE[$id]}"
     MYSQLD_PORT="${SRV_MYSQLD_PORT[$id]}"
+    MYSQLD_RAFT_PORT="${SRV_MYSQLD_RAFT_PORT[$id]}"
     MYSQLD_SOCKET="${SRV_MYSQLD_SOCKET[$id]}"
 
     MYSQL_ARGS="--defaults-file=$MYSQLD_VARDIR/my.cnf "
-    MYSQLD_ARGS="--defaults-file=$MYSQLD_VARDIR/my.cnf ${MYSQLD_EXTRA_ARGS}"
+    MYSQLD_ARGS="--defaults-file=$MYSQLD_VARDIR/my.cnf --core-file  ${MYSQLD_EXTRA_ARGS}"
     MYSQLDUMP_ARGS=
     if [ "`whoami`" = "root" ]
     then
@@ -294,7 +299,7 @@ function switch_server()
     fi
 
     XB_ARGS="--defaults-file=$MYSQLD_VARDIR/my.cnf \
---no-version-check ${XB_EXTRA_OPTS:-}"
+--no-version-check --skip-flush-binlog ${XB_EXTRA_OPTS:-}"
 
     # Some aliases for compatibility, as tests use the following names
     topdir="$MYSQLD_VARDIR"
@@ -353,10 +358,10 @@ function start_server_with_id()
 	    mkdir "$MYSQLD_TMPDIR"
         fi
 
-        if [ -f "$MYSQLD_ERRFILE" ]
-        then
-            rm "$MYSQLD_ERRFILE"
-        fi
+       if [ -f "$MYSQLD_ERRFILE" ]
+       then
+           rm "$MYSQLD_ERRFILE"
+       fi
 
         # Create the configuration file used by mysql_install_db, the server
         # and the xtrabackup binary
@@ -378,7 +383,7 @@ replicate-ignore-db=performance_schema
 replicate-ignore-db=sys
 innodb_log_file_size=48M
 ${MYSQLD_EXTRA_MY_CNF_OPTS:-}
-#core-file
+loose_cluster_info=127.0.0.1:${MYSQLD_RAFT_PORT}@1
 
 [client]
 socket=${MYSQLD_SOCKET}

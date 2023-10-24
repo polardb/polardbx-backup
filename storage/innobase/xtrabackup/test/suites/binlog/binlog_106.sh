@@ -6,7 +6,7 @@ log-bin=$topdir/binlog-dir1/bin
 log-bin-index=log
 "
 INDEX_FILE="log.index"
-FILES="$topdir/binlog-dir1/bin.000004"
+FILES="$topdir/binlog-dir1/bin.000001"
 backup_restore
 # Cleanup
 MYSQLD_EXTRA_MY_CNF_OPTS=""

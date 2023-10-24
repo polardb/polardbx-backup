@@ -4,6 +4,8 @@
 
 . inc/common.sh
 
+skip_test "The behaviors about UNDO on XDB have changed"
+
 require_server_version_higher_than 5.6.0
 
 ################################################################################

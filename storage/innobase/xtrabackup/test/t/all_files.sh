@@ -28,13 +28,7 @@ diff -u <( ( ( cd $dir1; find . | grep -Ev $ign_list )
 ./xtrabackup_tablespaces
 EOF
 
-if is_server_version_higher_than 8.0.19; then
-    XTRA_DOUBLEWRITE=""
-elif is_xtradb ; then
-    XTRA_DOUBLEWRITE="./xb_doublewrite"
-else
-    XTRA_DOUBLEWRITE=""
-fi
+XTRA_DOUBLEWRITE=""
 
 # files that present in the datadir, but not present in the backup
 diff -B -u <( ( ( cd $dir1; find . | grep -Ev $ign_list )
@@ -45,8 +39,6 @@ diff -B -u <( ( ( cd $dir1; find . | grep -Ev $ign_list )
 ./ca.pem
 ./client-cert.pem
 ./client-key.pem
-./mysql-bin.000001
-./mysql-bin.000002
 ./mysqld1.err
 ./private_key.pem
 ./public_key.pem
@@ -83,9 +75,6 @@ diff -B -u <( ( ( cd $dir1; find . | grep -Ev $ign_list )
 ./ca.pem
 ./client-cert.pem
 ./client-key.pem
-./mysql-bin.000001
-./mysql-bin.000002
-./mysql-bin.000003
 ./mysqld1.err
 ./private_key.pem
 ./public_key.pem

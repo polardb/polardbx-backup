@@ -3,6 +3,8 @@
 #              and binary log disabled
 #
 
+skip_test "Requires skip-log-bin, but xdb can not"
+
 start_server --skip-log-bin
 
 mkdir $topdir/backup

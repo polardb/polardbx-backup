@@ -2,6 +2,8 @@
 # PXB-1937: xtrabackup --move-back is failing due to encrypted binlog file
 #
 
+skip_test "XDB not surpport encrypted binlog"
+
 MYSQLD_EXTRA_MY_CNF_OPTS="
 binlog-encryption
 log-bin=binlog

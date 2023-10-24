@@ -8,7 +8,7 @@ log-bin=$mysql_datadir/bin
 log-bin-index=idx
 "
 INDEX_FILE="idx.index"
-FILES="$mysql_datadir/bin.000004"
+FILES="$mysql_datadir/bin.000001"
 backup_restore
 # Cleanup
 MYSQLD_EXTRA_MY_CNF_OPTS=""

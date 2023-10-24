@@ -248,7 +248,6 @@ ENDIF()
 
 MYSQL_ADD_EXECUTABLE(mysqlbinlogtailor
   ${MYSQLBINLOG_SOURCES}
-  mysqlbinlogtailor.cc
   DEPENDENCIES GenError
   LINK_LIBRARIES ${MYSQLBINLOG_LIBRARIES}
   )

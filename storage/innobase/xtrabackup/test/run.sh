@@ -504,6 +504,11 @@ function get_version_info()
     export MYSQL_VERSION MYSQL_VERSION_COMMENT MYSQL_FLAVOR \
 	INNODB_VERSION XTRADB_VERSION INNODB_FLAVOR \
 	XB_BIN XB_ARGS MYSQLD_EXTRA_ARGS WSREP_READY LIBGALERA_PATH
+
+    vlog  "MYSQL_VERSION $MYSQL_VERSION"
+    vlog  "MYSQL_VERSION_COMMENT $MYSQL_VERSION_COMMENT"
+    vlog  "INNODB_VERSION $INNODB_VERSION"
+    vlog  "XTRADB_VERSION $XTRADB_VERSION"
 }
 
 ############################################################################
@@ -613,7 +618,6 @@ function cleanup_worker()
         chmod -R 0700 $TEST_BASEDIR/var/w$worker >/dev/null 2>&1
         rm -rf $TEST_BASEDIR/var/w$worker && break
     done
-
     tmpdir=${worker_tmpdirs[$worker]:-""}
     if [ -n "$tmpdir" ]
     then

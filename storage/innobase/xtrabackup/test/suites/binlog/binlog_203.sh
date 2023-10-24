@@ -6,7 +6,7 @@ log-bin=$topdir/binlog-dir1/bin
 log-bin-index=$topdir/binlog-dir1/bin
 "
 INDEX_FILE="$topdir/binlog-dir2/bin.index"
-FILES="$topdir/binlog-dir1/logbin.000004"
+FILES="$topdir/binlog-dir1/logbin.000001"
 backup
 restore --log-bin=$topdir/binlog-dir1/logbin --log-bin-index=$topdir/binlog-dir2/bin.index
 # Cleanup

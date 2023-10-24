@@ -3,6 +3,8 @@
 #           started with encryption options
 #
 
+skip_test "Requires Percona Server"
+
 require_xtradb
 
 MYSQLD_EXTRA_MY_CNF_OPTS="

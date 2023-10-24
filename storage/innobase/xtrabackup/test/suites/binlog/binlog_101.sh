@@ -2,6 +2,8 @@
 . inc/binlog_common.sh
 # do the same, but with updating my.cnf
 
+skip_test "Requires skip-log-bin, but xdb can not"
+
 vlog "------- TEST 101 -------"
 MYSQLD_EXTRA_MY_CNF_OPTS="
 skip-log-bin

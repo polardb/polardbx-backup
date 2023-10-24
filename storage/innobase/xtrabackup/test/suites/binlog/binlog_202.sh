@@ -6,7 +6,7 @@ log-bin=bin
 log-bin-index=idx
 "
 INDEX_FILE="logidx.index"
-FILES="logbin.000004"
+FILES="logbin.000001"
 backup
 restore --log-bin=logbin --log-bin-index=logidx
 # Cleanup

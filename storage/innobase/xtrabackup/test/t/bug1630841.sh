@@ -2,6 +2,8 @@
 # Bug 1630841: sha256 password doesn't work
 #
 
+skip_test "Requires SSL, but the prepared ssl-certs have become invalid"
+
 require_server_version_higher_than 5.6.0
 
 MYSQLD_EXTRA_MY_CNF_OPTS="

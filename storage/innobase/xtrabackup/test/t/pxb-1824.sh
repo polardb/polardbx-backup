@@ -2,6 +2,8 @@
 # PXB-1824: PXB crashes in incremental backup prepare when row format is changed
 #
 
+skip_test "Requires Percona Server"
+
 start_server
 
 require_server_version_higher_than 5.6.0

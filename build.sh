@@ -102,10 +102,10 @@ elif [ x"$build_type" = x"Debug" ]; then
   CXXFLAGS="$COMMON_FLAGS"
 fi
 
-CC=/opt/rh/devtoolset-11/root/usr/bin/gcc
-CXX=/opt/rh/devtoolset-11/root/usr/bin/g++
-source /opt/rh/devtoolset-11/enable
-#export CC CFLAGS CXX CXXFLAGS
+CC=gcc
+CXX=g++
+
+export CC CFLAGS CXX CXXFLAGS
 
 rm -rf CMakeCache.txt
 make clean

@@ -98,7 +98,6 @@ char xcluster_version[64] = {}; /* format: x.x.x */
 int workers_num = 0;
 
 /* server capabilities */
-bool have_changed_page_bitmaps = false;
 bool have_backup_locks = false;
 bool have_lock_wait_timeout = false;
 bool have_galera_enabled = false;

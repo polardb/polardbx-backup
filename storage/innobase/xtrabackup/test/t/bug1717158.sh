@@ -2,6 +2,8 @@
 # Bug 1717158: Safe-slave-backups stucks with long query
 ############################################################################
 
+skip_test "Requires master-slave mode, but xdb can not"
+
 # Not stopping slave SQL thread until long-running query is over.
 
 master_id=1

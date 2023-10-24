@@ -1,5 +1,7 @@
 # PXB should not try to get group_replication_applier channel
 
+skip_test "Requires group replica mode, but xdb can not"
+
 start_group_replication_cluster 2
 run_cmd $MYSQL $MYSQL_ARGS test <<EOF
 CREATE TABLE t1 (c1 VARCHAR(100) PRIMARY KEY);

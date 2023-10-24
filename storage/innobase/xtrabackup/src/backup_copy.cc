@@ -1444,9 +1444,11 @@ bool backup_start(Backup_context &context) {
     context.myrocks_checkpoint.create(mysql_connection, true);
   }
 
-  xb::info() << "Executing FLUSH NO_WRITE_TO_BINLOG BINARY LOGS";
-  xb_mysql_query(mysql_connection, "FLUSH NO_WRITE_TO_BINLOG BINARY LOGS",
-                 false);
+  if (!opt_skip_flush_binary_logs) {
+    xb::info() << "Executing FLUSH NO_WRITE_TO_BINLOG BINARY LOGS";
+    xb_mysql_query(mysql_connection, "FLUSH NO_WRITE_TO_BINLOG BINARY LOGS",
+                   false);
+  }
 
   log_status_get(mysql_connection);
 

@@ -3,6 +3,8 @@
 #               slave_parallel_workers>0
 ########################################################################
 
+skip_test "Requires master-slave mode, but xdb can not"
+
 master_id=1
 slave_id=2
 
