@@ -12,3 +12,6 @@ t-rds-xcluster-xtrabackup-80:
 t-rds-galaxyengine-xtrabackup-80:
   pkgpara:
     DOCKER: 1
+t-polardb-x-xtrabackup-opensource:
+  pkgpara:
+    DOCKER: 1

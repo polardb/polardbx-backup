@@ -9,10 +9,19 @@ URL:           http://gitlab.alibaba-inc.com/rds_mysql/rds_xtrabackup_80
 BuildRequires: cmake >= 2.8.12, libaio-devel, libgcrypt-devel, ncurses-devel, readline-devel
 BuildRequires: zlib-devel, libev-devel, libcurl-devel
 
+%ifarch aarch64
+BuildRequires: alios7u-2_32-gcc-10-repo
+BuildRequires: gcc >= 10.2.1
+BuildRequires: gcc-c++ >= 10.2.1
+BuildRequires: libstdc++-devel >= 10.2.1 
+BuildRequires: binutils >= 2.35
+%define use_gcc system
+%else
 BuildRequires: devtoolset-7-gcc
 BuildRequires: devtoolset-7-gcc-c++
 BuildRequires: devtoolset-7-binutils
 %define use_gcc devtoolset
+%endif
 
 BuildRequires: bison
 %if "%{?dist}" == ".alios7" || "%{?dist}" == ".el7"
