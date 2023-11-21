@@ -2251,6 +2251,20 @@ static byte *recv_parse_or_apply_log_rec_body(
 
       break;
 
+    case MLOG_REC_CLUST_LIZARD_UPDATE_8027:
+    case MLOG_COMP_REC_CLUST_LIZARD_UPDATE_8027:
+      ut_ad(!page || fil_page_type_is_index(page_type));
+      if (nullptr !=
+          (ptr = mlog_parse_index_8027(
+               ptr, end_ptr, type == MLOG_COMP_REC_CLUST_LIZARD_UPDATE_8027,
+               &index))) {
+        ut_a(!page || page_is_comp(page) == dict_table_is_comp(index->table));
+
+        ptr = lizard::btr_cur_parse_lizard_fields_upd_clust_rec(
+            ptr, end_ptr, page, page_zip, index);
+      }
+      break;
+
     case MLOG_REC_CLUST_LIZARD_UPDATE:
       ut_ad(!page || fil_page_type_is_index(page_type));
       if (nullptr != (ptr = mlog_parse_index(
@@ -4920,6 +4934,12 @@ const char *get_mlog_string(mlog_id_t type) {
 
     case MLOG_LIST_START_DELETE:
       return "MLOG_LIST_START_DELETE";
+
+    case MLOG_REC_CLUST_LIZARD_UPDATE_8027:
+      return ("MLOG_REC_CLUST_LIZARD_UPDATE_8027");
+
+    case MLOG_COMP_REC_CLUST_LIZARD_UPDATE_8027:
+      return ("MLOG_COMP_REC_CLUST_LIZARD_UPDATE_8027");
 
     case MLOG_REC_CLUST_LIZARD_UPDATE:
       return ("MLOG_REC_CLUST_LIZARD_UPDATE");
