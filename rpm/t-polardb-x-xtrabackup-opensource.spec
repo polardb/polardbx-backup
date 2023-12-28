@@ -6,31 +6,7 @@ Summary:       online backup for PolarDB-X
 Group:         Applications/Databases
 License:       GPLv2
 URL:           http://gitlab.alibaba-inc.com/rds_mysql/rds_xtrabackup_80
-BuildRequires: cmake >= 2.8.12, libaio-devel, libgcrypt-devel, ncurses-devel, readline-devel
-BuildRequires: zlib-devel, libev-devel, libcurl-devel
 
-%ifarch aarch64
-BuildRequires: alios7u-2_32-gcc-10-repo
-BuildRequires: gcc >= 10.2.1
-BuildRequires: gcc-c++ >= 10.2.1
-BuildRequires: libstdc++-devel >= 10.2.1 
-BuildRequires: binutils >= 2.35
-%define use_gcc system
-%else
-BuildRequires: devtoolset-7-gcc
-BuildRequires: devtoolset-7-gcc-c++
-BuildRequires: devtoolset-7-binutils
-%define use_gcc devtoolset
-%endif
-
-BuildRequires: bison
-%if "%{?dist}" == ".alios7" || "%{?dist}" == ".el7"
-%define os_version 7
-%endif
-%if "%{?dist}" == ".alios6" || "%{?dist}" == ".el6"
-%define os_version 6
-%endif
-Requires:      rsync
 BuildRoot:    %{_tmppath}/%{name}-%{version}-%{release}-root
 Packager:     jiujiang.wsl@alibaba-inc.com
 Provides:      t-rds-galaxyengine-xtrabackup-80 = %{version}
@@ -43,15 +19,9 @@ Prefix:        /u01/xcluster_xtrabackup80
 Percona XtraBackup is OpenSource online (non-blockable) backup solution for InnoDB and XtraDB engines
 %build
 cd $OLDPWD/../
-if [ "%{use_gcc}" == "system" ]; then
-    CC=gcc
-    CXX=g++
-    CMAKE_BIN=cmake
-else
-    CC=/opt/rh/devtoolset-7/root/usr/bin/gcc
-    CXX=/opt/rh/devtoolset-7/root/usr/bin/g++
-    CMAKE_BIN=cmake
-fi
+CC=/opt/rh/devtoolset-7/root/usr/bin/gcc
+CXX=/opt/rh/devtoolset-7/root/usr/bin/g++
+CMAKE_BIN=cmake
 CFLAGS="-O3 -g -fexceptions -static-libgcc -fno-omit-frame-pointer -fno-strict-aliasing"
 CXXFLAGS="-O3 -g -fexceptions -static-libgcc -fno-omit-frame-pointer -fno-strict-aliasing"
 export CC CXX CFLAGS CXXFLAGS

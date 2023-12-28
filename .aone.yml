@@ -1,17 +1,6 @@
-t-rds-xtrabackup-80:
-  pkgpara:
+t-polardb-x-xtrabackup-opensource:
   machine:
     docker:
-      el6: rpmbuild6u2
       alios7:
-        x86_64: rpmbuild7u2
-        aarch64: alibase/alios7u2-admin-2916-4.19.48-006.ali4000.alios7.aarch64  # GCC 9.2
-t-rds-xcluster-xtrabackup-80:
-  pkgpara:
-    DOCKER: 1
-t-rds-galaxyengine-xtrabackup-80:
-  pkgpara:
-    DOCKER: 1
-t-polardb-x-xtrabackup-opensource:
-  pkgpara:
-    DOCKER: 1
+        x86_64: hub.docker.alibaba-inc.com/aone-base-global/polardbx_engine:20231214191943
+        aarch64: hub.docker.alibaba-inc.com/aone-base-global/polardbx_engine:20231214191943-arm
