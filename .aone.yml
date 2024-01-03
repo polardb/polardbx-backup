@@ -1,0 +1,3 @@
+t-rds-xcluster-xtrabackup-80:
+  pkgpara:
+    DOCKER: 1
