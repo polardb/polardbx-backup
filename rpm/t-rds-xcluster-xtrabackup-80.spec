@@ -10,7 +10,7 @@ URL:           http://gitlab.alibaba-inc.com/GalaxyEngine/percona-xtrabackup
 
 
 BuildRequires: cmake >= 2.8.12, libaio-devel, libgcrypt-devel, ncurses-devel, readline-devel
-BuildRequires: zlib-devel, libev-devel, libcurl-devel
+BuildRequires: zlib-devel, libev-devel, libcurl-devel, libstdc++-static
 BuildRequires: devtoolset-7-gcc
 BuildRequires: devtoolset-7-gcc-c++
 BuildRequires: devtoolset-7-binutils
@@ -43,15 +43,18 @@ cd $OLDPWD/../
 
 CC=/opt/rh/devtoolset-7/root/usr/bin/gcc
 CXX=/opt/rh/devtoolset-7/root/usr/bin/g++
-CFLAGS="-O3 -g -fexceptions -static-libgcc -fno-omit-frame-pointer -fno-strict-aliasing"
-CXXFLAGS="-O3 -g -fexceptions -static-libgcc -fno-omit-frame-pointer -fno-strict-aliasing"
+CFLAGS="-O3 -g -fexceptions -static-libgcc -static-libstdc++ -fno-omit-frame-pointer -fno-strict-aliasing"
+CXXFLAGS="-O3 -g -fexceptions -static-libgcc -static-libstdc++ -fno-omit-frame-pointer -fno-strict-aliasing"
 export CC CXX CFLAGS CXXFLAGS
 
 cat extra/boost/boost_1_77_0.tar.bz2.*  > extra/boost/boost_1_77_0.tar.bz2
 
-cmake -DBUILD_CONFIG=xtrabackup_release -DCMAKE_BUILD_TYPE="RelWithDebInfo" \
-      -DCMAKE_INSTALL_PREFIX=%{prefix} -DBUILD_MAN_OS=%{os_version} \
-      -DINSTALL_MANDIR=%{_mandir} -DWITH_BOOST="./extra/boost/boost_1_77_0.tar.bz2" \
+cmake -DBUILD_CONFIG=xtrabackup_release \
+      -DCMAKE_BUILD_TYPE="RelWithDebInfo" \
+      -DCMAKE_INSTALL_PREFIX=%{prefix} \
+      -DBUILD_MAN_OS=%{os_version} \
+      -DINSTALL_MANDIR=%{_mandir} \
+      -DWITH_BOOST="./extra/boost/boost_1_77_0.tar.bz2" \
       -DINSTALL_PLUGINDIR="lib/plugin" \
       -DFORCE_INSOURCE_BUILD=1 .
 

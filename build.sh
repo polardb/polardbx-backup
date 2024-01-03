@@ -92,8 +92,8 @@ fi
 
 server_suffix="-""$server_suffix"
 
-if [ x"$build_type" = x"Release" ]; then
-  COMMON_FLAGS="-O3 -g -fexceptions -fno-omit-frame-pointer -fno-strict-aliasing"
+if [ x"$build_type" = x"RelWithDebInfo" ]; then
+  COMMON_FLAGS="-O3 -g -fexceptions -static-libgcc -static-libstdc++ -fno-omit-frame-pointer -fno-strict-aliasing"
   CFLAGS="$COMMON_FLAGS"
   CXXFLAGS="$COMMON_FLAGS"
 elif [ x"$build_type" = x"Debug" ]; then
