@@ -250,7 +250,7 @@ bool xtrabackup_logfile_is_renamed = false;
 bool opt_skip_flush_binary_logs = false;
 
 int xtrabackup_parallel;
-bool opt_strict = true;
+bool opt_strict = false;
 
 char *xtrabackup_stream_str = NULL;
 xb_stream_fmt_t xtrabackup_stream_fmt = XB_STREAM_FMT_NONE;
@@ -1378,8 +1378,8 @@ struct my_option xb_client_options[] = {
      REQUIRED_ARG, 1, 1, INT_MAX, 0, 0, 0},
 
     {"strict", OPT_XTRA_STRICT,
-     "Fail with error when invalid arguments were passed to the xtrabackup.",
-     (uchar *)&opt_strict, (uchar *)&opt_strict, 0, GET_BOOL, NO_ARG, 1, 0, 0,
+     "Fail with error when invalid arguments were passed to the xtrabackup. The default value is false.",
+     (uchar *)&opt_strict, (uchar *)&opt_strict, 0, GET_BOOL, NO_ARG, 0, 0, 0,
      0, 0, 0},
 
     {"rocksdb-checkpoint-max-age", OPT_ROCKSDB_CHECKPOINT_MAX_AGE,
