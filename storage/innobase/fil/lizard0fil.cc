@@ -49,12 +49,18 @@ bool Fil_path::is_lizard_tablespace_name(const std::string &name) {
       strlen(lizard::dict_lizard::s_lizard_space_file_name);
 
   auto pos = filename.find_last_of(SEPARATOR);
-  if (pos != std::string::npos) {
-    return filename.compare(pos + 1, lizard_length,
-                            lizard::dict_lizard::s_lizard_space_file_name) == 0
-               ? true
-               : false;
+
+  if (pos == std::string::npos) {
+    /** If there is no SEPARATOR in filename. */
+    pos = 0;
+  } else {
+    pos += 1;
   }
+
+  return filename.compare(pos, lizard_length,
+                          lizard::dict_lizard::s_lizard_space_file_name) == 0
+             ? true
+             : false;
 
   return false;
 }

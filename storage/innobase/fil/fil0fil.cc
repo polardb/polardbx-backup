@@ -11809,7 +11809,9 @@ dberr_t Tablespace_dirs::scan(bool populate_fil_cache) {
 
       using Value = Scanned_files::value_type;
 
-      if (Fil_path::has_suffix(IBD, file.c_str())) {
+      /** Skip reading lizard.ibd again. */
+      if (Fil_path::has_suffix(IBD, file.c_str()) &&
+          !Fil_path::is_lizard_tablespace_name(file)) {
         ibd_files.push_back(Value{count, file});
 
       } else if (Fil_path::is_undo_tablespace_name(file)) {
