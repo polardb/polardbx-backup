@@ -1,5 +1,5 @@
 #####################################
-Name:          t-rds-xcluster-xtrabackup-80
+Name:          t-polardbx-engine-xtrabackup-80
 Version:       8.0.32
 Release:       %(echo $RELEASE)%{?dist}
 Summary:       XtraBackup online backup for MySQL / InnoDB
@@ -27,9 +27,9 @@ BuildRequires: bison, libudev-devel, python-sphinx, procps-ng-devel
 Requires:      rsync
 BuildRoot:     %{_tmppath}/%{name}-%{version}-%{release}-root
 Packager:      jianwei.zhao@alibaba-inc.com
-Provides:      t-rds-xcluster-xtrabackup-80 = %{version}
+Provides:      t-polardbx-engine-xtrabackup-80 = %{version}
 AutoReqProv:   no
-Prefix:        /u01/xcluster_xtrabackup80
+Prefix:        /u01/polardbx_engine_xtrabackup80
 
 %define _mandir /usr/share/man
 # do not strip binary files, just compress man doc
