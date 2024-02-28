@@ -792,13 +792,13 @@ static Exit_status collect_index_to_skip(
         }
       case binary_log::GCN_LOG_EVENT:
         {
-          Gcn_log_event *gcn_ev= dynamic_cast<Gcn_log_event*>(ev);
+          Gcn_log_event *gcn_ev = dynamic_cast<Gcn_log_event *>(ev);
           if (gcn_ev->have_commit_gcn()) {
-            error("Gcn log event has no commit_gcn");
-            return ERROR_STOP;
+            seq = gcn_ev->get_commit_gcn().get_gcn();
+          } else {
+            seq = 0;
           }
 
-          seq= gcn_ev->get_commit_gcn().get_gcn();
           break;
         }
       case binary_log::XA_PREPARE_LOG_EVENT:
