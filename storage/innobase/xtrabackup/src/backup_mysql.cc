@@ -457,6 +457,7 @@ bool get_mysql_vars(MYSQL *connection) {
   char *rocksdb_datadir_var = nullptr;
   char *rocksdb_wal_dir_var = nullptr;
   char *rocksdb_disable_file_deletions_var = nullptr;
+  char *polardbx_engine_version = nullptr;
 
   unsigned long server_version = mysql_get_server_version(connection);
 
@@ -492,6 +493,7 @@ bool get_mysql_vars(MYSQL *connection) {
       {"rocksdb_datadir", &rocksdb_datadir_var},
       {"rocksdb_wal_dir", &rocksdb_wal_dir_var},
       {"rocksdb_disable_file_deletions", &rocksdb_disable_file_deletions_var},
+      {"polardbx_engine_version", &polardbx_engine_version},
       {nullptr, nullptr}};
 
   read_mysql_variables(connection, "SHOW VARIABLES", mysql_vars, true);
@@ -513,6 +515,13 @@ bool get_mysql_vars(MYSQL *connection) {
   if (!(ret = check_server_version(server_version, version_var,
                                    version_comment_var, innodb_version_var))) {
     goto out;
+  }
+
+  if (polardbx_engine_version != NULL) {
+    xb::error() << "!!!detect polardbx_engine_version!!!";
+    server_flavor = FLAVOR_X_CLUSTER;
+    strcpy(xcluster_version, polardbx_engine_version);
+    xb::error() << "polardbx_engine_version/X-Cluster is " << polardbx_engine_version;
   }
 
   /* X-Cluster do not support relay_log_info_repository=FILE */
