@@ -149,7 +149,7 @@ class LizardTablespace : public Tablespace {
     ut_ad(!m_files.empty());
     m_files.back().m_size = size;
   }
-  
+
   /** Check the tablespace header for this tablespace. Set m_flags.
   @return DB_SUCCESS or error code */
   dberr_t check_tablespace_header();

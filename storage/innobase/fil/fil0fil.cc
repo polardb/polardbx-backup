@@ -10306,6 +10306,9 @@ bool Fil_system::check_missing_tablespaces() {
 
       ib::error(ER_IB_MSG_354) << "Could not find any file associated with"
                                << " the tablespace ID: " << space_id;
+
+      ut_a(space_id != lizard::dict_lizard::s_lizard_space_id);
+
       missing = true;
 
     } else {
@@ -11809,9 +11812,7 @@ dberr_t Tablespace_dirs::scan(bool populate_fil_cache) {
 
       using Value = Scanned_files::value_type;
 
-      /** Skip reading lizard.ibd again. */
-      if (Fil_path::has_suffix(IBD, file.c_str()) &&
-          !Fil_path::is_lizard_tablespace_name(file)) {
+      if (Fil_path::has_suffix(IBD, file.c_str())) {
         ibd_files.push_back(Value{count, file});
 
       } else if (Fil_path::is_undo_tablespace_name(file)) {

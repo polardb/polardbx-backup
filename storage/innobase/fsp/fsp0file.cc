@@ -741,11 +741,15 @@ dberr_t Datafile::validate_first_page(space_id_t space_id, lsn_t *flush_lsn,
 
   if (fil_space_read_name_and_filepath(m_space_id, &prev_name,
                                        &prev_filepath)) {
-    if (0 == strcmp(m_filepath, prev_filepath)) {
+    if (0 == strcmp(m_filepath, prev_filepath) ||
+        (Fil_path::is_lizard_tablespace_name(prev_filepath) &&
+         Fil_path(prev_filepath).is_same_as(m_filepath))) {
       ut::free(prev_name);
       ut::free(prev_filepath);
       return (DB_SUCCESS);
     }
+
+    ut_a(m_space_id != lizard::dict_lizard::s_lizard_space_id);
 
     /* Make sure the space_id has not already been opened. */
     ib::error(ER_IB_MSG_403) << "Attempted to open a previously opened"
