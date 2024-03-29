@@ -2594,7 +2594,7 @@ bool print_instant_versioned_tables(MYSQL *connection) {
    * PS is not affected by INSTANT issues. Upstream only affected on 8.0.29+.
    * We considered 8.0.32+ stable and allow INSTANT
    */
-  if (server_flavor == FLAVOR_PERCONA_SERVER || mysql_server_version < 80029 ||
+  if (server_flavor == FLAVOR_PERCONA_SERVER || mysql_server_version <= 80030 ||
       mysql_server_version >= 80032)
     return false;
 
