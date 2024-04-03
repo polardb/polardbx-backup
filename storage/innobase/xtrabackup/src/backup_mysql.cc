@@ -1139,6 +1139,12 @@ bool lock_tables_maybe(MYSQL *connection, int timeout, int retry_count) {
   bool force_ftwrl = opt_slave_info && !slave_auto_position &&
                      !(server_flavor == FLAVOR_PERCONA_SERVER);
 
+  /** If it's XCluster, always use FTWRL, because commit index (for leader),
+  apply index (for follower) can not get from p_s.log_status. */
+  if (server_flavor == FLAVOR_X_CLUSTER) {
+    force_ftwrl = true;
+  }
+
   if (tables_locked || (opt_lock_ddl_per_table && !force_ftwrl)) {
     return (true);
   }
@@ -1146,8 +1152,6 @@ bool lock_tables_maybe(MYSQL *connection, int timeout, int retry_count) {
   if (!have_unsafe_ddl_tables && !force_ftwrl) {
     return (true);
   }
-
-  disable_replication_for_polarx(connection);
 
   if (have_backup_locks && !force_ftwrl) {
     return lock_tables_for_backup(connection, timeout, retry_count);
@@ -1172,8 +1176,6 @@ void unlock_all(MYSQL *connection) {
   }
 
   xb::info() << "All tables unlocked";
-
-  enable_replication_for_polarx(connection);
 }
 
 static int get_open_temp_tables(MYSQL *connection) {
@@ -2628,32 +2630,3 @@ bool print_instant_versioned_tables(MYSQL *connection) {
   return ret;
 }
 
-void disable_replication_for_polarx(MYSQL *connection) {
-  if (xcluster_sql_thread_started) return;
-
-  if (server_flavor == FLAVOR_X_CLUSTER) {
-    // if slave_sql_running, stop mts
-    char *slave_sql_running = NULL;
-    mysql_variable status[] = {{"Slave_SQL_Running", &slave_sql_running},
-                               {NULL, NULL}};
-    read_mysql_variables(connection, "SHOW SLAVE STATUS", status, false);
-    if (strcmp(slave_sql_running, "Yes") == 0) {
-      xb::info() << "Disable replication for polarx...";
-      xcluster_sql_thread_started = true;
-      xb_mysql_query(connection, "STOP SLAVE SQL_THREAD", false, false);
-      xb_mysql_query(connection, "STOP XPAXOS_REPLICATION", false, false);
-    }
-    free_mysql_variables(status);
-  }
-}
-
-void enable_replication_for_polarx(MYSQL *connection) {
-  if (!xcluster_sql_thread_started) return;
-
-  if (server_flavor == FLAVOR_X_CLUSTER) {
-    xb::info() << "Enable replication for polarx...";
-    xb_mysql_query(connection, "START SLAVE SQL_THREAD", false, false);
-    xb_mysql_query(connection, "START XPAXOS_REPLICATION", false, false);
-    xcluster_sql_thread_started = false;
-  }
-}

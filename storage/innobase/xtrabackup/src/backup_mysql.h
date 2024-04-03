@@ -278,8 +278,4 @@ void check_dump_innodb_buffer_pool(MYSQL *connection);
 bool print_instant_versioned_tables(MYSQL *connection);
 extern log_status_t log_status;
 
-void disable_replication_for_polarx(MYSQL *connection);
-
-void enable_replication_for_polarx(MYSQL *connection);
-
 #endif
