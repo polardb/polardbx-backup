@@ -836,7 +836,7 @@ static Exit_status collect_index_to_skip(
             {
               char *q= const_cast<char*>(qev->query);
               char *last_str= NULL;
-              while(strlen(q) != 0)
+              while(q)
               {
                 last_str= strsep(&q, " ");
               }
