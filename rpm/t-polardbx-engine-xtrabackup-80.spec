@@ -87,6 +87,7 @@ rm -rf $RPM_BUILD_ROOT
 %{prefix}/bin/xbcloud
 %{prefix}/bin/xbcloud_osenv
 %{prefix}/lib/plugin/keyring_file.so
+%{prefix}/lib/plugin/keyring_rds.so
 %{prefix}/bin/mysqlbinlogtailor
 
 
