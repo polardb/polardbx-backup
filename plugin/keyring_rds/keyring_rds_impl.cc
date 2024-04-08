@@ -111,7 +111,7 @@ class Key_imp : public Key_interface {
              size_t *key_len) override {
     if (!initialized) return true;
 
-    *key_type = NULL;  // No key type return in this keyring plugin
+    *key_type = my_strdup(key_memory_KEYRING_rds, "rds-tde", MYF(MY_WME));
     *key = NULL;       // Assume that it will fail
 
     Lock_helper rdlock(&LOCK_keyring_rds, false);
