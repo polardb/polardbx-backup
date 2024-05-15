@@ -1,3 +1,0 @@
-[submodule "extra/libkmip"]
-	path = extra/libkmip
-	url = http://gitlab.alibaba-inc.com/polardbx/libkmip.git
