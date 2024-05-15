@@ -278,5 +278,7 @@ storage/innobase/xtrabackup/xbcloud_osenv
 storage/innobase/xtrabackup/src/crc/config.h
 
 extra/libkmip/CMakeFiles
+extra/libkmip/kmippp/kmippp.cmake
+extra/libkmip/libkmip/src/kmip.cmake
 
 man/man1/
